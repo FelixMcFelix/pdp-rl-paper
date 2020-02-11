@@ -6,9 +6,6 @@ header ethernet_t {
     bit<16> eth_type;
 }
 
-#define ETH_IPV4 0x0800
-#define ETH_IPV6 0x86DD
-
 header ipv4_t {
     bit<4> version;
     bit<4> ihl;
@@ -38,14 +35,92 @@ header ipv6_t {
     bit<128> dst_addr;
 }
 
+// Chase these up with Netronome. Seem to be malfunctioning.
+header_union ip_t {
+    ipv4_t ip4;
+    ipv6_t ip6;
+}
+
+header udp_t {
+    bit<16> src_port;
+    bit<16> dst_port;
+    bit<16> len;
+    bit<16> cksum;
+}
+
+header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<32> seqNo;
+    bit<32> ackNo;
+    bit<4>  dataOffset;
+    bit<3>  res;
+    bit<3>  ecn;
+    bit<6>  ctrl;
+    bit<16> window;
+    bit<16> checksum;
+    bit<16> urgentPtr;
+}
+
+header rl_t {
+    bit<8> rl_type;
+}
+
+header rl_cfg_t {
+    bit<8> cfg_type;
+}
+
+header rl_ins_t {
+    bit<32> offset;
+}
+
 struct headers_t {
     ethernet_t ethernet;
-    ipv4_t ipv4;
-    ipv6_t ipv6;
+    //ip_t ip;
+    ipv4_t ip4;
+    ipv6_t ip6;
+    tcp_t tcp;
+    udp_t udp;
+    rl_t rt;
+    rl_cfg_t rct;
+    rl_ins_t ins;
 }
+
+// NOTE: think about header_unioin for ipv4/6, and for RL messages?
 
 struct metadata_t {
     bit<8> eh;
+}
+
+parser rl_parser (
+    packet_in b,
+    out headers_t headers,
+    inout metadata_t meta,
+    inout standard_metadata_t standard_metadata) {
+
+    const bit<8> RL_T_CFG = 0;
+    const bit<8> RL_T_INS = 1;
+
+    const bit<8> RL_CFG_T_TILES = 0;
+
+    state start {
+        b.extract(headers.rt);
+        transition select(headers.rt.rl_type) {
+            RL_T_CFG: cfg;
+            RL_T_INS: insert;
+            _: reject;
+        }
+    }
+
+    state cfg {
+        b.extract(headers.rct);
+        transition accept;
+    }
+
+    state insert {
+        b.extract(headers.ins);
+        transition accept;
+    }
 }
 
 parser my_parser (
@@ -53,22 +128,78 @@ parser my_parser (
     out headers_t headers,
     inout metadata_t meta,
     inout standard_metadata_t standard_metadata) {
+
+    const bit<16> ETH_IPV4 = 0x0800;
+    const bit<16> ETH_IPV6 = 0x86DD;
+
+    const bit<6> DSCP_TRAP = 1;
+
+    const bit<8> PROTO_TCP = 0x06;
+    const bit<8> PROTO_UDP = 0x11;
+
     state start {
         b.extract(headers.ethernet);
         transition select(headers.ethernet.eth_type) {
-            ETH_IPV4: ip4;
-            ETH_IPV6: ip6;
+            ETH_IPV4: s_ip4;
+            ETH_IPV6: s_ip6;
             _: accept;
         }
     }
 
-    state ip4 {
-        b.extract(headers.ipv4);
+    state s_ip4 {
+        //b.extract(headers.ip.ip4);
+        b.extract(headers.ip4);
+        /* DSCP determines whether these are RL control packets. */
+        //transition select(headers.ip.ip4.dscp) {
+        transition select(headers.ip4.dscp) {
+            DSCP_TRAP: rl;
+            _: ip4_transport;
+        }
+    }
+
+    state ip4_transport {
+        //transition select(headers.ip.ip4.protocol) {
+        transition select(headers.ip4.protocol) {
+            PROTO_TCP: tx_tcp;
+            PROTO_UDP: tx_udp;
+            _: accept;
+        }
+    }
+
+    state s_ip6 {
+        // b.extract(headers.ip.ip6);
+        b.extract(headers.ip6);
+        //transition select(headers.ip.ip6.dscp) {
+        transition select(headers.ip6.dscp) {
+            DSCP_TRAP: rl;
+            _: ip6_transport;
+        }
+    }
+
+    state ip6_transport {
+        //transition select(headers.ip.ip6.next_header) {
+        transition select(headers.ip6.next_header) {
+            PROTO_TCP: tx_tcp;
+            PROTO_UDP: tx_udp;
+            _: accept;
+        }
+    }
+
+    // NOTE: these are named tx_* because the build randomly breaks if I just use tcp/udp.
+    // Name overlap?
+    state tx_udp {
+        b.extract(headers.udp);
         transition accept;
     }
 
-    state ip6 {
-        b.extract(headers.ipv6);
+    state tx_tcp {
+        b.extract(headers.tcp);
+        transition accept;
+    }
+
+    state rl {
+        b.extract(headers.udp);
+        //rl_parser.apply(b, headers, meta, standard_metadata);
         transition accept;
     }
 }
@@ -101,8 +232,11 @@ control egress(inout headers_t headers,
 control deparser(packet_out b, in headers_t headers) {
     apply {
         b.emit(headers.ethernet);
-        b.emit(headers.ipv4);
-        b.emit(headers.ipv6);
+        //b.emit(headers.ip);
+        b.emit(headers.ip4);
+        b.emit(headers.ip6);
+        b.emit(headers.tcp);
+        b.emit(headers.udp);
     }
 }
 
