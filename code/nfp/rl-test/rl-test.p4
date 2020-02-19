@@ -92,6 +92,7 @@ struct metadata_t {
     bit<8> eh;
 }
 
+// So calling this causes a compiler crash. Neat.
 parser rl_parser (
     packet_in b,
     out headers_t headers,
@@ -136,6 +137,11 @@ parser my_parser (
 
     const bit<8> PROTO_TCP = 0x06;
     const bit<8> PROTO_UDP = 0x11;
+
+    const bit<8> RL_T_CFG = 0;
+    const bit<8> RL_T_INS = 1;
+
+    const bit<8> RL_CFG_T_TILES = 0;
 
     state start {
         b.extract(headers.ethernet);
@@ -199,7 +205,21 @@ parser my_parser (
 
     state rl {
         b.extract(headers.udp);
-        //rl_parser.apply(b, headers, meta, standard_metadata);
+        // rl_parser.apply(b, headers, meta, standard_metadata);
+        b.extract(headers.rt);
+        transition select(headers.rt.rl_type) {
+            RL_T_CFG: cfg;
+            RL_T_INS: insert;
+        }
+    }
+
+    state cfg {
+        b.extract(headers.rct);
+        transition accept;
+    }
+
+    state insert {
+        b.extract(headers.ins);
         transition accept;
     }
 }
@@ -237,6 +257,9 @@ control deparser(packet_out b, in headers_t headers) {
         b.emit(headers.ip6);
         b.emit(headers.tcp);
         b.emit(headers.udp);
+        b.emit(headers.rt);
+        b.emit(headers.rct);
+        b.emit(headers.ins);
     }
 }
 

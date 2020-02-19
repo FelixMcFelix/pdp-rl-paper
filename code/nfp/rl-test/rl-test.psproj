@@ -86,7 +86,7 @@
                     "NUM_IMU=2", 
                     "NUM_EMU=2", 
                     "PCIE_ISL_CNT=2", 
-                    "SIMULATION=1", 
+                    "SIMULATION=0", 
                     "PIF_APP_REDUCED_THREADS=1", 
                     "PIF_DEBUG=1"
                 ], 
@@ -122,7 +122,7 @@
                         "num_assign_worker_mes": -1, 
                         "obj_target": false, 
                         "override_app_json": "", 
-                        "p4_user_config": "", 
+                        "p4_user_config": ".\\testcfg.p4cfg", 
                         "p4compiler": "p4c-nfp", 
                         "pcie_x2_enabled": false, 
                         "pcie_x4_enabled": false, 
@@ -1368,13 +1368,13 @@
                         ]
                     }, 
                     "settings": {
-                        "additional_options": "", 
-                        "chip_name": "<unnamed>", 
+                        "additional_options": "-emu_cache_as_ddr.i26", 
+                        "chip_name": "nfp_6_40", 
                         "debug_info": true, 
                         "elf_64": true, 
                         "fill": "default", 
                         "fill_enable": false, 
-                        "gen_mem_map_file": false, 
+                        "gen_mem_map_file": true, 
                         "gen_seg_h_file": false, 
                         "insert_nffwmip": true, 
                         "insert_rt_syms": true, 
@@ -1382,7 +1382,7 @@
                             "i8": "catamaran", 
                             "i9": "catamaran"
                         }, 
-                        "map_file": ".\\rl-test_", 
+                        "map_file": ".\\rl-test_.map", 
                         "memories": {}, 
                         "nn_chains": {}, 
                         "produce_u_cstore_ecc": true, 
@@ -1400,7 +1400,7 @@
             }
         }, 
         "chips": {
-            "<unnamed>": {
+            "nfp_6_40": {
                 "chip_id": "AMDA0058-0011:0", 
                 "chip_rev_num": 16, 
                 "clock_freq_config": {
@@ -1761,6 +1761,9 @@
                 "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\apps\\common\\src\\nbi_init.uc": {}
             }, 
             "p4code": {
+                ".\\rl-proto.h": {
+                    "update": "YES"
+                }, 
                 ".\\rl-test.c": {
                     "update": "YES"
                 }, 

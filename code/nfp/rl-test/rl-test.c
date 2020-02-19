@@ -1,5 +1,7 @@
+#include <pif_headers.h>
 #include <pif_plugin.h>
 #include "rl-proto.h"
+#include "rl.h"
 
 // https://groups.google.com/d/msg/open-nfp/K9qJRHPsf4c/lZSC7_BhCAAJ
 // rely on this link, it has much useful knowlwedge about how to access payload
@@ -51,7 +53,14 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		}
 	}
 
-	return PIF_PLUGIN_RETURN_DROP;
+	if (pif_plugin_hdr_rt_present(headers)) {
+		// See "out/callbackapi/pif_plugin_rt.h"
+		// Only these should come up...
+		return PIF_PLUGIN_RETURN_DROP;
+	} else {
+		// p4 cfg should make sure that only RL packets get stuck here.
+		return PIF_PLUGIN_RETURN_FORWARD;
+	}
 }
 
 struct fraction {
