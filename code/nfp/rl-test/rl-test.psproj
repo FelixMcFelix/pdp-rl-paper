@@ -1084,9 +1084,54 @@
                     "target": "list", 
                     "tool": "compiler"
                 }, 
-                ".\\rl-test": {
+                ".\\out\\rl_app.list\\rl_app.list": {
                     "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            ".\\rl.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 4, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [
+                            "PIF_APP_MASTER_ME=0x204"
+                        ], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 4, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\rl-test": {
+                    "build_required": true, 
                     "list_assignments": {
+                        "i1.me0": [
+                            "rl_app.list"
+                        ], 
                         "i32.me0": [
                             "pif_app_nfd.list"
                         ], 
@@ -1751,6 +1796,12 @@
                 }, 
                 ".\\rl-test.c": {
                     "update": "YES"
+                }, 
+                ".\\rl.c": {
+                    "update": "YES"
+                }, 
+                ".\\rl.h": {
+                    "update": "YES"
                 }
             }, 
             "microcode": {
@@ -1768,6 +1819,12 @@
                     "update": "YES"
                 }, 
                 ".\\rl-test.p4": {
+                    "update": "YES"
+                }, 
+                ".\\rl.c": {
+                    "update": "YES"
+                }, 
+                ".\\rl.h": {
                     "update": "YES"
                 }
             }, 
