@@ -78,7 +78,13 @@ struct rl_config {
 
 	// 1-D width of a tile in each dimension.
 	// must be computed!
+	// this is w' = (max - min) / (n_tiles_per_dim + 1)
 	tile_t width[RL_DIMENSION_MAX];
+	// every tiling in the same set is then shifted by n * this.
+	// This is w'/tilings_per_set
+	tile_t shift_amt[RL_DIMENSION_MAX];
+	// The upper bound of the wide tiling. Precomputed. max + w'
+	tile_t adjusted_maxes[RL_DIMENSION_MAX];
 
 	// exploration param.
 	// the decay in the numerator, and how often to do so.

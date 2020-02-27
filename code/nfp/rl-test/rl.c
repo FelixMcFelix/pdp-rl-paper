@@ -28,7 +28,7 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 	for (tiling_set_idx = 0; tiling_set_idx < cfg->num_tilings; ++tiling_set_idx) {
 		uint16_t tiling_idx;
 		uint32_t local_tile_base = cfg->tiling_sets[tiling_set_idx].start_tile;
-		
+
 		for (tiling_idx = 0; tiling_idx < cfg->tilings_per_set; ++tiling_idx) {
 			uint16_t dim_idx;
 			uint32_t width_product = 1;
@@ -36,16 +36,21 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 
 			for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_idx].num_dims; ++dim_idx) {
 				uint16_t active_dim = cfg->tiling_sets[tiling_idx].dims[dim_idx];
-				uint32_t val = state[active_dim];
-				tile_t max = cfg->maxes[active_dim];
-				tile_t min = cfg->mins[active_dim];
+				uint8_t reduce_tile;
+				tile_t val = state[active_dim];
+				tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
+				tile_t max = cfg->adjusted_maxes[active_dim] - shift;
+				tile_t min = cfg->mins[active_dim] - shift;
 
 				// to get tile in dim... rescale dimension, divide by window.
 				val = (val < max) ? val : max;
+				reduce_tile = val == max;
+
 				val = (val > min) ? val - min : 0;
+
 				val /= cfg->width[active_dim];
 
-				local_tile += width_product * val;
+				local_tile += width_product * ((uint32_t)val - (reduce_tile ? 1 : 0));
 				width_product *= cfg->tiles_per_dim;
 			}
 
