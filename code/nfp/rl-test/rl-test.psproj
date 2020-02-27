@@ -114,7 +114,7 @@
                         "gro_enabled": true, 
                         "implicit_header_valid": true, 
                         "include_paths": [], 
-                        "mac_ingress_timestamp": false, 
+                        "mac_ingress_timestamp": true, 
                         "mc_init": false, 
                         "multicast_group_count": 16, 
                         "multicast_group_size": 16, 
@@ -1088,6 +1088,28 @@
                     "build_required": false, 
                     "input_files": {
                         "c_source_files": [
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_arm.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls_reflect.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target_ring.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_crypto.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_ila.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_cam.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_list.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_load_balance_engine.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lock.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lockq.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lookup_engine.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_microq.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_packet_engine.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_ring.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_stats_engine.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_tcam.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_ticket.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_workq.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
+                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
                             ".\\rl.c"
                         ], 
                         "ext_obj_files": [], 
@@ -1127,7 +1149,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\rl-test": {
-                    "build_required": true, 
+                    "build_required": false, 
                     "list_assignments": {
                         "i1.me0": [
                             "rl_app.list"
@@ -1642,6 +1664,81 @@
                     "update": "YES"
                 }, 
                 "$(SDKDIR)\\components\\ng_nfd\\me\\blocks\\vnic\\utils\\libutils.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_arm.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls_reflect.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls_ring.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target_ring.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_crypto.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_ila.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_cam.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_list.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_load_balance_engine.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lock.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lockq.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_lookup_engine.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_microq.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_packet_engine.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_ring.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_stats_engine.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_tcam.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_ticket.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_workq.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c": {
+                    "update": "YES"
+                }, 
+                "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_pcie.c": {
                     "update": "YES"
                 }, 
                 "$(SDKDIR)\\p4\\components\\dcfl\\me\\lib\\dcfl\\libdcfl.c": {

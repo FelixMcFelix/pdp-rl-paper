@@ -1,11 +1,19 @@
 #include <pif_headers.h>
 #include <pif_plugin.h>
+#include <memory.h>
+#include <nfp.h>
+#include <nfp/me.h>
+#include <nfp_mem_workq.h>
 #include "rl-proto.h"
 #include "rl.h"
 
 // https://groups.google.com/d/msg/open-nfp/K9qJRHPsf4c/lZSC7_BhCAAJ
 // rely on this link, it has much useful knowlwedge about how to access payload
 // in current version of sdk...
+
+// ring head and tail on i25 or emem1
+#define RL_RING_NUMBER 4
+__declspec(import, emem, addr40, aligned(512*sizeof(unsigned int))) uint32_t mem_workq[512];
 
 // Seems to be some  magic naming here: this connects to the p4 action "filter_func"
 int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
@@ -56,18 +64,17 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 	if (pif_plugin_hdr_rt_present(headers)) {
 		// See "out/callbackapi/pif_plugin_rt.h"
 		// Only these should come up...
+
+		// Allocate the space here somehoe...
+		// TODO
+
+		// Now send the packet over to the correct island.
+		// TODO
+
 		return PIF_PLUGIN_RETURN_DROP;
 	} else {
 		// p4 cfg should make sure that only RL packets get stuck here.
+		// This should just pass over any packets which aren't RL.
 		return PIF_PLUGIN_RETURN_FORWARD;
 	}
 }
-
-struct fraction {
-	long numerator;
-	long divisor;
-};
-
-struct config {
-	long huh;
-};
