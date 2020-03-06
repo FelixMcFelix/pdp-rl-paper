@@ -5,6 +5,7 @@
 #include <nfp_mem_workq.h>
 //#include <nfp/mem_ring.h>
 #include "rl.h"
+#include "rl-pkt-store.h"
 
 __declspec(i1.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
 __declspec(i1.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
@@ -15,7 +16,10 @@ __declspec(i1.cls, export) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 4
-__declspec(export, emem, addr40, aligned(512*sizeof(unsigned int))) uint32_t mem_workq[512] = {0};
+volatile __declspec(export, emem, addr40, aligned(512*sizeof(unsigned int))) uint32_t mem_workq[512] = {0};
+
+volatile __declspec(export, ctm, addr40) struct rl_pkt_store *rl_pkts;
+volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -84,6 +88,8 @@ main() {
 		cmd_mem_workq_add_thread(ring_number, &read_register, 1, ctx_swap, &sig);
 		cmd_mem_workq_add_thread(ring_number, &read_register, 1, ctx_swap, &sig);
 
+		// void init_rl_pkt_store(__addr40 struct rl_pkt_store *store, __addr40 uint8_t *pkt_base);
+		init_rl_pkt_store(rl_pkts, inpkt_buffer);
 	} else {
 		__declspec(write_reg) uint32_t write_register;
 
