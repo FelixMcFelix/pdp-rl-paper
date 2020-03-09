@@ -8,7 +8,7 @@
 
 void init_rl_pkt_store(__addr40 __declspec(ctm) struct rl_pkt_store *store, __addr40 __declspec(emem) uint8_t *pkt_base) {
 	int slot;
-	__addr40 uint8_t *pkt_cursor = pkt_base;
+	__declspec(emem) __addr40 uint8_t *pkt_cursor = pkt_base;
 	store->slots_available = RL_PKT_STORE_COUNT;
 
 	// Populate free list according to base pointer.
@@ -21,9 +21,9 @@ void init_rl_pkt_store(__addr40 __declspec(ctm) struct rl_pkt_store *store, __ad
 	store->lock = 0;
 }
 
-__addr40 uint8_t *rl_pkt_get_slot(__addr40 struct rl_pkt_store *store) {
+__declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 struct rl_pkt_store *store) {
 	__xrw uint8_t xfer = 1;
-	__addr40 uint8_t *out;
+	__declspec(emem) __addr40 uint8_t *out;
 
 	// lock mutex
 	while (xfer == 1) {
@@ -46,7 +46,7 @@ __addr40 uint8_t *rl_pkt_get_slot(__addr40 struct rl_pkt_store *store) {
 	return out;
 }
 
-void rl_pkt_return_slot(__addr40 struct rl_pkt_store *store, __addr40 uint8_t *slot) {
+void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __declspec(emem) __addr40 uint8_t *slot) {
 	__xrw uint8_t xfer = 1;
 
 	// lock mutex

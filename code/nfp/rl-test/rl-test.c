@@ -72,7 +72,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		__declspec(write_reg) uint32_t workq_write_register;
 		unsigned int mu_island = 1;
 		unsigned int ring_number = (mu_island << 10) | RL_RING_NUMBER;
-		__addr40 uint8_t *slot;
+		__declspec(emem) __addr40 uint8_t *slot;
 
 		// See "out/callbackapi/pif_plugin_rt.h"
 		// Only these should come up...
