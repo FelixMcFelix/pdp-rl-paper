@@ -95,4 +95,13 @@ struct rl_config {
 	struct tile_fraction alpha;
 };
 
+// FIXME: absolute guess, need to import the right headers to compute this on both app islands...
+#define RL_HEADER_BYTES 16
+
+struct rl_work_item {
+	__declspec(emem) __addr40 uint8_t *packet_payload;
+	uint16_t packet_size;
+	uint8_t rl_header[RL_HEADER_BYTES];
+};
+
 #endif /* !_RL_H_ */
