@@ -19,7 +19,7 @@
 
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 4
-volatile __declspec(import, emem, addr40, aligned(512*sizeof(unsigned int))) uint32_t mem_workq[512];
+volatile __declspec(import, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024];
 volatile __declspec(import, emem, addr40) struct rl_pkt_store *rl_pkts;
 
 // Seems to be some  magic naming here: this connects to the p4 action "filter_func"
@@ -105,7 +105,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		// workq size is used (need to round up to next amount of uint_32 words).
 
 		// I believe the doc-compliant version of these might be located in <nfp/mem_ring.h> (flowenv/lib/...)
-		cmd_mem_workq_add_work(ring_number, &workq_write_register, 1, sig_done, &sig);
+		cmd_mem_workq_add_work(ring_number, &workq_write_register, RL_WORK_LWS, sig_done, &sig);
 
 		return PIF_PLUGIN_RETURN_DROP;
 	} else {

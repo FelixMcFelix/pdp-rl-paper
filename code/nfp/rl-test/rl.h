@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef uint32_t tile_t;
+typedef int32_t tile_t;
 
 #define MAX_ACTIONS 10
 #define TILE_SIZE sizeof(tile_t)
@@ -22,7 +22,7 @@ typedef uint32_t tile_t;
 #define T2_MAX_SETS 8
 #define T3_MAX_SETS 1
 
-enum TILE_LOCATION {
+enum tile_location {
 	TILE_LOCATION_T1,
 	TILE_LOCATION_T2,
 	TILE_LOCATION_T3,
@@ -53,7 +53,7 @@ struct tiling_options {
 	uint16_t num_dims;
 	uint16_t dims[T3_MAX_DIMS];
 
-	enum TILE_LOCATION location;
+	enum tile_location location;
 	uint32_t offset;
 
 	// Might need these cached to simplify tile counting.
@@ -68,6 +68,7 @@ struct rl_config {
 	struct tiling_options tiling_sets[T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS];
 	uint16_t num_tilings;
 
+	uint16_t num_dims;
 	uint16_t tiles_per_dim;
 	uint16_t tilings_per_set;
 
@@ -89,10 +90,9 @@ struct rl_config {
 	// exploration param.
 	// the decay in the numerator, and how often to do so.
 	struct tile_fraction epsilon;
+	struct tile_fraction alpha;
 	tile_t epsilon_decay_amt;
 	uint32_t epsilon_decay_freq;
-
-	struct tile_fraction alpha;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
@@ -103,5 +103,8 @@ struct rl_work_item {
 	uint16_t packet_size;
 	uint8_t rl_header[RL_HEADER_BYTES];
 };
+
+// idea -> round up to next whole LW, i.e. 4-bytes.
+#define RL_WORK_LWS ((sizeof(rl_work_item) + 3) >> 2)
 
 #endif /* !_RL_H_ */

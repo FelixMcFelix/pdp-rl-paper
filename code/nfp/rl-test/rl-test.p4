@@ -86,7 +86,7 @@ struct headers_t {
     rl_ins_t ins;
 }
 
-// NOTE: think about header_unioin for ipv4/6, and for RL messages?
+// NOTE: think about header_union for ipv4/6, and for RL messages?
 
 struct metadata_t {
     bit<8> eh;
