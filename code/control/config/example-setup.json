@@ -1,0 +1,21 @@
+{
+	"n_dims":0,
+	"tiles_per_dim":1,
+	"tilings_per_set":1,
+	"epsilon":{
+		"numer":1,
+		"denom":10
+	},
+	"alpha":{
+		"numer":1,
+		"denom":20
+	},
+	"epsilon_decay_amt":1,
+	"epsilon_decay_freq":1,
+	"maxes":[
+
+	],
+	"mins":[
+
+	]
+}

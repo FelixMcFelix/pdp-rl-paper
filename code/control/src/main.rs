@@ -24,7 +24,38 @@ fn main() {
 		.subcommand(SubCommand::with_name("list")
 			.about("List all bindable interfaces."))
 		.subcommand(SubCommand::with_name("setup")
-			.about("Sends a single setup packet."))
+			.about("Sends a single setup packet.")
+			.arg(Arg::with_name("src-ip")
+				.short("s")
+				.long("src-ip")
+				.value_name("IPV4")
+				.help("Source IP for control packets. Defaults to selected interface.")
+				.takes_value(true))
+			.arg(Arg::with_name("dst-ip")
+				.short("d")
+				.long("dst-ip")
+				.value_name("IPV4")
+				.help("Destination IP for control packets. Defaults to selected interface.")
+				.takes_value(true)
+				.default_value("192.168.1.141"))
+			.arg(Arg::with_name("src-port")
+				.short("p")
+				.long("src-port")
+				.value_name("U16")
+				.help("Source UDP port for control packets.")
+				.takes_value(true)
+				.default_value("16767"))
+			.arg(Arg::with_name("dst-port")
+				.short("P")
+				.long("dst-port")
+				.value_name("U16")
+				.help("Destination port for control packets.")
+				.takes_value(true)
+				.default_value("16768"))
+			.arg(Arg::with_name("SETUP")
+				.help("Input JSON file used to build config packet.")
+				.takes_value(true)
+				.required(true)))
 		.get_matches();
 
 	match matches.subcommand() {
@@ -34,10 +65,13 @@ fn main() {
 		("setup", Some(sub_m)) => {
 			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
 			let mut cfg = SetupConfig::new(&mut g_cfg);
+
+			println!("{}", serde_json::to_string(&cfg.setup).unwrap());
+
 			control::setup(&mut cfg);
 		}
 		_ => {
-
+			println!("{}", matches.usage());
 		}
 	}
 }
