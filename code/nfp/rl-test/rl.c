@@ -6,6 +6,7 @@
 //#include <nfp/mem_ring.h>
 #include "rl.h"
 #include "rl-pkt-store.h"
+#include "pif_parrep.h"
 
 __declspec(i1.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
 __declspec(i1.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
@@ -65,7 +66,7 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 	return out_idx;
 }
 
-void setup_packet(struct rl_config *cfg, struct rl_work_item *pkt) {
+void setup_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
 	int cursor = 0;
 
@@ -77,7 +78,7 @@ void setup_packet(struct rl_config *cfg, struct rl_work_item *pkt) {
 	memcpy_cls_mem(
 		(void*)&(cfg->num_dims),
 		pkt->packet_payload + (cursor += (3 * sizeof(uint16_t))),
-		3 * sizeof(uint16_t),
+		3 * sizeof(uint16_t)
 	);
 
 	// epsilon (frac = 2xtile_t)
@@ -87,7 +88,7 @@ void setup_packet(struct rl_config *cfg, struct rl_work_item *pkt) {
 	memcpy_cls_mem(
 		(void*)&(cfg->epsilon),
 		pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))),
-		2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t),
+		2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t)
 	);
 
 	// n x tile_t maxes
@@ -95,14 +96,14 @@ void setup_packet(struct rl_config *cfg, struct rl_work_item *pkt) {
 	memcpy_cls_mem(
 		(void*)&(cfg->maxes),
 		pkt->packet_payload + cursor,
-		cfg->num_dims * 2 * sizeof(tile_t),
+		cfg->num_dims * 2 * sizeof(tile_t)
 	);
 
 	// Fill in width, shift_amt, adjusted_max...
 	for (dim = 0; dim < cfg->num_dims; ++dim) {
-		cfg->width[dim] = (cfg->max[dim] - cfg->min[dim]) / (1 + cfg->tiles_per_dim);
+		cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (1 + cfg->tiles_per_dim);
 		cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
-		cfg->adjusted_maxes[dim] = cfg->max[dim] + cfg->width[dim];
+		cfg->adjusted_maxes[dim] = cfg->maxes[dim] + cfg->width[dim];
 	}
 }
 
@@ -153,9 +154,9 @@ main() {
 						// then if n_dims != 0:
 						//  tile_location
 						//  n x u16 (dimensions in tiling)
-						while(cursor < workq_read_register.packet_size) {
-							cursor++;
-						}
+						//while(cursor < workq_read_register.packet_size) {
+						//	cursor++;
+						//}
 						break;
 					default:
 						break;
@@ -168,5 +169,7 @@ main() {
 			default:
 				break;
 		}
+
+		rl_pkt_return_slot(rl_pkts, workq_read_register.packet_payload);
 	}
 }

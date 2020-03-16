@@ -105,6 +105,6 @@ struct rl_work_item {
 };
 
 // idea -> round up to next whole LW, i.e. 4-bytes.
-#define RL_WORK_LWS ((sizeof(rl_work_item) + 3) >> 2)
+#define RL_WORK_LWS ((sizeof(struct rl_work_item) + 3) >> 2)
 
 #endif /* !_RL_H_ */

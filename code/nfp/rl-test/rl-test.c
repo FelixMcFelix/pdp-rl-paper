@@ -85,7 +85,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		memcpy_mem_mem(
 			(void*)work_to_send.packet_payload,
 			payload,
-			count,
+			count
 		);
 
 		// From Emem to packet space...
@@ -95,7 +95,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		memcpy_mem_mem(
 			(void*)(work_to_send.packet_payload + count),
 			payload,
-			mu_len,
+			mu_len
 		);
 
 		// Now send the packet pointer and RL header over to the correct island.
@@ -105,7 +105,17 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		// workq size is used (need to round up to next amount of uint_32 words).
 
 		// I believe the doc-compliant version of these might be located in <nfp/mem_ring.h> (flowenv/lib/...)
-		cmd_mem_workq_add_work(ring_number, &workq_write_register, RL_WORK_LWS, sig_done, &sig);
+		//cmd_mem_workq_add_work(ring_number, &workq_write_register, RL_WORK_LWS, sig_done, &sig);
+		/**
+ 		* Put entries onto a work queue.
+ 		* @param rnum          Work queue "ring" number
+ 		* @param raddr         Address bits for the queue engine island
+ 		* @param data          Input data
+ 		* @param size          Size of input
+ 		*
+ 		* Note that no work queue overflow checking is performed.
+ 		*/
+		mem_workq_add_work(RL_RING_NUMBER, mem_workq, &workq_write_register, RL_WORK_LWS * sizeof(uint32_t));
 
 		return PIF_PLUGIN_RETURN_DROP;
 	} else {

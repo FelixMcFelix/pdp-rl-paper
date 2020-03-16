@@ -7,6 +7,14 @@ use control::{
 	GlobalConfig,
 	SetupConfig,
 };
+use std::{
+	fs::File,
+	io::BufReader,
+	net::{
+		Ipv4Addr,
+		IpAddr,
+	},
+};
 
 fn main() {
 	let matches = App::new("(Netronome) PDP RL Control Packet Generator")
@@ -65,6 +73,35 @@ fn main() {
 		("setup", Some(sub_m)) => {
 			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
 			let mut cfg = SetupConfig::new(&mut g_cfg);
+
+			if let Some(ip) = sub_m.value_of("src-ip") {
+				cfg.transport.src_addr.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
+			} else {
+				let ip = (&cfg.global.iface.ips)
+					.into_iter()
+					.filter_map(|ip_n| match ip_n.ip() { IpAddr::V4(i) => Some(i), _ => None })
+					.next()
+					.expect("Interface did not have a default IPv4 address to bind to.");
+				cfg.transport.src_addr.set_ip(ip);
+			}
+
+			if let Some(port) = sub_m.value_of("src-port") {
+				cfg.transport.src_addr.set_port(port.parse().expect("Invalid source port (u16)."));
+			}
+
+			if let Some(ip) = sub_m.value_of("dst-ip") {
+				cfg.transport.dst_addr.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+			}
+
+			if let Some(port) = sub_m.value_of("dst-port") {
+				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
+			}
+
+			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
+				.expect("Setup file couldnot be opened.");
+
+			cfg.setup = serde_json::from_reader(BufReader::new(setup_file))
+				.expect("Invalid setup packet config file!");
 
 			println!("{}", serde_json::to_string(&cfg.setup).unwrap());
 

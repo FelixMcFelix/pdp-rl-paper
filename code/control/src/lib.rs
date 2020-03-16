@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{
 	IpAddr,
 	Ipv4Addr,
+	SocketAddrV4,
 };
 
 pub struct GlobalConfig {
@@ -60,9 +61,25 @@ impl GlobalConfig {
 	}
 }
 
+pub struct TransportConfig {
+	pub src_addr: SocketAddrV4,
+	pub dst_addr: SocketAddrV4,
+}
+
+impl Default for TransportConfig {
+	fn default() -> Self {
+		let a = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0);
+		Self {
+			src_addr: a,
+			dst_addr: a,
+		}
+	}
+}
+
 pub struct SetupConfig<'a> {
 	pub global: &'a mut GlobalConfig,
 	pub setup: Setup,
+	pub transport: TransportConfig,
 }
 
 impl<'a> SetupConfig<'a> {
@@ -70,6 +87,7 @@ impl<'a> SetupConfig<'a> {
 		Self {
 			global,
 			setup: Default::default(),
+			transport: Default::default(),
 		}
 	}
 }
@@ -176,8 +194,10 @@ struct TransportOffsets {
 	data: usize,
 }
 
-fn build_transport(cfg: &GlobalConfig, buf: &mut [u8]) -> (usize, TransportOffsets) {
-	// FIXME
+const RL_DSCP_TRAP: u8 = 0b000011;
+
+fn build_transport(cfg: &GlobalConfig, t_cfg: &TransportConfig, buf: &mut [u8]) -> (usize, TransportOffsets) {
+	// FIXME: read from config.
 	let src_ip = Ipv4Addr::new(192, 168, 1, 1);
 	let dst_ip = Ipv4Addr::new(192, 168, 1, 141);
 	let src_port = 16767;
@@ -190,7 +210,6 @@ fn build_transport(cfg: &GlobalConfig, buf: &mut [u8]) -> (usize, TransportOffse
 		let mut eth_pkt = MutableEthernetPacket::new(&mut buf[cursor..])
 			.expect("Plenty of room...");
 		eth_pkt.set_destination(MacAddr::broadcast());
-		// not important to set source, not interested in receiving a reply...
 		eth_pkt.set_ethertype(EtherTypes::Ipv4);
 		eth_pkt.set_source(cfg.iface.mac_address());
 
@@ -206,11 +225,12 @@ fn build_transport(cfg: &GlobalConfig, buf: &mut [u8]) -> (usize, TransportOffse
 		ipv4_pkt.set_header_length(5);
 		ipv4_pkt.set_ttl(64);
 		ipv4_pkt.set_next_level_protocol(IpNextHeaderProtocols::Udp);
-		ipv4_pkt.set_destination(dst_ip);
-		ipv4_pkt.set_source(src_ip);
-		cursor += ipv4_pkt.packet_size();
+		ipv4_pkt.set_destination(*t_cfg.dst_addr.ip());
+		ipv4_pkt.set_source(*t_cfg.src_addr.ip());
 
-		// FIXME: set ECN bits...
+		ipv4_pkt.set_dscp(RL_DSCP_TRAP);
+
+		cursor += ipv4_pkt.packet_size();
 	}
 
 	{
@@ -218,8 +238,8 @@ fn build_transport(cfg: &GlobalConfig, buf: &mut [u8]) -> (usize, TransportOffse
 
 		let mut udp_pkt = MutableUdpPacket::new(&mut buf[cursor..])
 			.expect("Plenty of room...");
-		udp_pkt.set_source(src_port);
-		udp_pkt.set_destination(dst_port);
+		udp_pkt.set_source(t_cfg.src_addr.port());
+		udp_pkt.set_destination(t_cfg.dst_addr.port());
 		// checksum is optional in ipv4
 		udp_pkt.set_checksum(0);
 
@@ -285,7 +305,7 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets) {
 }
 
 fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> usize {
-	let (mut cursor, offsets) = build_transport(&setup.global, buf);
+	let (mut cursor, offsets) = build_transport(&setup.global, &setup.transport, buf);
 	cursor += build_type(buf, RlType::Config);
 	cursor += build_config_type(buf, RlConfigType::Setup);
 

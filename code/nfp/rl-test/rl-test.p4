@@ -133,7 +133,7 @@ parser my_parser (
     const bit<16> ETH_IPV4 = 0x0800;
     const bit<16> ETH_IPV6 = 0x86DD;
 
-    const bit<6> DSCP_TRAP = 1;
+    const bit<6> DSCP_TRAP = 0b000011;
 
     const bit<8> PROTO_TCP = 0x06;
     const bit<8> PROTO_UDP = 0x11;

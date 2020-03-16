@@ -101,6 +101,7 @@
                         "obj_files": [], 
                         "p4_source_files": [
                             ".\\rl-test.c", 
+                            ".\\rl-pkt-store.c", 
                             ".\\rl-test.p4"
                         ]
                     }, 
@@ -1043,8 +1044,8 @@
                             "$(SDKDIR)\\p4\\components\\flowcache\\me\\lib\\standardlibrary\\_c\\mem_cam_add_inc.c", 
                             "$(SDKDIR)\\p4\\components\\flowcache\\me\\lib\\standardlibrary\\_c\\cluster_target.c", 
                             "$(SDKDIR)\\p4\\components\\flowcache\\me\\lib\\standardlibrary\\_c\\cam.c", 
-                            "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_workq.c", 
-                            ".\\rl-test.c"
+                            ".\\rl-test.c", 
+                            ".\\rl-pkt-store.c"
                         ], 
                         "ext_obj_files": [], 
                         "obj_files": []
@@ -1089,6 +1090,7 @@
                     "build_required": false, 
                     "input_files": {
                         "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_arm.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls_reflect.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target.c", 
@@ -1917,6 +1919,9 @@
                 "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\apps\\common\\src\\nbi_init.uc": {}
             }, 
             "p4code": {
+                ".\\rl-pkt-store.c": {
+                    "update": "YES"
+                }, 
                 ".\\rl-proto.h": {
                     "update": "YES"
                 }, 

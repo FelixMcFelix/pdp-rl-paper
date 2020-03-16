@@ -1,5 +1,5 @@
 {
-	"n_dims":0,
+	"n_dims":3,
 	"tiles_per_dim":1,
 	"tilings_per_set":1,
 	"epsilon":{
@@ -13,9 +13,13 @@
 	"epsilon_decay_amt":1,
 	"epsilon_decay_freq":1,
 	"maxes":[
-
+		1000,
+		100,
+		500
 	],
 	"mins":[
-
+		-1000,
+		0,
+		0
 	]
 }

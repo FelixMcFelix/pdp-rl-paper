@@ -22,12 +22,12 @@ void init_rl_pkt_store(__addr40 __declspec(ctm) struct rl_pkt_store *store, __ad
 }
 
 __declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 struct rl_pkt_store *store) {
-	__xrw uint8_t xfer = 1;
+	__xrw uint32_t xfer = 1;
 	__declspec(emem) __addr40 uint8_t *out;
 
 	// lock mutex
 	while (xfer == 1) {
-		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint8_t));
+		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
 	}
 
 	if (store->slots_available) {
@@ -41,17 +41,17 @@ __declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 str
 
 	// unlock mutex
 	xfer = 0;
-	mem_write_atomic(&xfer, (__addr40 void*)&(store->lock), sizeof(uint8_t));
+	mem_write_atomic(&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
 
 	return out;
 }
 
 void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __declspec(emem) __addr40 uint8_t *slot) {
-	__xrw uint8_t xfer = 1;
+	__xrw uint32_t xfer = 1;
 
 	// lock mutex
 	while (xfer == 1) {
-		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint8_t));
+		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
 	}
 
 	// put slot into top entry
@@ -60,5 +60,5 @@ void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __
 
 	// unlock mutex
 	xfer = 0;
-	mem_write_atomic(&xfer, (__addr40 void*)&(store->lock), sizeof(uint8_t));
+	mem_write_atomic(&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
 }

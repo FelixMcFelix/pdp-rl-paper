@@ -9,7 +9,7 @@
 
 struct rl_pkt_store {
 	// Need a mutex
-	uint8_t lock;
+	uint32_t lock;
 
 	// Free list itself...
 	// May need to store sizes, too? idk
