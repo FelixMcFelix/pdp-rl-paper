@@ -10,10 +10,7 @@ use control::{
 use std::{
 	fs::File,
 	io::BufReader,
-	net::{
-		Ipv4Addr,
-		IpAddr,
-	},
+	net::IpAddr,
 };
 
 fn main() {
@@ -78,7 +75,7 @@ fn main() {
 				cfg.transport.src_addr.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
 			} else {
 				let ip = (&cfg.global.iface.ips)
-					.into_iter()
+					.iter()
 					.filter_map(|ip_n| match ip_n.ip() { IpAddr::V4(i) => Some(i), _ => None })
 					.next()
 					.expect("Interface did not have a default IPv4 address to bind to.");

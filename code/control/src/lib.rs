@@ -1,5 +1,4 @@
 use byteorder::{
-	ByteOrder,
 	LittleEndian,
 	WriteBytesExt,
 };
@@ -12,7 +11,6 @@ use pnet::{
 	datalink::{
 		self,
 		Channel,
-		DataLinkSender,
 		NetworkInterface,
 	},
 	packet::{
@@ -25,10 +23,12 @@ use pnet::{
 	util::MacAddr,
 };
 use serde::{Deserialize, Serialize};
-use std::net::{
-	IpAddr,
-	Ipv4Addr,
-	SocketAddrV4,
+use std::{
+	io::Result as IoResult,
+	net::{
+		Ipv4Addr,
+		SocketAddrV4,
+	},
 };
 
 pub struct GlobalConfig {
@@ -40,19 +40,18 @@ impl GlobalConfig {
 	pub fn new(iface_name: Option<&str>) -> Self {
 		let iface = datalink::interfaces()
 			.into_iter()
-			.filter(move |iface: &NetworkInterface| {
+			.find(move |iface: &NetworkInterface| {
 				if let Some(name) = iface_name {
 					iface.name == name
 				} else {
 					true
 				}
 			})
-			.next()
-			.expect(&format!("Couldn't bind interface \"{}\"", iface_name.unwrap_or("")));
+			.unwrap_or_else(|| panic!("Couldn't bind interface \"{}\"", iface_name.unwrap_or("")));
 
 		let channel = datalink::channel(&iface, Default::default())
 			.map_err(|e| eprintln!("{:?}", e))
-			.expect(&format!("Failed to open channel on \"{}\"", iface_name.unwrap_or("")));
+			.unwrap_or_else(|_| panic!("Failed to open channel on \"{}\"", iface_name.unwrap_or("")));
 
 		Self {
 			iface,
@@ -194,15 +193,9 @@ struct TransportOffsets {
 	data: usize,
 }
 
-const RL_DSCP_TRAP: u8 = 0b000011;
+const RL_DSCP_TRAP: u8 = 0b00_0011;
 
 fn build_transport(cfg: &GlobalConfig, t_cfg: &TransportConfig, buf: &mut [u8]) -> (usize, TransportOffsets) {
-	// FIXME: read from config.
-	let src_ip = Ipv4Addr::new(192, 168, 1, 1);
-	let dst_ip = Ipv4Addr::new(192, 168, 1, 141);
-	let src_port = 16767;
-	let dst_port = 16768;
-
 	let mut out = TransportOffsets { ip: 0, udp: 0, data: 0 };
 
 	let mut cursor = 0;
@@ -269,7 +262,7 @@ fn build_config_type(buf: &mut [u8], t: RlConfigType) -> usize {
 	cursor
 }
 
-fn finalize(buf: &mut [u8], off: &TransportOffsets) {
+fn finalize(buf: &mut [u8], off: &TransportOffsets, t_cfg: &TransportConfig) {
 	{
 		let region = &mut buf[off.ip..];
 		let len = region.len();
@@ -279,12 +272,6 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets) {
 
 		ipv4_pkt.set_checksum(ipv4::checksum(&ipv4_pkt.to_immutable()));
 	}
-
-	// FIXME
-	let src_ip = Ipv4Addr::new(192, 168, 1, 1);
-	let dst_ip = Ipv4Addr::new(192, 168, 1, 141);
-	let src_port = 16767;
-	let dst_port = 16768;
 
 	{
 		let (region, payload) = (&mut buf[off.udp..]).split_at_mut(off.data - off.udp);
@@ -296,59 +283,57 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets) {
 		udp_pkt.set_checksum(udp::ipv4_checksum_adv(
 			&udp_pkt.to_immutable(),
 			payload,
-			&src_ip,
-			&dst_ip,
+			t_cfg.src_addr.ip(),
+			t_cfg.dst_addr.ip(),
 		));
 	}
-
-
 }
 
-fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> usize {
+fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(&setup.global, &setup.transport, buf);
 	cursor += build_type(buf, RlType::Config);
 	cursor += build_config_type(buf, RlConfigType::Setup);
 
-	// TODO: write struct out
 	{
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		body.write_u16::<LittleEndian>(setup.setup.n_dims);
-		body.write_u16::<LittleEndian>(setup.setup.tiles_per_dim);
-		body.write_u16::<LittleEndian>(setup.setup.tilings_per_set);
+		body.write_u16::<LittleEndian>(setup.setup.n_dims)?;
+		body.write_u16::<LittleEndian>(setup.setup.tiles_per_dim)?;
+		body.write_u16::<LittleEndian>(setup.setup.tilings_per_set)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.epsilon.numer);
-		body.write_i32::<LittleEndian>(setup.setup.epsilon.denom);
+		body.write_i32::<LittleEndian>(setup.setup.epsilon.numer)?;
+		body.write_i32::<LittleEndian>(setup.setup.epsilon.denom)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.alpha.numer);
-		body.write_i32::<LittleEndian>(setup.setup.alpha.denom);
+		body.write_i32::<LittleEndian>(setup.setup.alpha.numer)?;
+		body.write_i32::<LittleEndian>(setup.setup.alpha.denom)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.epsilon_decay_amt);
-		body.write_u32::<LittleEndian>(setup.setup.epsilon_decay_freq);
+		body.write_i32::<LittleEndian>(setup.setup.epsilon_decay_amt)?;
+		body.write_u32::<LittleEndian>(setup.setup.epsilon_decay_freq)?;
 
 		for el in setup.setup.maxes.iter().chain(setup.setup.mins.iter()) {
-			body.write_i32::<LittleEndian>(*el);
+			body.write_i32::<LittleEndian>(*el)?;
 		}
 
 		let space_end = body.len();
 		cursor += space_start - space_end;
 	}
 
-	finalize(&mut buf[..cursor], &offsets);
+	finalize(&mut buf[..cursor], &offsets, &setup.transport);
 
-	cursor
+	Ok(cursor)
 }
 
 const MAX_PKT_SIZE: usize = 1500;
 
 pub fn setup(cfg: &mut SetupConfig) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
-	let sz = build_setup_packet(cfg, &mut buffer[..]);
+	let sz = build_setup_packet(cfg, &mut buffer[..])
+		.expect("Packet building failed...");
 
 	cfg.setup.validate();
 
-	if let Channel::Ethernet(ref mut tx, rx) = &mut cfg.global.channel {
+	if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
 		tx.send_to(&buffer[..sz], None);
 	} else {
 		eprintln!("Failed to send packet: no channel found");
