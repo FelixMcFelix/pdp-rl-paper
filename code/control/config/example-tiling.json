@@ -1,0 +1,16 @@
+{
+  "tilings": [
+    {
+      "dims": [],
+      "location": null
+    },
+    {
+      "dims": [0],
+      "location": 0
+	},
+    {
+      "dims": [1, 2, 3, 4],
+      "location": 2
+	}
+  ]
+}

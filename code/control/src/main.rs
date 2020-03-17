@@ -165,13 +165,14 @@ fn main() {
 				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
-			// let setup_file = File::open(sub_m.value_of("TILING").unwrap())
-			// 	.expect("Tiling file couldnot be opened.");
+			let setup_file = File::open(sub_m.value_of("TILING").unwrap())
+				.expect("Tiling file couldnot be opened.");
 
-			// cfg.setup = serde_json::from_reader(BufReader::new(setup_file))
-			// 	.expect("Invalid setup packet config file!");
+			cfg.tiling = serde_json::from_reader(BufReader::new(setup_file))
+				.expect("Invalid setup packet config file!");
 
 			println!("{}", serde_json::to_string_pretty(&cfg.tiling).unwrap());
+			println!("{:#?}", cfg.tiling);
 
 			control::tilings(&mut cfg);
 		}
