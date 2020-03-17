@@ -24,6 +24,7 @@ use pnet::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+	cmp::Ordering,
 	io::Result as IoResult,
 	net::{
 		Ipv4Addr,
@@ -158,7 +159,7 @@ impl Default for Setup {
 }
 
 impl Setup {
-	pub fn validate(&self) {
+	pub fn validate(&mut self) {
 		assert_eq!(self.n_dims as usize, self.maxes.len());
 		assert_eq!(self.n_dims as usize, self.mins.len());
 
@@ -171,6 +172,116 @@ impl Setup {
 
 		assert!(self.tiles_per_dim >= 1);
 		assert!(self.tilings_per_set >= 1);
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TilingSet {
+	pub tilings: Vec<Tiling>,
+}
+
+impl Default for TilingSet {
+	fn default() -> Self {
+		Self {
+			tilings: vec![Default::default()],
+		}
+	}
+}
+
+const LOCATION_MAX: u8 = 3;
+
+impl TilingSet {
+	pub fn validate(&mut self) {
+		let mut clean = vec![];
+
+		// Place bias tile at top, if present.
+		// Remove excess bias tiles.
+		// Bias tile must have no location.
+		let has_bias = self.tilings.iter()
+			.find(|el| el.dims.len() == 0)
+			.is_some();
+
+		if has_bias {
+			clean.push(Default::default());
+		}
+
+		// Sort tilings by location.
+		for el in itertools::sorted(self.tilings.drain(0..)) {
+			if el.dims.len() != 0 {
+				// All non-bias tiles must have a location.
+				assert!(el.location.is_some());
+
+				// Ensure no tiles in invalid location.
+				let loc = el.location.unwrap();
+				assert!(loc < LOCATION_MAX);
+
+				clean.push(el);
+			}
+		}
+
+		self.tilings = clean;
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Tiling {
+	pub dims: Vec<u16>,
+	pub location: Option<u8>,
+}
+
+impl Default for Tiling {
+	fn default() -> Self {
+		Self {
+			dims: vec![],
+			location: None,
+		}
+	}
+}
+
+impl Ord for Tiling {
+	fn cmp(&self, other: &Self) -> Ordering {
+		let s_none = self.location.is_none();
+		let o_none = other.location.is_none();
+
+		if s_none && o_none {
+			Ordering::Equal
+		} else if s_none {
+			Ordering::Less
+		} else if o_none {
+			Ordering::Greater
+		} else {
+			self.location.unwrap().cmp(&other.location.unwrap())
+		}
+	}
+}
+
+impl PartialOrd for Tiling {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl PartialEq for Tiling {
+	fn eq(&self, other: &Self) -> bool {
+		self.location == other.location
+	}
+}
+
+impl Eq for Tiling {}
+
+pub struct TilingsConfig<'a> {
+	pub global: &'a mut GlobalConfig,
+	pub tiling: TilingSet,
+	pub transport: TransportConfig,
+}
+
+impl<'a> TilingsConfig<'a> {
+	pub fn new(global: &'a mut GlobalConfig) -> Self {
+		Self {
+			global,
+			tiling: Default::default(),
+			transport: Default::default(),
+		}
 	}
 }
 
@@ -324,14 +435,60 @@ fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 	Ok(cursor)
 }
 
+fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResult<usize> {
+	let (mut cursor, offsets) = build_transport(&tile_cfg.global, &tile_cfg.transport, buf);
+	cursor += build_type(buf, RlType::Config);
+	cursor += build_config_type(buf, RlConfigType::Tiles);
+
+	{
+		let mut body = &mut buf[cursor..];
+		let space_start = body.len();
+
+		for el in tile_cfg.tiling.tilings.iter() {
+			body.write_u16::<LittleEndian>(el.dims.len() as u16)?;
+
+			if let Some(location) = el.location {
+				body.write_u8(location)?;
+			}
+
+			for dim in el.dims.iter() {
+				body.write_u16::<LittleEndian>(*dim)?;
+			}
+		}
+
+		let space_end = body.len();
+		cursor += space_start - space_end;
+	}
+
+	finalize(&mut buf[..cursor], &offsets, &tile_cfg.transport);
+
+	Ok(cursor)
+}
+
 const MAX_PKT_SIZE: usize = 1500;
 
 pub fn setup(cfg: &mut SetupConfig) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
+
+	cfg.setup.validate();
+
 	let sz = build_setup_packet(cfg, &mut buffer[..])
 		.expect("Packet building failed...");
 
-	cfg.setup.validate();
+	if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
+		tx.send_to(&buffer[..sz], None);
+	} else {
+		eprintln!("Failed to send packet: no channel found");
+	}
+}
+
+pub fn tilings(cfg: &mut TilingsConfig) {
+	let mut buffer = [0u8; MAX_PKT_SIZE];
+
+	cfg.tiling.validate();
+
+	let sz = build_tilings_packet(cfg, &mut buffer[..])
+		.expect("Packet building failed...");
 
 	if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
 		tx.send_to(&buffer[..sz], None);
