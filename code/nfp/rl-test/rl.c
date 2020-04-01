@@ -75,10 +75,11 @@ void setup_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_wor
 	// n_dims in all state vectors (u16)
 	// tiles_per_dim (u16)
 	// tilings_per_set (u16)
+	// n_actions (u16)
 	memcpy_cls_mem(
 		(void*)&(cfg->num_dims),
-		pkt->packet_payload + (cursor += (3 * sizeof(uint16_t))),
-		3 * sizeof(uint16_t)
+		pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))),
+		4 * sizeof(uint16_t)
 	);
 
 	// epsilon (frac = 2xtile_t)
@@ -105,6 +106,79 @@ void setup_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_wor
 		cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
 		cfg->adjusted_maxes[dim] = cfg->maxes[dim] + cfg->width[dim];
 	}
+}
+
+void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+	// tiling information.
+	// rest of packet body is, repeated till end:
+	//  n_dims (u16)
+	// then if n_dims != 0:
+	//  tile_location
+	//  n x u16 (dimensions in tiling)
+
+	int cursor = 0;
+	int num_tilings = 0;
+	enum tile_location loc = TILE_LOCATION_T1;
+	uint32_t inner_offset = 0;
+	uint32_t current_start_tile = 0;
+
+	while(cursor < pkt->packet_size) {
+		uint32_t tiles_in_tiling = cfg->num_actions;
+		int i = 0;
+		uint16_t num_dims;
+
+		// need to switch on num_dims
+		memcpy_cls_mem(
+			(void*)&(cfg->tiling_sets[num_tilings].num_dims),
+			pkt->packet_payload + (cursor += sizeof(uint16_t)),
+			sizeof(uint16_t)
+		);
+
+		num_dims = cfg->tiling_sets[num_tilings].num_dims;
+
+		switch (num_dims) {
+			case 0:
+				// bias tile
+				// in a clean packet, this ALWAYS comes first if it does appear.
+				cfg->tiling_sets[num_tilings].location = TILE_LOCATION_T1;
+				cfg->tiling_sets[num_tilings].offset = 0;
+				cfg->tiling_sets[num_tilings].start_tile = 0;
+
+				cfg->tiling_sets[num_tilings].end_tile = tiles_in_tiling;
+				break;
+			default:
+				// normal tile
+				// location (u8)
+				memcpy_cls_mem(
+					(void*)&(cfg->tiling_sets[num_tilings].location),
+					pkt->packet_payload + (cursor += sizeof(uint16_t)),
+					sizeof(uint16_t)
+				);
+				// dims (num_dims * uint16_t)
+				memcpy_cls_mem(
+					(void*)&(cfg->tiling_sets[num_tilings].dims),
+					pkt->packet_payload + (cursor += num_dims * sizeof(uint16_t)),
+					num_dims * sizeof(uint16_t)
+				);
+
+				tiles_in_tiling *= cfg->tilings_per_set;
+
+				for(i = 0; i < cfg->tiling_sets[num_tilings].num_dims; ++i) {
+					tiles_in_tiling *= cfg->tiles_per_dim;
+				}
+
+				// need to handle offset reset to 0 on tier change
+
+				cfg->tiling_sets[num_tilings].offset = 0;
+				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
+		}
+
+		current_start_tile += (cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling);
+		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
+		num_tilings++;
+	}
+
+	cfg->num_tilings = num_tilings;
 }
 
 main() {
@@ -148,15 +222,7 @@ main() {
 						setup_packet(&cfg, &workq_read_register);
 						break;
 					case 1:
-						// tiling information.
-						// rest of packet body is, repeated till end:
-						//  n_dims (u16)
-						// then if n_dims != 0:
-						//  tile_location
-						//  n x u16 (dimensions in tiling)
-						//while(cursor < workq_read_register.packet_size) {
-						//	cursor++;
-						//}
+						tilings_packet(&cfg, &workq_read_register);
 						break;
 					default:
 						break;
@@ -166,6 +232,8 @@ main() {
 				//ins
 				// block policy insertion
 				break;
+			case 2:
+				//state
 			default:
 				break;
 		}

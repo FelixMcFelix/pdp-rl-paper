@@ -71,6 +71,7 @@ struct rl_config {
 	uint16_t num_dims;
 	uint16_t tiles_per_dim;
 	uint16_t tilings_per_set;
+	uint16_t num_actions;
 
 	// one max/min pair per dimension.
 	// populated by config packets.

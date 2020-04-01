@@ -129,6 +129,8 @@ pub struct Setup {
 
 	pub tilings_per_set: u16,
 
+	pub n_actions: u16,
+
 	pub epsilon: RatioDef<Tile>,
 
 	pub alpha: RatioDef<Tile>,
@@ -148,6 +150,7 @@ impl Default for Setup {
 			n_dims: 0,
 			tiles_per_dim: 1,
 			tilings_per_set: 1,
+			n_actions: 2,
 			epsilon: Ratio::new(1, 10).into(),
 			alpha: Ratio::new(1, 20).into(),
 			epsilon_decay_amt: 1,
@@ -412,6 +415,7 @@ fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 		body.write_u16::<LittleEndian>(setup.setup.n_dims)?;
 		body.write_u16::<LittleEndian>(setup.setup.tiles_per_dim)?;
 		body.write_u16::<LittleEndian>(setup.setup.tilings_per_set)?;
+		body.write_u16::<LittleEndian>(setup.setup.n_actions)?;
 
 		body.write_i32::<LittleEndian>(setup.setup.epsilon.numer)?;
 		body.write_i32::<LittleEndian>(setup.setup.epsilon.denom)?;

@@ -2,6 +2,7 @@
 	"n_dims":3,
 	"tiles_per_dim":1,
 	"tilings_per_set":1,
+	"n_actions":2,
 	"epsilon":{
 		"numer":1,
 		"denom":10
