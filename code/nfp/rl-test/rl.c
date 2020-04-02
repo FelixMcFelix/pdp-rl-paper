@@ -124,7 +124,6 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 
 	while(cursor < pkt->packet_size) {
 		uint32_t tiles_in_tiling = cfg->num_actions;
-		int i = 0;
 		uint16_t num_dims;
 
 		// need to switch on num_dims
@@ -151,8 +150,8 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 				// location (u8)
 				memcpy_cls_mem(
 					(void*)&(cfg->tiling_sets[num_tilings].location),
-					pkt->packet_payload + (cursor += sizeof(uint16_t)),
-					sizeof(uint16_t)
+					pkt->packet_payload + (cursor += sizeof(uint8_t)),
+					sizeof(uint8_t)
 				);
 				// dims (num_dims * uint16_t)
 				memcpy_cls_mem(
@@ -161,20 +160,26 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 					num_dims * sizeof(uint16_t)
 				);
 
-				tiles_in_tiling *= cfg->tilings_per_set;
-
-				for(i = 0; i < cfg->tiling_sets[num_tilings].num_dims; ++i) {
-					tiles_in_tiling *= cfg->tiles_per_dim;
-				}
+				tiles_in_tiling *= cfg->tilings_per_set * cfg->tiles_per_dim * cfg->tiling_sets[num_tilings].num_dims;
 
 				// need to handle offset reset to 0 on tier change
+				// Assumes that locs are specified in-order in the tiling packet.
+				if (loc != cfg->tiling_sets[num_tilings].location) {
+					inner_offset = 0;
+				}
 
-				cfg->tiling_sets[num_tilings].offset = 0;
+				loc = cfg->tiling_sets[num_tilings].location;
+
+				cfg->tiling_sets[num_tilings].offset = inner_offset;
 				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
 		}
 
-		current_start_tile += (cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling);
+		current_start_tile += tiles_in_tiling;
+		inner_offset += tiles_in_tiling;
+
+		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling;
 		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
+		
 		num_tilings++;
 	}
 

@@ -53,7 +53,8 @@ struct tiling_options {
 	uint16_t num_dims;
 	uint16_t dims[T3_MAX_DIMS];
 
-	enum tile_location location;
+	// enum tile_location
+	uint8_t location;
 	uint32_t offset;
 
 	// Might need these cached to simplify tile counting.
