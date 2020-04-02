@@ -142,6 +142,7 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 				cfg->tiling_sets[num_tilings].location = TILE_LOCATION_T1;
 				cfg->tiling_sets[num_tilings].offset = 0;
 				cfg->tiling_sets[num_tilings].start_tile = 0;
+				cfg->first_tier_tile[0] = 0;
 
 				cfg->tiling_sets[num_tilings].end_tile = tiles_in_tiling;
 				break;
@@ -166,9 +167,9 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 				// Assumes that locs are specified in-order in the tiling packet.
 				if (loc != cfg->tiling_sets[num_tilings].location) {
 					inner_offset = 0;
+					loc = cfg->tiling_sets[num_tilings].location;
+					cfg->first_tier_tile[loc] = current_start_tile;
 				}
-
-				loc = cfg->tiling_sets[num_tilings].location;
 
 				cfg->tiling_sets[num_tilings].offset = inner_offset;
 				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
@@ -179,11 +180,59 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 
 		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling;
 		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
-		
+
 		num_tilings++;
 	}
 
 	cfg->num_tilings = num_tilings;
+}
+
+void policy_block_copy(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+	uint8_t loc;
+	int cursor = 0;
+	struct policy_install_data info;
+	uint32_t offset;
+
+	memcpy_lmem_mem(
+		(void*)&info,
+		pkt->packet_payload + (cursor += sizeof(struct policy_install_data)),
+		sizeof(struct policy_install_data)
+	);
+
+	for (loc = 0; loc < 3; ++loc) {
+		uint32_t loc_start = cfg->first_tier_tile[loc];
+		if (info.tile < loc_start) {
+			loc -= 1;
+			break;
+		}
+	}
+
+	// gives us the "inner offset" in the active policy tier.
+	offset = info.tile - cfg->first_tier_tile[loc];
+
+	switch (loc) {
+		case TILE_LOCATION_T1:
+			memcpy_cls_mem(
+				(void*)&(t1_tiles[offset]),
+				pkt->packet_payload + cursor,
+				info.count * sizeof(tile_t)
+			);
+			break;
+		case TILE_LOCATION_T2:
+			memcpy_lmem_mem(
+				(void*)&(t2_tiles[offset]),
+				pkt->packet_payload + cursor,
+				info.count * sizeof(tile_t)
+			);
+			break;
+		case TILE_LOCATION_T3:
+			memcpy_lmem_mem(
+				(void*)&(t3_tiles[offset]),
+				pkt->packet_payload + cursor,
+				info.count * sizeof(tile_t)
+			);
+			break;
+	}
 }
 
 main() {
@@ -236,6 +285,7 @@ main() {
 			case 1:
 				//ins
 				// block policy insertion
+				policy_block_copy(&cfg, &workq_read_register);
 				break;
 			case 2:
 				//state

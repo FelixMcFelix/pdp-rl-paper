@@ -74,6 +74,8 @@ struct rl_config {
 	uint16_t tilings_per_set;
 	uint16_t num_actions;
 
+	uint32_t first_tier_tile[3];
+
 	// one max/min pair per dimension.
 	// populated by config packets.
 	tile_t maxes[RL_DIMENSION_MAX];
@@ -108,5 +110,10 @@ struct rl_work_item {
 
 // idea -> round up to next whole LW, i.e. 4-bytes.
 #define RL_WORK_LWS ((sizeof(struct rl_work_item) + 3) >> 2)
+
+struct policy_install_data {
+	uint32_t tile;
+	uint16_t count;
+};
 
 #endif /* !_RL_H_ */
