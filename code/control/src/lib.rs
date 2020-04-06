@@ -288,9 +288,57 @@ impl<'a> TilingsConfig<'a> {
 	}
 }
 
+pub struct PolicyConfig<'a> {
+	pub global: &'a mut GlobalConfig,
+	pub transport: TransportConfig,
+
+	pub policy: Option<Policy>,
+}
+
+impl<'a> PolicyConfig<'a> {
+	pub fn new(global: &'a mut GlobalConfig) -> Self {
+		Self {
+			global,
+			policy: Some(Default::default()),
+			transport: Default::default(),
+		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PolicyFormat<T> {
+	Sparse(Vec<SparsePolicyEntry<T>>),
+	Dense(Vec<T>),
+}
+
+impl<T> Default for PolicyFormat<T> {
+	fn default() -> Self {
+		Self::Dense(Default::default())
+	}
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SparsePolicyEntry<T> {
+	offset: u32,
+	data: Vec<T>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Policy {
+	Float { data: PolicyFormat<f32>, quantiser: f32 },
+	Quantised { data: PolicyFormat<i32> },
+}
+
+impl Default for Policy {
+	fn default() -> Self {
+		Self::Quantised{ data: Default::default() }
+	}
+}
+
 enum_from_primitive!{
 pub enum RlType {
 	Config = 0,
+	Insert,
 }
 }
 
@@ -306,6 +354,8 @@ struct TransportOffsets {
 	udp: usize,
 	data: usize,
 }
+
+
 
 const RL_DSCP_TRAP: u8 = 0b00_0011;
 
@@ -469,6 +519,101 @@ fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResult<us
 	Ok(cursor)
 }
 
+fn build_policy_packet_base(tile_cfg: &PolicyConfig, buf: &mut [u8]) -> IoResult<(usize, TransportOffsets)> {
+	let (mut cursor, offsets) = build_transport(&tile_cfg.global, &tile_cfg.transport, buf);
+	cursor += build_type(buf, RlType::Insert);
+
+	// finalize(&mut buf[..cursor], &offsets, &tile_cfg.transport);
+
+	Ok((cursor, offsets))
+}
+
+fn write_and_send_policy(
+	cfg: &mut PolicyConfig,
+	buf: &mut [u8],
+	base_offset: usize,
+	policy: impl Iterator<Item=i32>,
+	offsets: &TransportOffsets,
+)
+{
+	// Ok(0)
+	let max_send_bytes = buf.len() - base_offset;
+	let max_send_tiles = (max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<i32>();
+
+	let mut packet_offset = None;
+
+	let mut curr_send_tiles = 0;
+	let mut cursor = base_offset;
+
+	for (i, tile) in policy.enumerate() {
+		if packet_offset.is_none() {
+			(&mut buf[cursor..]).write_u32::<LittleEndian>(i as u32).unwrap();
+			cursor += std::mem::size_of::<u32>();
+			packet_offset = Some(i);
+		}
+
+		(&mut buf[cursor..]).write_i32::<LittleEndian>(tile).unwrap();
+		cursor += std::mem::size_of::<i32>();
+		curr_send_tiles += 1;
+
+		if curr_send_tiles >= max_send_tiles {
+			finalize(&mut buf[..cursor], &offsets, &cfg.transport);
+
+			if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
+				tx.send_to(&buf[..cursor], None);
+			} else {
+				eprintln!("Failed to send packet: no channel found");
+			}
+
+			curr_send_tiles = 0;
+			packet_offset = None;
+			cursor = base_offset;
+		}
+	}
+
+	if curr_send_tiles != 0 {
+		finalize(&mut buf[..cursor], &offsets, &cfg.transport);
+
+		if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
+			tx.send_to(&buf[..cursor], None);
+		} else {
+			eprintln!("Failed to send packet: no channel found");
+		}
+	}
+}
+
+fn write_and_send_sparse_policy(
+	cfg: &mut PolicyConfig,
+	buf: &mut [u8],
+	base_offset: usize,
+	policy: impl Iterator<Item=SparsePolicyEntry<i32>>,
+	offsets: &TransportOffsets,
+)
+{
+	for part in policy {
+		let cursor = {
+			let mut body = &mut buf[base_offset..];
+			let space_start = body.len();
+
+			body.write_u32::<LittleEndian>(part.offset);
+
+			for tile in part.data.iter() {
+				body.write_i32::<LittleEndian>(*tile).unwrap();
+			}
+
+			base_offset + space_start - body.len()
+		};
+
+		finalize(&mut buf[..cursor], &offsets, &cfg.transport);
+
+		if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
+			tx.send_to(&buf[..cursor], None);
+		} else {
+			eprintln!("Failed to send packet: no channel found");
+		}
+	}
+}
+
 const MAX_PKT_SIZE: usize = 1500;
 
 pub fn setup(cfg: &mut SetupConfig) {
@@ -498,5 +643,41 @@ pub fn tilings(cfg: &mut TilingsConfig) {
 		tx.send_to(&buffer[..sz], None);
 	} else {
 		eprintln!("Failed to send packet: no channel found");
+	}
+}
+
+pub fn insert_policy(cfg: &mut PolicyConfig) {
+	let mut buffer = [0u8; MAX_PKT_SIZE];
+
+	// cfg.policy.validate();
+
+	let (base, offsets) = build_policy_packet_base(&cfg, &mut buffer[..]).unwrap();
+
+	match cfg.policy.take().unwrap() {
+		Policy::Float{data, quantiser} => {
+			match data {
+				PolicyFormat::Sparse(s) => {
+					let ps = s
+						.iter()
+						.map(|entry| SparsePolicyEntry {
+							offset: entry.offset,
+							data: entry.data.iter().map(|val| (quantiser * val) as i32).collect()
+						});
+					write_and_send_sparse_policy(cfg, &mut buffer, base, ps, &offsets);
+				},
+				PolicyFormat::Dense(d) => {
+					let ps = d
+						.iter()
+						.map(|val| (quantiser * val) as i32);
+					write_and_send_policy(cfg, &mut buffer, base, ps, &offsets);	
+				},
+			}
+		},
+		Policy::Quantised{data: PolicyFormat::Sparse(s)} => {
+			write_and_send_sparse_policy(cfg, &mut buffer, base, s.into_iter(), &offsets);
+		},
+		Policy::Quantised{data: PolicyFormat::Dense(d)} => {
+			write_and_send_policy(cfg, &mut buffer, base, d.into_iter(), &offsets);
+		},
 	}
 }
