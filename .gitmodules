@@ -1,0 +1,12 @@
+[submodule "code/marl-quant/marl/tilecoding"]
+	path = code/marl-quant/marl/tilecoding
+	url = https://github.com/gehring/tilecoding.git
+[submodule "code/marl-quant/ovs"]
+	path = code/marl-quant/ovs
+	url = https://github.com/felixmcfelix/ovs
+[submodule "code/marl-quant/traffic-host/mcfelix.me"]
+	path = code/marl-quant/traffic-host/mcfelix.me
+	url = https://github.com/FelixMcFelix/mcfelix.me
+[submodule "code/marl-quant/opus-voip-traffic"]
+	path = code/marl-quant/opus-voip-traffic
+	url = https://github.com/FelixMcFelix/opus-voip-traffic.git
