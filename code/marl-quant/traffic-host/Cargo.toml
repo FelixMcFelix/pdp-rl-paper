@@ -1,0 +1,16 @@
+[package]
+name = "traffic-host"
+version = "0.1.0"
+authors = ["Kyle Simpson <kyleandrew.simpson@gmail.com>"]
+
+[dependencies]
+clap = "2"
+cssparser = "0.24"
+curl = "0.4"
+parking_lot = "0.7"
+rand = "0.6"
+rayon = "1.0"
+ron = "0.4"
+select = "0.4"
+serde = "1.0"
+url = "1.7"
