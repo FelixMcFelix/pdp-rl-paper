@@ -1,8 +1,12 @@
+import copy
 import numpy as np
+from quantiser import Quantiser
 import random
-import tilecoding.representation as r
 from spf import *
 import sys
+import tilecoding.representation as r
+
+# FIXME: change update et al to use quantiser.
 
 class SarsaLearner:
 	"""Learning agent powered by Sarsa and Tile Coding, with e-greedy
@@ -23,7 +27,8 @@ class SarsaLearner:
 				rescale_alpha=1.0,
 				increase_fixed_math_alpha_if_narrowed=True,
 				always_include_bias=True,
-				AcTrans=MarlMachine):
+				AcTrans=MarlMachine,
+				quantiser=None):
 		state_range = [
 			[0 for i in xrange(vec_size)] + extended_mins,
 			[max_bw for i in xrange(vec_size)]+ extended_maxes,
@@ -32,8 +37,10 @@ class SarsaLearner:
 		tc_indices = tc_indices if tc_indices is not None else [np.arange(vec_size)]
 		ntiles = [tile_c for _ in tc_indices]
 		ntilings = [tilings_c for _ in tc_indices]
+		self.ntiles = ntiles
 		self.ntilings = ntilings
 		self.tiling_set_count = len(tc_indices)
+		self.state_range = state_range
 
 		#print "tc has been configured with indices", tc_indices, "tiles", ntiles, "tilings", ntilings
 
@@ -75,6 +82,8 @@ class SarsaLearner:
 
 		# in case I ever need to return to the bug in the update rule for verification...
 		self.broken_math = broken_math
+
+		self.quantiser = quantiser
 
 		self._step_count = 0
 
@@ -270,6 +279,36 @@ class SarsaLearner:
 	def to_state(self, *args):
 		out = self.tc(*args)
 		return tuple(out)
+
+	def as_quantised(self, quantiser):
+		out = copy.deepcopy(self)
+
+		# remake tile coding
+		new_state_range = [[quantiser.into(val) for val in vals] for vals in out.state_range]
+		out.state_range = new_state_range
+
+		out.tc = r.TileCoding(
+			input_indices = tc_indices,
+			ntiles = out.ntiles,
+			ntilings = out.ntilings,
+			hashing = None,
+			state_range = new_state_range,
+			rnd_stream = np.random.RandomState(),
+		)
+
+		# update all entries of values?
+		out.values = {k: np.array([quantiser.into(val) for val in v]) for (k,v) in self.items}
+
+		# update the individual sarsa params into the new space
+		# todo: delta
+		out.epsilon = quantiser.do(self.epsilon)
+		out._curr_epsilon = quantiser.do(self._curr_epsilon)
+		out.learn_rate = quantiser.do(self.learn_rate)
+		out.discount = quantiser.do(self.discount)
+
+		out.quantiser = quantiser
+
+		return out
 
 class QLearner(SarsaLearner):
 	def __init__(self, **args):
