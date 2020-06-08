@@ -155,7 +155,8 @@ class SarsaLearner:
 
 	def select_action_from_vals(self, vals):
 		# Epsilon-greedy action selection (linear-decreasing).
-		if np.random.uniform() < self._curr_epsilon:
+		local_ep = self._curr_epsilon if self.quantiser is None else self.quantiser.into(self._curr_epsilon)
+		if np.random.uniform() < local_ep:
 			a_index = np.random.randint(len(self.actions))
 		elif self.break_equal:
 			a_index = np.random.choice(np.flatnonzero(vals == vals.max()))
@@ -216,8 +217,10 @@ class SarsaLearner:
 
 		next_vals = argmax_values if self._argmax_in_dt else new_values
 		argmax_chosen = np.all(new_values == argmax_values)
-		vec_d_t = self.discount * next_vals - last_values + reward
-		scalar_d_t = self.discount * np.sum(next_vals) - np.sum(last_values) + reward
+		reward = self.qse(reward)
+
+		vec_d_t = self.mul(self.discount, next_vals) - last_values + reward
+		scalar_d_t = self.mul(self.discount, np.sum(next_vals)) - np.sum(last_values) + reward
 
 		if self.broken_math:
 			d_t = vec_d_t
@@ -235,9 +238,9 @@ class SarsaLearner:
 		alpha = self.learn_rate
 		if not self.broken_math and self.alpha_mod_fixed_math and update_narrowing is not None:
 			# May or may not be numerically stable, needs testing...
-			alpha = self.single_learn_rate / float(len(update_narrowing))
+			alpha = self.div(self.single_learn_rate, self.qse(float(len(update_narrowing))))
 
-		ad_t = alpha * d_t
+		ad_t = self.mul(alpha, d_t)
 
 		if last_z is None:
 			updated_vals = last_values + ad_t
@@ -247,6 +250,8 @@ class SarsaLearner:
 			new_z = None
 			#print "vals are:", updated_vals, "from:", last_values, "by:", d_t
 		else:
+			## FIXME
+			# This doesn't yet support quantisation, but I won't be using it for that
 			(old_indices, old_grads) = last_z
 			if self._wipe_trace_if_not_argmax and not argmax_chosen:
 				old_grads = np.array([]) 
@@ -277,7 +282,11 @@ class SarsaLearner:
 		self._step_count += 1
 
 	def to_state(self, *args):
-		out = self.tc(*args)
+		if self.quantiser is None:
+			out = [quantiser.into(v) for v in self.tc(*args)]
+		else:
+			out = self.tc(*args)
+
 		return tuple(out)
 
 	def as_quantised(self, quantiser):
@@ -309,6 +318,24 @@ class SarsaLearner:
 		out.quantiser = quantiser
 
 		return out
+
+	def mul(self, lhs, rhs):
+		if self.quantiser is None:
+			lhs * rhs
+		else:
+			self.quantiser.mul(lhs, rhs)
+
+	def div(self, lhs, rhs):
+		if self.quantiser is None:
+			lhs / rhs
+		else:
+			self.quantiser.div(lhs, rhs)
+
+	def qse(self, value):
+		if self.quantiser is None:
+			value
+		else:
+			self.quantiser.into(value)
 
 class QLearner(SarsaLearner):
 	def __init__(self, **args):

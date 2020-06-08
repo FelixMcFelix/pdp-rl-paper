@@ -5,7 +5,7 @@ class Quantiser:
 		self.denom = float(denom)
 
 	def binary(power):
-		return Quantiser(1, 1 << power)
+		return Quantiser(1 << power, 1)
 
 	def into(self, value):
 		return int((value * num) / denom)
