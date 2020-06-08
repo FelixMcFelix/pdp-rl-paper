@@ -2,7 +2,7 @@ class Quantiser:
 	"""docstring for Quantiser"""
 	def __init__(self, num, denom):
 		self.num = float(num)
-		self.denom = float
+		self.denom = float(denom)
 
 	def binary(power):
 		return Quantiser(1, 1 << power)
@@ -14,7 +14,7 @@ class Quantiser:
 		return (float(value) * denom) / num
 	
 	def mul(self, lhs, rhs):
-		(lhs * rhs * self.denom) / self.num
+		(lhs * rhs * int(self.denom)) / int(self.num)
 
 	def div(self, lhs, rhs):
-		((lhs / rhs) * self.num) / self.denom
+		((lhs / rhs) * int(self.num)) / int(self.denom)
