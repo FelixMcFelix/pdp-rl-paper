@@ -2101,10 +2101,12 @@ def marlExperiment(
 		if not do_quant_testing:
 			quant_results_needed = 0
 
+		agent_0_quant_holders = []
 		local_quant_results = []
 
 		i = 0
 		while i < episode_length && quant_results_needed > len(local_quant_results):
+			start_quant_fun = i >= episode_length
 			# May need to early exit
 			if interrupted[0]:
 				break
@@ -2544,6 +2546,11 @@ def marlExperiment(
 						need_decay = True
 
 						for s_ac_num, (s, r) in enumerate(subactors):
+							# begin quant stuff
+							# turn the finalised policy into a bunch of new policies.
+							if learner_no == 0 and start_quant_fun and len(agent_0_quant_holders) == 0:
+								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
+
 							tx_vec = total_vec if r is None else [total_vec[i] for i in r]
 							state = s.to_state(np.array(tx_vec))
 							#print "state len (from, to)", (len(tx_vec), len(state))
