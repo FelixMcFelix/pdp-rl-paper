@@ -162,6 +162,11 @@ def marlExperiment(
 
 		broken_math = False,
 		num_drop_groups = 20,
+
+		# New stuff here. wrt. Quantisation.
+		do_quant_testing = False,
+		quantisers = [],
+		quant_results_needed = 10000,
 	):
 
 	agent_classes = {
@@ -2092,7 +2097,14 @@ def marlExperiment(
 		spiffy_measurements = [{}, {}]
 		spiffy_verdict = {}
 
-		for i in xrange(episode_length):
+		# episode code.
+		if not do_quant_testing:
+			quant_results_needed = 0
+
+		local_quant_results = []
+
+		i = 0
+		while i < episode_length && quant_results_needed > len(local_quant_results):
 			# May need to early exit
 			if interrupted[0]:
 				break
@@ -2308,7 +2320,7 @@ def marlExperiment(
 					# winner selection according to Ben Pfaff
 					# https://mail.openvswitch.org/pipermail/ovs-discuss/2018-March/046459.html
 					# assume equal weight
-					hashes = [hash(base + struct.pack("<I", i)) for i in xrange(n_choices)]
+					hashes = [hash(base + struct.pack("<I", q)) for q in xrange(n_choices)]
 					winner = np.argmax(hashes)
 
 					return winner
@@ -2675,6 +2687,8 @@ def marlExperiment(
 				#net.interact()
 				pass
 
+			i += 1
+
 		print "good:", last_traffic_ratio, ", g_reward:", g_reward, ", selected:", reward
 
 		#print action_comps[-1]
@@ -2713,10 +2727,13 @@ def marlExperiment(
 		store_sarsas = team_sarsas
 		next_ip = [1]
 
+		if do_quant_testing:
+			break
+
 		#for sar in store_sarsas:
 			#print sar[0].values
 			#pass
 
 	# Okay, done!
 	# Run interesting stats stuff here? Just save the results? SAVE THE LEARNED MODEL?!
-	return (rewards, good_traffic_percents, total_loads, store_sarsas, random.getstate(), action_comps)
+	return (rewards, good_traffic_percents, total_loads, store_sarsas, random.getstate(), action_comps, local_quant_results)
