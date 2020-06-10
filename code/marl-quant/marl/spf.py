@@ -22,6 +22,9 @@ class MarlMachine:
 	def action(self):
 		return self._values[self._curr_state]
 
+	def state(self):
+		return self._curr_state
+
 class SpfMachine(MarlMachine):
 	"""
 		basically a state machine seeing whether

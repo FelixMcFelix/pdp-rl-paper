@@ -2286,8 +2286,8 @@ def marlExperiment(
 
 			intime = time.time()
 			for learner_no, (node_label, sarsa, leader_nodes) in enumerate(actors):
+				agent_to_do_quantisation = learner_no == 0
 				node = vertex_map[node_label]
-
 
 				if first_sarsa is None:
 					first_sarsa = sarsa
@@ -2544,11 +2544,13 @@ def marlExperiment(
 						ac_vals = np.zeros(len(sarsa.actions))
 						substates = []
 						need_decay = True
+						quant_guesses = []
 
 						for s_ac_num, (s, r) in enumerate(subactors):
+							do_quantisation = agent_to_do_quantisation and s_ac_num == len(subactors) and start_quant_fun
 							# begin quant stuff
 							# turn the finalised policy into a bunch of new policies.
-							if learner_no == 0 and start_quant_fun and len(agent_0_quant_holders) == 0:
+							if do_quantisation and len(agent_0_quant_holders) == 0:
 								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
 
 							tx_vec = total_vec if r is None else [total_vec[i] for i in r]
@@ -2601,6 +2603,25 @@ def marlExperiment(
 									update_narrowing=None if not allow_update_narrowing else narrowing_in_use[1],
 								)
 
+								if do_quantisation:
+									for (mod_sarsa, quantiser) in zip(agent_0_quant_holders, quantisers):
+										# convert state vector into right base.
+										new_state = [quantiser.into(a) for a in state]
+
+										# do work.
+										(choice, _, _) = s.update(
+											state,
+											quantiser.into(l_rewards[dest_from_ip[ip_pair[1]]]),
+											([quantiser.into(a) for a in st], dat[1], z), # z SHOULD be none.
+											decay=False, # no trace decay. good.
+											delta_space=dm, # this is some logging thing I guess? Cannot recall.
+											action_narrowing=None if not allow_action_narrowing else narrowing_in_use[1],
+											update_narrowing=None if not allow_update_narrowing else narrowing_in_use[1],
+										)
+
+										# NOTE: need to record current state AND label AND decision
+										# i.e., "good" and FSM(0) => both hold and unlimit are valid.
+										quant_guesses.append(choice)
 								if record_deltas_in_times:
 									action_comps[-1].append(dm)
 							else:
@@ -2618,6 +2639,15 @@ def marlExperiment(
 						machine.move(l_action)
 						flow_traces[ip_pair] = (substates, l_action, machine, z_vec, [True])
 
+						# need to add: true label, last_sarsa's label
+						# FIXME: how to tell flow is good?
+						# use ip_pair[0]
+						# src, dest? Integer BE/LE/string?
+						good = int(ip_pair[0][-1]) % 2 == 0 # wtf
+						quant_field = [good, machine.state(), l_action]
+
+						local_quant_results.append(quant_field + quant_guesses)
+
 						if need_decay:
 							for (s, _) in subactors:
 								s.decay()
@@ -2630,7 +2660,8 @@ def marlExperiment(
 						l["last_rate_in"] = observed_rate_in
 						l["last_rate_out"] = observed_rate_out
 
-						flow_space[ip] = l
+						# big whoops -- probably fix in original_repo?
+						flow_space[ip_pair] = l
 						# print l
 						# End time.
 						e_t = time.time()
