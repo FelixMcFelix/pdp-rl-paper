@@ -2105,7 +2105,7 @@ def marlExperiment(
 		local_quant_results = []
 
 		i = 0
-		while i < episode_length && quant_results_needed > len(local_quant_results):
+		while i < episode_length or quant_results_needed > len(local_quant_results):
 			start_quant_fun = i >= episode_length
 			# May need to early exit
 			if interrupted[0]:
@@ -2282,7 +2282,7 @@ def marlExperiment(
 
 			# FIXME: make relevant to multi-dest.
 			last_traffic_ratio = min(dest_sum_data[0]/bw_all[0], 1.0)
-			if not (i % 10): print "\titer {}/{}, good:{}, load:{:.2f} ({:.2f},{:.2f})".format(i, episode_length, last_traffic_ratio, dest_sum_data[0] + dest_sum_data[1], *direction_sum)
+			if not (i % 10): print "\titer {}/{}, good:{}, load:{:.2f}, q_r:{} ({:.2f},{:.2f})".format(i, episode_length, last_traffic_ratio, dest_sum_data[0] + dest_sum_data[1], len(local_quant_results), *direction_sum)
 
 			intime = time.time()
 			for learner_no, (node_label, sarsa, leader_nodes) in enumerate(actors):
@@ -2547,10 +2547,11 @@ def marlExperiment(
 						quant_guesses = []
 
 						for s_ac_num, (s, r) in enumerate(subactors):
-							do_quantisation = agent_to_do_quantisation and s_ac_num == len(subactors) and start_quant_fun
+							do_quantisation = agent_to_do_quantisation and s_ac_num == len(subactors) - 1 and start_quant_fun
 							# begin quant stuff
 							# turn the finalised policy into a bunch of new policies.
 							if do_quantisation and len(agent_0_quant_holders) == 0:
+								print "Made q-policies"
 								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
 
 							tx_vec = total_vec if r is None else [total_vec[i] for i in r]
@@ -2643,10 +2644,14 @@ def marlExperiment(
 						# FIXME: how to tell flow is good?
 						# use ip_pair[0]
 						# src, dest? Integer BE/LE/string?
-						good = int(ip_pair[0][-1]) % 2 == 0 # wtf
+						ip_b = struct.pack("I", ip_pair[0])
+						good = ord(ip_b[-1]) % 2 == 0 # wtf
 						quant_field = [good, machine.state(), l_action]
 
-						local_quant_results.append(quant_field + quant_guesses)
+						if do_quantisation:
+							new_row = quant_field + quant_guesses
+							print new_row
+							local_quant_results.append(new_row)
 
 						if need_decay:
 							for (s, _) in subactors:
@@ -2727,7 +2732,7 @@ def marlExperiment(
 
 			i += 1
 
-		print "good:", last_traffic_ratio, ", g_reward:", g_reward, ", selected:", reward
+		print "good:", last_traffic_ratio, ", g_reward:", g_reward, ", selected:", reward, ", q_r:", len(local_quant_results)
 
 		#print action_comps[-1]
 		# End this monitoring instance.

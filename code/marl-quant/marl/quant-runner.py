@@ -89,7 +89,7 @@ if __name__ == "__main__":
 		"feature_max": 20,
 
 		# new shiny quantisation stuff.
-		"do_quant_testing": False,
+		"do_quant_testing": True,
 		"quantisers": [Quantiser.binary(i) for i in xrange(32)],
 		"quant_results_needed": 10000,
 	}

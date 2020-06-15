@@ -41,6 +41,7 @@ class SarsaLearner:
 		self.ntilings = ntilings
 		self.tiling_set_count = len(tc_indices)
 		self.state_range = state_range
+		self.tc_indices = tc_indices
 
 		#print "tc has been configured with indices", tc_indices, "tiles", ntiles, "tilings", ntilings
 
@@ -282,8 +283,8 @@ class SarsaLearner:
 		self._step_count += 1
 
 	def to_state(self, *args):
-		if self.quantiser is None:
-			out = [quantiser.into(v) for v in self.tc(*args)]
+		if self.quantiser is not None:
+			out = [self.quantiser.into(v) for v in self.tc(*args)]
 		else:
 			out = self.tc(*args)
 
@@ -297,7 +298,7 @@ class SarsaLearner:
 		out.state_range = new_state_range
 
 		out.tc = r.TileCoding(
-			input_indices = tc_indices,
+			input_indices = out.tc_indices,
 			ntiles = out.ntiles,
 			ntilings = out.ntilings,
 			hashing = None,
@@ -306,14 +307,17 @@ class SarsaLearner:
 		)
 
 		# update all entries of values?
-		out.values = {k: np.array([quantiser.into(val) for val in v]) for (k,v) in self.items}
+		nv = {}
+		for tile, action_set in self.values.items():
+			nv[tile] = np.array([quantiser.into(val) for val in action_set])
+		out.values = nv
 
 		# update the individual sarsa params into the new space
 		# todo: delta
-		out.epsilon = quantiser.do(self.epsilon)
-		out._curr_epsilon = quantiser.do(self._curr_epsilon)
-		out.learn_rate = quantiser.do(self.learn_rate)
-		out.discount = quantiser.do(self.discount)
+		out.epsilon = quantiser.into(self.epsilon)
+		out.curr_epsilon = quantiser.into(self._curr_epsilon)
+		out.learn_rate = quantiser.into(self.learn_rate)
+		out.discount = quantiser.into(self.discount)
 
 		out.quantiser = quantiser
 
@@ -321,21 +325,21 @@ class SarsaLearner:
 
 	def mul(self, lhs, rhs):
 		if self.quantiser is None:
-			lhs * rhs
+			return lhs * rhs
 		else:
-			self.quantiser.mul(lhs, rhs)
+			return self.quantiser.mul(lhs, rhs)
 
 	def div(self, lhs, rhs):
 		if self.quantiser is None:
-			lhs / rhs
+			return lhs / rhs
 		else:
-			self.quantiser.div(lhs, rhs)
+			return self.quantiser.div(lhs, rhs)
 
 	def qse(self, value):
 		if self.quantiser is None:
-			value
+			return value
 		else:
-			self.quantiser.into(value)
+			return self.quantiser.into(value)
 
 class QLearner(SarsaLearner):
 	def __init__(self, **args):
