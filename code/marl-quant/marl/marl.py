@@ -167,6 +167,7 @@ def marlExperiment(
 		do_quant_testing = False,
 		quantisers = [],
 		quant_results_needed = 10000,
+		quant_iter_start = None,
 	):
 
 	agent_classes = {
@@ -1481,6 +1482,7 @@ def marlExperiment(
 		interrupted[0] = True
 
 	signal.signal(signal.SIGINT, sigint_handle)
+	local_quant_results = []
 	old_hosts = []
 
 	for ep in xrange(episodes):
@@ -2102,11 +2104,11 @@ def marlExperiment(
 			quant_results_needed = 0
 
 		agent_0_quant_holders = []
-		local_quant_results = []
 
 		i = 0
-		while i < episode_length or quant_results_needed > len(local_quant_results):
-			start_quant_fun = i >= episode_length
+		#while i < episode_length or ep * (quant_results_needed/episodes) > len(local_quant_results):
+		while (ep+1) * (quant_results_needed/episodes) > len(local_quant_results):
+			start_quant_fun = (quant_iter_start is None and i >= episode_length) or i >= quant_iter_start
 			# May need to early exit
 			if interrupted[0]:
 				break
@@ -2652,6 +2654,8 @@ def marlExperiment(
 							new_row = quant_field + quant_guesses
 							print new_row
 							local_quant_results.append(new_row)
+						elif agent_to_do_quantisation:
+							print quant_field
 
 						if need_decay:
 							for (s, _) in subactors:
@@ -2771,7 +2775,8 @@ def marlExperiment(
 		next_ip = [1]
 
 		if do_quant_testing:
-			break
+			#break
+			pass
 
 		#for sar in store_sarsas:
 			#print sar[0].values
