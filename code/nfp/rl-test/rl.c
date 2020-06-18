@@ -8,12 +8,12 @@
 #include "rl-pkt-store.h"
 #include "pif_parrep.h"
 
-__declspec(i1.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
-__declspec(i1.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
+__declspec(i5.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
+__declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
 __declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 
 // Maybe keep one of these locally, too?
-__declspec(i1.cls, export) struct rl_config cfg = {0};
+__declspec(i5.cls, export) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 4
@@ -253,6 +253,8 @@ main() {
 		init_rl_pkt_store(rl_pkts, inpkt_buffer);
 		cmd_mem_ring_init(ring_number, RING_SIZE_512K, mem_workq, mem_workq, 0);
 	}
+
+	t1_tiles[0] = __ctx();
 
 	// FIXME: Might want to make other contexts wait till queue init'd
 	
