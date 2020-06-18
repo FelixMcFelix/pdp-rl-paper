@@ -11,3 +11,6 @@
 [submodule "code/marl-quant/traffic-host/mcfelix.me"]
 	path = code/marl-quant/traffic-host/mcfelix.me
 	url = https://github.com/felixmcfelix/mcfelix.me
+[submodule "plots/gnuplot-palettes"]
+	path = plots/gnuplot-palettes
+	url = https://github.com/Gnuplotting/gnuplot-palettes.git
