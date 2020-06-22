@@ -1,1 +1,3 @@
 build/**/*.tex
+build/**/*.log
+build/**/*.aux
