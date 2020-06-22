@@ -69,6 +69,7 @@ targets = {
 
 for name, rowset in targets.items():
     true_name = out_file.format(name)
+    rowset = np.array(rowset).T
     with open(true_name, "w") as of:
         wr = csv.writer(of)
         for row in rowset:
