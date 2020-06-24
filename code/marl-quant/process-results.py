@@ -70,6 +70,14 @@ targets = {
 for name, rowset in targets.items():
     true_name = out_file.format(name)
     rowset = np.array(rowset).T
+
+    # haxx
+    if "divs" in true_name:
+        rowset = 1.0-rowset
+
+    if "-split" in true_name:
+        rowset = np.array([list(row) + [np.mean(row), np.std(row)] for row in rowset])
+
     with open(true_name, "w") as of:
         wr = csv.writer(of)
         for row in rowset:
