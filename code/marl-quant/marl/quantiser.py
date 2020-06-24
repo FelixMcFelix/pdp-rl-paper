@@ -15,7 +15,7 @@ class Quantiser:
 		return (float(value) * self.denom) / self.num
 	
 	def mul(self, lhs, rhs):
-		(lhs * rhs * int(self.denom)) / int(self.num)
+		return (lhs * rhs * int(self.denom)) / int(self.num)
 
 	def div(self, lhs, rhs):
-		((lhs / rhs) * int(self.num)) / int(self.denom)
+		return ((lhs / rhs) * int(self.num)) / int(self.denom)

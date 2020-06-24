@@ -157,7 +157,9 @@ class SarsaLearner:
 	def select_action_from_vals(self, vals):
 		# Epsilon-greedy action selection (linear-decreasing).
 		local_ep = self._curr_epsilon if self.quantiser is None else self.quantiser.into(self._curr_epsilon)
-		if np.random.uniform() < local_ep:
+		roll = np.random.uniform()
+		roll = roll if self.quantiser is None else self.quantiser.into(roll)
+		if roll < local_ep:
 			a_index = np.random.randint(len(self.actions))
 		elif self.break_equal:
 			a_index = np.random.choice(np.flatnonzero(vals == vals.max()))
@@ -220,6 +222,9 @@ class SarsaLearner:
 		argmax_chosen = np.all(new_values == argmax_values)
 		reward = self.qse(reward)
 
+		if self.quantiser is not None:
+			#print self.discount, next_vals, last_values, reward
+			pass
 		vec_d_t = self.mul(self.discount, next_vals) - last_values + reward
 		scalar_d_t = self.mul(self.discount, np.sum(next_vals)) - np.sum(last_values) + reward
 

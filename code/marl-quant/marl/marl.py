@@ -2555,6 +2555,7 @@ def marlExperiment(
 							if do_quantisation and len(agent_0_quant_holders) == 0:
 								print "Made q-policies"
 								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
+								print "who have epslions", [p._curr_epsilon  for p in agent_0_quant_holders]
 
 							tx_vec = total_vec if r is None else [total_vec[i] for i in r]
 							state = s.to_state(np.array(tx_vec))
@@ -2612,7 +2613,7 @@ def marlExperiment(
 										new_state = [quantiser.into(a) for a in state]
 
 										# do work.
-										(choice, _, _) = s.update(
+										(choice, _, _) = mod_sarsa.update(
 											state,
 											quantiser.into(l_rewards[dest_from_ip[ip_pair[1]]]),
 											([quantiser.into(a) for a in st], dat[1], z), # z SHOULD be none.
@@ -2621,6 +2622,7 @@ def marlExperiment(
 											action_narrowing=None if not allow_action_narrowing else narrowing_in_use[1],
 											update_narrowing=None if not allow_update_narrowing else narrowing_in_use[1],
 										)
+										#print mod_sarsa.quantiser
 
 										# NOTE: need to record current state AND label AND decision
 										# i.e., "good" and FSM(0) => both hold and unlimit are valid.
