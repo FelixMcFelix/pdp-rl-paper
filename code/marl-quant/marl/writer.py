@@ -155,3 +155,18 @@ def dumbWriter(outDir, data):
 		w = csv.writer(of)
 		for row in true_dat:
 			w.writerow(row)
+
+def lessDumbWriter(outDir, data):
+	# honestly don't expect more than one level of depth here...
+	if len(data) > 0 and isinstance(data[0], (list,)):
+		true_dat = []
+		for ep, data_ep in enumerate(data):
+			for data_row in data_ep:
+				true_dat.append([ep] + data_row)
+	else:
+		true_dat = data
+
+	with open(outDir, "wb") as of:
+		w = csv.writer(of)
+		for row in true_dat:
+			w.writerow(row)
