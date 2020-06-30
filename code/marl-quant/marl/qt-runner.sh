@@ -2,10 +2,10 @@
 SCRIPT="./quant-train.py"
 
 getCount() {
-	python $SCRIPT $1
+	python2 $SCRIPT $1
 }
 runExpt() {
-	python $SCRIPT $1 $2
+	python2 $SCRIPT $1 $2
 }
 
 ./purger.sh

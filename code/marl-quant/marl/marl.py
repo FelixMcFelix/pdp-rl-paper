@@ -340,7 +340,7 @@ def marlExperiment(
 		"trace_threshold": trace_threshold,
 		"broken_math": broken_math,
 		"always_include_bias": always_include_bias,
-		"train_using_quant": train_using_quant,
+		"quantiser": train_using_quant,
 	}
 
 	if actions_target_flows:
@@ -2111,7 +2111,7 @@ def marlExperiment(
 		i = 0
 		#while i < episode_length or ep * (quant_results_needed/episodes) > len(local_quant_results):
 		while (not do_quant_testing and i < episode_length) or (do_quant_testing and (ep+1) * (quant_results_needed/episodes) > len(local_quant_results)):
-			start_quant_fun = (quant_iter_start is None and i >= episode_length) or i >= quant_iter_start
+			start_quant_fun = do_quant_testing and len(quantisers) > 0 and (quant_iter_start is None and i >= episode_length) or i >= quant_iter_start
 			# May need to early exit
 			if interrupted[0]:
 				break
@@ -2555,7 +2555,7 @@ def marlExperiment(
 							do_quantisation = agent_to_do_quantisation and s_ac_num == len(subactors) - 1 and start_quant_fun
 							# begin quant stuff
 							# turn the finalised policy into a bunch of new policies.
-							if do_quantisation and len(agent_0_quant_holders) == 0:
+							if do_quant_testing and do_quantisation and len(agent_0_quant_holders) == 0:
 								print "Made q-policies"
 								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
 								print "who have epslions", [p._curr_epsilon  for p in agent_0_quant_holders]

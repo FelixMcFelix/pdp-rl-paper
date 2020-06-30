@@ -90,11 +90,7 @@ if __name__ == "__main__":
 		"split_codings": True,
 		"feature_max": 20,
 
-		# new shiny quantisation stuff.
-		"do_quant_testing": True,
-		"quantisers": [Quantiser.binary(i) for i in xrange(32)],
-		"quant_results_needed": 10000,
-		"quant_iter_start": 1000,
+		"do_quant_testing": False,
 	}
 
 	deps = []
