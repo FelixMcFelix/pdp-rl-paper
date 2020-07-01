@@ -15,7 +15,7 @@ def mkdir_p(path):
             raise
 
 def writeResults(results_file, results, sarsa_dir=None, append=False, times_dir=None):
-	(rewards, good_traffic_percents, total_loads, store_sarsas, rng_state, comp_times) = results
+	(rewards, good_traffic_percents, total_loads, store_sarsas, rng_state, comp_times, local_quants) = results
 
 	mode = "a" if append else "w"
 
