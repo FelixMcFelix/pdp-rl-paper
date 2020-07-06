@@ -2,7 +2,7 @@ import cPickle
 from marl import *
 from quantiser import *
 import sys
-from writer import writeResults, makeResultsAverage, dumbWriter
+from writer import writeResults, makeResultsAverage, dumbWriter, lessDumbWriter
 
 results_dir = "../../../results/marl-quant/"
 
