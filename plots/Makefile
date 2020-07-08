@@ -17,7 +17,8 @@ $(BUILD_DIR)/%.tex: $(SRC_DIR)/%.gnuplot $(source_data) config/preamble.cfg
 	gnuplot -e "load 'config/preamble.cfg'; set output '$@';" $<
 
 $(BUILD_DIR)/%.pdf: $(BUILD_DIR)/%.tex
-	pdflatex -output-directory='$(dir $@)' $<
+	#pdflatex -output-directory='$(dir $@)' $<
+	lualatex -output-directory='$(dir $@)' $<
 
 clean:
 	rm -f $(BUILD_DIR)/**/*.tex
