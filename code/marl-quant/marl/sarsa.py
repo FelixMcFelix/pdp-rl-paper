@@ -29,10 +29,15 @@ class SarsaLearner:
 				always_include_bias=True,
 				AcTrans=MarlMachine,
 				quantiser=None):
+		self.quantiser = quantiser
+
 		state_range = [
 			[0 for i in xrange(vec_size)] + extended_mins,
 			[max_bw for i in xrange(vec_size)]+ extended_maxes,
 		]
+
+		new_state_range = [[self.qse(val) for val in vals] for vals in state_range]
+		self.state_range = new_state_range
 
 		tc_indices = tc_indices if tc_indices is not None else [np.arange(vec_size)]
 		ntiles = [tile_c for _ in tc_indices]
@@ -51,27 +56,27 @@ class SarsaLearner:
 			ntiles = ntiles,
 			ntilings = ntilings,
 			hashing = None,
-			state_range = state_range,
+			state_range = new_state_range,
 			rnd_stream = np.random.RandomState(),
 		)
 		# We need access to this again if we perform feature fixation.
-		self.single_learn_rate = learn_rate
+		self.single_learn_rate = self.qse(learn_rate)
 
 		if rescale_alpha is not None and not broken_math:
 			# bias tile always exists.
 			learn_rate = (learn_rate * rescale_alpha) / float(sum(ntilings) + 1)
 
-		self.epsilon = epsilon
-		self._curr_epsilon = epsilon
+		self.epsilon = self.qse(epsilon)
+		self._curr_epsilon = self.qse(epsilon)
 		self.epsilon_falloff = epsilon_falloff
 
-		self.learn_rate = learn_rate
-		self.discount = discount
+		self.learn_rate = self.qse(learn_rate)
+		self.discount = self.qse(discount)
 
 		self.actions = actions
 		self.break_equal = break_equal
 		self.values = {}
-		self.default_q = float(default_q)
+		self.default_q = self.qse(float(default_q))
 
 		self._argmax_in_dt = False
 		self._wipe_trace_if_not_argmax = False
@@ -84,14 +89,15 @@ class SarsaLearner:
 		# in case I ever need to return to the bug in the update rule for verification...
 		self.broken_math = broken_math
 
-		self.quantiser = quantiser
-
 		self._step_count = 0
 
 	def _ensure_state_vals_exist(self, state):
 		for tile in state:
 			if tile not in self.values:
-				self.values[tile] = np.full(len(self.actions), float(self.default_q))
+				if self.quantiser is None:
+					self.values[tile] = np.full(len(self.actions), float(self.default_q))
+				else:
+					self.values[tile] = np.full(len(self.actions), float(self.default_q), dtype=np.dtype(int))
 
 	def _get_state_values(self, state):
 		self._ensure_state_vals_exist(state)
@@ -247,6 +253,7 @@ class SarsaLearner:
 			alpha = self.div(self.single_learn_rate, self.qse(float(len(update_narrowing))))
 
 		ad_t = self.mul(alpha, d_t)
+		#print alpha, ad_t, d_t, self.discount, next_vals, last_values, reward
 
 		if last_z is None:
 			updated_vals = last_values + ad_t
@@ -314,7 +321,7 @@ class SarsaLearner:
 		# update all entries of values?
 		nv = {}
 		for tile, action_set in self.values.items():
-			nv[tile] = np.array([quantiser.into(val) for val in action_set])
+			nv[tile] = np.array([quantiser.into(val) for val in action_set], dtype=np.dtype(int))
 		out.values = nv
 
 		# update the individual sarsa params into the new space

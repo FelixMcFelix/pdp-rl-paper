@@ -2618,7 +2618,7 @@ def marlExperiment(
 										# do work.
 										(choice, _, _) = mod_sarsa.update(
 											state,
-											quantiser.into(l_rewards[dest_from_ip[ip_pair[1]]]),
+											l_rewards[dest_from_ip[ip_pair[1]]],
 											([quantiser.into(a) for a in st], dat[1], z), # z SHOULD be none.
 											decay=False, # no trace decay. good.
 											delta_space=dm, # this is some logging thing I guess? Cannot recall.
