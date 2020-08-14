@@ -1,0 +1,66 @@
+{
+    "tables": {
+        "ingress::forward": {
+            "rules": [
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "v0.1"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "vf0->1", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "v0.0"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "v0.0"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "vf1->0", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "v0.1"
+                        }
+                    }
+                }
+            ]
+        }, 
+        "ingress::macswap": {
+            "rules": [
+                {
+                    "action": {
+                        "type": "ingress::swap_mac_addrs"
+                    }, 
+                    "name": "v0.0", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "v0.0"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "type": "ingress::swap_mac_addrs"
+                    }, 
+                    "name": "v0.1", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "v0.1"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

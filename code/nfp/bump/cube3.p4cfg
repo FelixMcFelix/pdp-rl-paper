@@ -1,0 +1,40 @@
+{
+    "tables": {
+        "ingress::forward": {
+            "rules": [
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p1"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "0 to 1", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p0"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p0"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "1 to 0", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p1"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
