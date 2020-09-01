@@ -121,7 +121,7 @@
                         "num_assign_worker_mes": -1, 
                         "obj_target": false, 
                         "override_app_json": "", 
-                        "p4_user_config": ".\\vfmirror.p4cfg", 
+                        "p4_user_config": ".\\40g-p1.p4cfg", 
                         "p4compiler": "p4c-nfp", 
                         "pcie_x2_enabled": false, 
                         "pcie_x4_enabled": false, 
@@ -1758,6 +1758,9 @@
                 }
             }, 
             "p4userconfigs": {
+                ".\\40g-p1.p4cfg": {
+                    "update": "YES"
+                }, 
                 ".\\cube3.p4cfg": {
                     "update": "YES"
                 }, 

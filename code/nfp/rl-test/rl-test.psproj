@@ -1155,9 +1155,6 @@
                 ".\\rl-test": {
                     "build_required": false, 
                     "list_assignments": {
-                        "i1.me0": [
-                            "rl_app.list"
-                        ], 
                         "i32.me0": [
                             "pif_app_nfd.list"
                         ], 
@@ -1436,6 +1433,9 @@
                         ], 
                         "i49.me3": [
                             "blm1.list"
+                        ], 
+                        "i5.me0": [
+                            "rl_app.list"
                         ]
                     }, 
                     "settings": {
@@ -1472,7 +1472,7 @@
         }, 
         "chips": {
             "nfp_6_40": {
-                "chip_id": "AMDA0058-0011:0", 
+                "chip_id": "AMDA0078-0012:0", 
                 "chip_rev_num": 16, 
                 "clock_freq_config": {
                     "ILK0SERDESCLK": 10.3125, 

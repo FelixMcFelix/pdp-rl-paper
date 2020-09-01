@@ -6,7 +6,7 @@
 // __addr40 void *rl_pkt_freelist[RL_PKT_STORE_COUNT] = {0};
 // uint32_t rl_pkt_available = 0;
 
-void init_rl_pkt_store(__addr40 __declspec(ctm) struct rl_pkt_store *store, __addr40 __declspec(emem) uint8_t *pkt_base) {
+void init_rl_pkt_store(__addr40 __declspec(emem) struct rl_pkt_store *store, __addr40 __declspec(emem) uint8_t *pkt_base) {
 	int slot;
 	__declspec(emem) __addr40 uint8_t *pkt_cursor = pkt_base;
 	store->slots_available = RL_PKT_STORE_COUNT;
@@ -16,6 +16,8 @@ void init_rl_pkt_store(__addr40 __declspec(ctm) struct rl_pkt_store *store, __ad
 		store->freelist[slot] = pkt_cursor;
 		pkt_cursor += RL_PKT_MAX_SZ;
 	}
+
+	store->packet_buffer_base = pkt_base;
 
 	// Initialise mutex
 	store->lock = 0;

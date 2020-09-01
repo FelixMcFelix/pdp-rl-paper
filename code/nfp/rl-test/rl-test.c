@@ -20,7 +20,7 @@
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 4
 volatile __declspec(import, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024];
-volatile __declspec(import, emem, addr40) struct rl_pkt_store *rl_pkts;
+__declspec(import, emem) struct rl_pkt_store rl_pkts;
 
 // Seems to be some  magic naming here: this connects to the p4 action "filter_func"
 int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
@@ -63,7 +63,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		// Allocate the space here somehow...
 		// Using RL-island's yonder free-list
 		// FIXME: handle case where packet space cannot be acquired.
-		work_to_send.packet_payload = rl_pkt_get_slot(rl_pkts);
+		work_to_send.packet_payload = rl_pkt_get_slot(&rl_pkts);
 
 		// packet my be split between "cluster target memory"
 		// and "MU"
@@ -117,7 +117,8 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
  		*/
 		mem_workq_add_work(RL_RING_NUMBER, mem_workq, &workq_write_register, RL_WORK_LWS * sizeof(uint32_t));
 
-		return PIF_PLUGIN_RETURN_DROP;
+		//return PIF_PLUGIN_RETURN_DROP;
+		return PIF_PLUGIN_RETURN_FORWARD;
 	} else {
 		// p4 cfg should make sure that only RL packets get stuck here.
 		// This should just pass over any packets which aren't RL.

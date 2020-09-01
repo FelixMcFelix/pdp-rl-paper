@@ -240,6 +240,10 @@ control ingress(inout headers_t headers,
     }
     apply {
         at.apply(); // if this needs fields, then insert at callsite...
+        standard_metadata.egress_spec = standard_metadata.ingress_port;
+        bit<48> tmp = headers.ethernet.eth_src;
+        headers.ethernet.eth_src = headers.ethernet.eth_dst;
+        headers.ethernet.eth_dst = tmp;
     }
 }
 

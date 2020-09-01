@@ -13,13 +13,13 @@ __declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
 __declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 
 // Maybe keep one of these locally, too?
-__declspec(i5.cls, export) struct rl_config cfg = {0};
+__declspec(export, emem) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 4
 volatile __declspec(export, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024] = {0};
 
-volatile __declspec(export, ctm, addr40) struct rl_pkt_store *rl_pkts;
+__declspec(export, emem) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
 /** Convert a state vector into a list of tile indices.
@@ -66,7 +66,7 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 	return out_idx;
 }
 
-void setup_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
 	int cursor = 0;
 
@@ -108,7 +108,7 @@ void setup_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_wor
 	}
 }
 
-void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	// tiling information.
 	// rest of packet body is, repeated till end:
 	//  n_dims (u16)
@@ -187,7 +187,7 @@ void tilings_packet(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_w
 	cfg->num_tilings = num_tilings;
 }
 
-void policy_block_copy(struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	uint8_t loc;
 	int cursor = 0;
 	struct policy_install_data info;
@@ -250,7 +250,7 @@ main() {
 		//memset_cls(&cfg, 0, sizeof(struct rl_config));
 
 		// try read some work?
-		init_rl_pkt_store(rl_pkts, inpkt_buffer);
+		init_rl_pkt_store(&rl_pkts, inpkt_buffer);
 		cmd_mem_ring_init(ring_number, RING_SIZE_512K, mem_workq, mem_workq, 0);
 	}
 
@@ -295,6 +295,6 @@ main() {
 				break;
 		}
 
-		rl_pkt_return_slot(rl_pkts, workq_read_register.packet_payload);
+		rl_pkt_return_slot(&rl_pkts, workq_read_register.packet_payload);
 	}
 }
