@@ -4,7 +4,7 @@
 #include <nfp.h>
 #include <nfp/me.h>
 #include <nfp/mem_ring.h> // should add the flowenv workq functions...
-#include <nfp_mem_workq.h>
+//#include <nfp_mem_workq.h>
 #include "rl-proto.h"
 #include "rl.h"
 #include "rl-pkt-store.h"
@@ -18,8 +18,20 @@
 // https://github.com/open-nfpsw/p4c_firewall/blob/master/dynamic_rule_fw/plugin.c
 
 // ring head and tail on i25 or emem1
-#define RL_RING_NUMBER 4
-volatile __declspec(import, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024];
+//#define RL_RING_NUMBER 4
+//volatile __declspec(import, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024];
+
+#define RL_RING_NUMBER 129
+//volatile __declspec(export, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
+
+volatile __emem_n(0) __declspec(import, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024];
+
+//volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
+//_NFP_CHIPRES_ASM(.alloc_resource rnum emem0_queues global RL_RING_NUMBER)
+
+
+//MEM_RING_INIT_MURN(rl_mem_workq, 512 * 1024, emem0, RL_RING_NUMBER);
+
 __declspec(import, emem) struct rl_pkt_store rl_pkts;
 
 // Seems to be some  magic naming here: this connects to the p4 action "filter_func"
@@ -115,10 +127,17 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
  		*
  		* Note that no work queue overflow checking is performed.
  		*/
-		mem_workq_add_work(RL_RING_NUMBER, mem_workq, &workq_write_register, RL_WORK_LWS * sizeof(uint32_t));
+		mem_workq_add_work(
+			RL_RING_NUMBER,
+			mem_ring_get_addr(rl_mem_workq),
+			&workq_write_register,
+			RL_WORK_LWS * sizeof(uint32_t)
+		);
 
-		//return PIF_PLUGIN_RETURN_DROP;
-		return PIF_PLUGIN_RETURN_FORWARD;
+		__implicit_read(&payload);
+
+		return PIF_PLUGIN_RETURN_DROP;
+		//return PIF_PLUGIN_RETURN_FORWARD;
 	} else {
 		// p4 cfg should make sure that only RL packets get stuck here.
 		// This should just pass over any packets which aren't RL.

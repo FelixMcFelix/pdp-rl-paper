@@ -1,9 +1,9 @@
 #include <memory.h>
 #include <nfp.h>
 #include <nfp/me.h>
-#include <nfp_mem_ring.h>
-#include <nfp_mem_workq.h>
-//#include <nfp/mem_ring.h>
+//#include <nfp_mem_ring.h>
+//#include <nfp_mem_workq.h>
+#include <nfp/mem_ring.h>
 #include "rl.h"
 #include "rl-pkt-store.h"
 #include "pif_parrep.h"
@@ -16,8 +16,13 @@ __declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 __declspec(export, emem) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
-#define RL_RING_NUMBER 4
-volatile __declspec(export, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t mem_workq[512*1024] = {0};
+#define RL_RING_NUMBER 129
+//volatile __declspec(export, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
+volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
+_NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER global 1)
+//_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
+
+// MEM_RING_INIT_MURN(rl_mem_workq, 524288, emem0, RL_RING_NUMBER);
 
 __declspec(export, emem) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
@@ -236,8 +241,7 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 }
 
 main() {
-	unsigned int mu_island = 1;
-	unsigned int ring_number = (mu_island << 10) | RL_RING_NUMBER;
+	mem_ring_addr_t r_addr;
 	SIGNAL sig;
 
 	if (__ctx() == 0) {
@@ -251,7 +255,10 @@ main() {
 
 		// try read some work?
 		init_rl_pkt_store(&rl_pkts, inpkt_buffer);
-		cmd_mem_ring_init(ring_number, RING_SIZE_512K, mem_workq, mem_workq, 0);
+		//mem_ring_init(ring_number, RING_SIZE_512K, mem_workq, mem_workq, 0);
+		r_addr = mem_workq_setup(RL_RING_NUMBER, rl_mem_workq, 512 * 1024);
+	} else {
+		r_addr = mem_ring_get_addr(rl_mem_workq);
 	}
 
 	t1_tiles[0] = __ctx();
@@ -265,7 +272,7 @@ main() {
 	while (1) {
 		__declspec(read_reg) struct rl_work_item workq_read_register;
 
-		cmd_mem_workq_add_thread(ring_number, &workq_read_register, RL_WORK_LWS, ctx_swap, &sig);
+		mem_workq_add_thread(RL_RING_NUMBER, r_addr, &workq_read_register, RL_WORK_LWS);
 
 		// NOTE: look into using the header validity fields which are part of PIF.
 		// Failing that, drop the magic number...
