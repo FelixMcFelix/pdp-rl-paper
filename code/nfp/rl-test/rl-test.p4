@@ -14,7 +14,7 @@ header ipv4_t {
     bit<16> total_len;
     bit<16> identification;
     bit<3> flags;
-    bit<15> frag_offset;
+    bit<13> frag_offset;
     bit<8> ttl;
     bit<8> protocol;
     bit<16> header_cksum;

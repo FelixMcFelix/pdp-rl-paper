@@ -1,5 +1,5 @@
 use byteorder::{
-	LittleEndian,
+	BigEndian,
 	WriteBytesExt,
 };
 use enum_primitive::*;
@@ -462,22 +462,22 @@ fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		body.write_u16::<LittleEndian>(setup.setup.n_dims)?;
-		body.write_u16::<LittleEndian>(setup.setup.tiles_per_dim)?;
-		body.write_u16::<LittleEndian>(setup.setup.tilings_per_set)?;
-		body.write_u16::<LittleEndian>(setup.setup.n_actions)?;
+		body.write_u16::<BigEndian>(setup.setup.n_dims)?;
+		body.write_u16::<BigEndian>(setup.setup.tiles_per_dim)?;
+		body.write_u16::<BigEndian>(setup.setup.tilings_per_set)?;
+		body.write_u16::<BigEndian>(setup.setup.n_actions)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.epsilon.numer)?;
-		body.write_i32::<LittleEndian>(setup.setup.epsilon.denom)?;
+		body.write_i32::<BigEndian>(setup.setup.epsilon.numer)?;
+		body.write_i32::<BigEndian>(setup.setup.epsilon.denom)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.alpha.numer)?;
-		body.write_i32::<LittleEndian>(setup.setup.alpha.denom)?;
+		body.write_i32::<BigEndian>(setup.setup.alpha.numer)?;
+		body.write_i32::<BigEndian>(setup.setup.alpha.denom)?;
 
-		body.write_i32::<LittleEndian>(setup.setup.epsilon_decay_amt)?;
-		body.write_u32::<LittleEndian>(setup.setup.epsilon_decay_freq)?;
+		body.write_i32::<BigEndian>(setup.setup.epsilon_decay_amt)?;
+		body.write_u32::<BigEndian>(setup.setup.epsilon_decay_freq)?;
 
 		for el in setup.setup.maxes.iter().chain(setup.setup.mins.iter()) {
-			body.write_i32::<LittleEndian>(*el)?;
+			body.write_i32::<BigEndian>(*el)?;
 		}
 
 		let space_end = body.len();
@@ -499,14 +499,14 @@ fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResult<us
 		let space_start = body.len();
 
 		for el in tile_cfg.tiling.tilings.iter() {
-			body.write_u16::<LittleEndian>(el.dims.len() as u16)?;
+			body.write_u16::<BigEndian>(el.dims.len() as u16)?;
 
 			if let Some(location) = el.location {
 				body.write_u8(location)?;
 			}
 
 			for dim in el.dims.iter() {
-				body.write_u16::<LittleEndian>(*dim)?;
+				body.write_u16::<BigEndian>(*dim)?;
 			}
 		}
 
@@ -547,12 +547,12 @@ fn write_and_send_policy(
 
 	for (i, tile) in policy.enumerate() {
 		if packet_offset.is_none() {
-			(&mut buf[cursor..]).write_u32::<LittleEndian>(i as u32).unwrap();
+			(&mut buf[cursor..]).write_u32::<BigEndian>(i as u32).unwrap();
 			cursor += std::mem::size_of::<u32>();
 			packet_offset = Some(i);
 		}
 
-		(&mut buf[cursor..]).write_i32::<LittleEndian>(tile).unwrap();
+		(&mut buf[cursor..]).write_i32::<BigEndian>(tile).unwrap();
 		cursor += std::mem::size_of::<i32>();
 		curr_send_tiles += 1;
 
@@ -595,10 +595,10 @@ fn write_and_send_sparse_policy(
 			let mut body = &mut buf[base_offset..];
 			let space_start = body.len();
 
-			body.write_u32::<LittleEndian>(part.offset);
+			body.write_u32::<BigEndian>(part.offset);
 
 			for tile in part.data.iter() {
-				body.write_i32::<LittleEndian>(*tile).unwrap();
+				body.write_i32::<BigEndian>(*tile).unwrap();
 			}
 
 			base_offset + space_start - body.len()

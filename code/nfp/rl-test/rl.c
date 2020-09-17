@@ -4,6 +4,7 @@
 //#include <nfp_mem_ring.h>
 //#include <nfp_mem_workq.h>
 #include <nfp/mem_ring.h>
+#include <rtl.h>
 #include "rl.h"
 #include "rl-pkt-store.h"
 #include "pif_parrep.h"
@@ -17,15 +18,14 @@ __declspec(export, emem) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
 #define RL_RING_NUMBER 129
-//volatile __declspec(export, emem, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
 volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
 _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER global 1)
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
-// MEM_RING_INIT_MURN(rl_mem_workq, 524288, emem0, RL_RING_NUMBER);
-
 __declspec(export, emem) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
+
+__declspec(export, emem) struct rl_work_item test_work;
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -81,9 +81,15 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	// tiles_per_dim (u16)
 	// tilings_per_set (u16)
 	// n_actions (u16)
-	memcpy_cls_mem(
-		(void*)&(cfg->num_dims),
-		pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))),
+	//memcpy_cls_mem(
+	//	(void*)&(cfg->num_dims),
+	//	pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))),
+	//	4 * sizeof(uint16_t)
+	//);
+
+	ua_memcpy_mem40_mem40(
+		&(cfg->num_dims), 0,
+		pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))), 0,
 		4 * sizeof(uint16_t)
 	);
 
@@ -91,19 +97,31 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	// alpha (frac = 2xtile_t)
 	// epsilon_d (tile_t)
 	// epsilon_f (uint32_t)
-	memcpy_cls_mem(
-		(void*)&(cfg->epsilon),
-		pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))),
+	//memcpy_cls_mem(
+	//	(void*)&(cfg->epsilon),
+	//	pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))),
+	//	2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t)
+	//);
+
+	ua_memcpy_mem40_mem40(
+		&(cfg->epsilon), 0,
+		pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))), 0,
 		2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t)
 	);
 
 	// n x tile_t maxes
 	// n x tile_t mins
-	memcpy_cls_mem(
-		(void*)&(cfg->maxes),
-		pkt->packet_payload + cursor,
+	ua_memcpy_mem40_mem40(
+		&(cfg->maxes), 0,
+		pkt->packet_payload + cursor, 0,
 		cfg->num_dims * 2 * sizeof(tile_t)
 	);
+
+	//memcpy_cls_mem(
+	//	(void*)&(cfg->maxes),
+	//	pkt->packet_payload + cursor,
+	//	cfg->num_dims * 2 * sizeof(tile_t)
+	//);
 
 	// Fill in width, shift_amt, adjusted_max...
 	for (dim = 0; dim < cfg->num_dims; ++dim) {
@@ -282,6 +300,7 @@ main() {
 				// type should occur at header + 4 * (PIF_PARREP_rct_OFF_LW - PIF_PARREP_rt_OFF_LW)
 				switch (workq_read_register.rl_header[4 * (PIF_PARREP_rct_OFF_LW - PIF_PARREP_rt_OFF_LW)]) {
 					case 0:
+						test_work = workq_read_register;
 						setup_packet(&cfg, &workq_read_register);
 						break;
 					case 1:

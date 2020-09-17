@@ -43,69 +43,73 @@ enum tile_location {
 
 // FIXME: reorder these get decent field alignment & small size.
 
+// 8 byte, 4-b abigned
 struct tile_fraction {
 	tile_t numerator;
 	tile_t divisor;
 };
 
 // Okay time for control block info.
+// u32 -> 4B align
+// 24B size
 struct tiling_options {
-	uint16_t num_dims;
-	uint16_t dims[T3_MAX_DIMS];
+	uint16_t num_dims; // 0
+	uint16_t dims[T3_MAX_DIMS]; // 2
 
 	// enum tile_location
-	uint8_t location;
-	uint32_t offset;
+	uint8_t location; // 4
+	uint32_t offset; // 8
 
 	// Might need these cached to simplify tile counting.
 	// These are computed once the policy structure is installed...
-	uint32_t start_tile;
-	uint32_t end_tile;
-	uint32_t tiling_size;
+	uint32_t start_tile; //12
+	uint32_t end_tile; //16
+	uint32_t tiling_size; //20 -> 24
 };
 
 struct rl_config {
 	//Need to store info for each active tiling.
 	struct tiling_options tiling_sets[T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS];
-	uint16_t num_tilings;
+	uint16_t num_tilings; // (8 + 8 + 1) * 24 = 408
 
-	uint16_t num_dims;
-	uint16_t tiles_per_dim;
-	uint16_t tilings_per_set;
-	uint16_t num_actions;
+	uint16_t num_dims; // 410
+	uint16_t tiles_per_dim; // 412
+	uint16_t tilings_per_set; // 414
+	uint16_t num_actions; // 416 -> 418
 
-	uint32_t first_tier_tile[3];
+	uint32_t first_tier_tile[3]; // 420 -> 432
 
 	// one max/min pair per dimension.
 	// populated by config packets.
-	tile_t maxes[RL_DIMENSION_MAX];
-	tile_t mins[RL_DIMENSION_MAX];
+	tile_t maxes[RL_DIMENSION_MAX]; // 432 -> 512
+	tile_t mins[RL_DIMENSION_MAX]; // + 20*4 =  512 -> 592
 
 	// 1-D width of a tile in each dimension.
 	// must be computed!
 	// this is w' = (max - min) / (n_tiles_per_dim + 1)
-	tile_t width[RL_DIMENSION_MAX];
+	tile_t width[RL_DIMENSION_MAX]; // 592 -> 672
 	// every tiling in the same set is then shifted by n * this.
 	// This is w'/tilings_per_set
-	tile_t shift_amt[RL_DIMENSION_MAX];
+	tile_t shift_amt[RL_DIMENSION_MAX]; // 672 -> 752
 	// The upper bound of the wide tiling. Precomputed. max + w'
-	tile_t adjusted_maxes[RL_DIMENSION_MAX];
+	tile_t adjusted_maxes[RL_DIMENSION_MAX]; // 752 -> 832
 
 	// exploration param.
 	// the decay in the numerator, and how often to do so.
-	struct tile_fraction epsilon;
-	struct tile_fraction alpha;
-	tile_t epsilon_decay_amt;
-	uint32_t epsilon_decay_freq;
+	struct tile_fraction epsilon; // 832
+	struct tile_fraction alpha; // 840
+	tile_t epsilon_decay_amt; // 848
+	uint32_t epsilon_decay_freq; // 852
+	// 856
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
 #define RL_HEADER_BYTES 16
 
 struct rl_work_item {
-	__declspec(emem) __addr40 uint8_t *packet_payload;
-	uint16_t packet_size;
-	uint8_t rl_header[RL_HEADER_BYTES];
+	__declspec(emem) __addr40 uint8_t *packet_payload; // 8?
+	uint8_t rl_header[RL_HEADER_BYTES]; // 24
+	uint16_t packet_size; // 26
 };
 
 // idea -> round up to next whole LW, i.e. 4-bytes.
