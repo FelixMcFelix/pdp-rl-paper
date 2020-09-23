@@ -3,6 +3,7 @@
 #include <nfp/me.h>
 //#include <nfp_mem_ring.h>
 //#include <nfp_mem_workq.h>
+#include <nfp/mem_bulk.h>
 #include <nfp/mem_ring.h>
 #include <rtl.h>
 #include "rl.h"
@@ -71,9 +72,22 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 	return out_idx;
 }
 
+union two_u16s {
+	uint32_t raw;
+	uint16_t ints[2];
+};
+
+union four_u16s {
+	uint64_t raw;
+	uint32_t words[2];
+	uint16_t shorts[4];
+};
+
 void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
 	int cursor = 0;
+	__declspec(xfer_read_reg) union two_u16s word;
+	__declspec(xfer_read_reg) union four_u16s bigword;
 
 	// setup information.
 	// rest of packet body is:
@@ -81,47 +95,67 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	// tiles_per_dim (u16)
 	// tilings_per_set (u16)
 	// n_actions (u16)
-	//memcpy_cls_mem(
-	//	(void*)&(cfg->num_dims),
-	//	pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))),
-	//	4 * sizeof(uint16_t)
-	//);
-
-	ua_memcpy_mem40_mem40(
-		&(cfg->num_dims), 0,
-		pkt->packet_payload + (cursor += (4 * sizeof(uint16_t))), 0,
-		4 * sizeof(uint16_t)
-	);
-
 	// epsilon (frac = 2xtile_t)
 	// alpha (frac = 2xtile_t)
 	// epsilon_d (tile_t)
 	// epsilon_f (uint32_t)
-	//memcpy_cls_mem(
-	//	(void*)&(cfg->epsilon),
-	//	pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))),
-	//	2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t)
-	//);
-
-	ua_memcpy_mem40_mem40(
-		&(cfg->epsilon), 0,
-		pkt->packet_payload + (cursor += (2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t))), 0,
-		2 * sizeof(struct tile_fraction) + sizeof(tile_t) + sizeof(uint32_t)
+	mem_read64(
+		&(bigword.raw),
+		pkt->packet_payload,
+		sizeof(union four_u16s)
 	);
+	cursor += sizeof(union four_u16s);
+
+	cfg->num_dims = bigword.shorts[0];
+	cfg->tiles_per_dim = bigword.shorts[1];
+	cfg->tilings_per_set = bigword.shorts[2];
+	cfg->num_actions = bigword.shorts[3];
+
+	mem_read64(
+		&(bigword.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union four_u16s)
+	);
+	cursor += sizeof(union four_u16s);
+
+	cfg->epsilon.numerator = (tile_t) bigword.words[0];
+	cfg->epsilon.divisor = (tile_t) bigword.words[1];
+
+	mem_read64(
+		&(bigword.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union four_u16s)
+	);
+	cursor += sizeof(union four_u16s);
+
+	cfg->alpha.numerator = (tile_t) bigword.words[0];
+	cfg->alpha.divisor = (tile_t) bigword.words[1];
+
+	mem_read64(
+		&(bigword.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union four_u16s)
+	);
+	cursor += sizeof(union four_u16s);
+
+	cfg->epsilon_decay_amt = (tile_t) bigword.words[0];
+	cfg->epsilon_decay_freq = bigword.words[1];
 
 	// n x tile_t maxes
 	// n x tile_t mins
 	ua_memcpy_mem40_mem40(
 		&(cfg->maxes), 0,
 		pkt->packet_payload + cursor, 0,
-		cfg->num_dims * 2 * sizeof(tile_t)
+		cfg->num_dims * sizeof(tile_t)
 	);
 
-	//memcpy_cls_mem(
-	//	(void*)&(cfg->maxes),
-	//	pkt->packet_payload + cursor,
-	//	cfg->num_dims * 2 * sizeof(tile_t)
-	//);
+	cursor += cfg->num_dims * sizeof(tile_t);
+
+	ua_memcpy_mem40_mem40(
+		&(cfg->mins), 0,
+		pkt->packet_payload + cursor, 0,
+		cfg->num_dims * sizeof(tile_t)
+	);
 
 	// Fill in width, shift_amt, adjusted_max...
 	for (dim = 0; dim < cfg->num_dims; ++dim) {

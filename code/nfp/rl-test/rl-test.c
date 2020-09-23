@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <nfp.h>
 #include <nfp/me.h>
+#include <nfp/mem_bulk.h>
 #include <nfp/mem_ring.h> // should add the flowenv workq functions...
 #include <rtl.h>
 //#include <nfp_mem_workq.h>
