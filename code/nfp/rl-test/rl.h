@@ -2,6 +2,10 @@
 #define _RL_H
 
 #include <stdint.h>
+#include "pif_parrep.h"
+#include "callbackapi/pif_plugin.h"
+#include "callbackapi/pif_plugin_ins.h"
+#include "callbackapi/pif_plugin_rct.h"
 
 typedef int32_t tile_t;
 
@@ -104,16 +108,30 @@ struct rl_config {
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
-#define RL_HEADER_BYTES 16
+#define RL_HEADER_PARREP_START (PIF_PARREP_T4_OFF_LW << 2)
+// NOTE: need to manually update according to size.
+#define RL_HEADER_LEN_LW (PIF_PARREP_ins_LEN_LW)
+#define RL_HEADER_BYTES_EXACT (RL_HEADER_LEN_LW << 2)
+#define RL_HEADER_BYTES (((RL_HEADER_BYTES_EXACT + 7) >> 3) << 3)
+
+// want ctl data, tier4
+
+union t4_data {
+	uint32_t raw[1];
+	struct pif_plugin_rct config;
+	struct pif_plugin_ins insert;
+};
 
 struct rl_work_item {
 	__declspec(emem) __addr40 uint8_t *packet_payload; // 8?
-	uint8_t rl_header[RL_HEADER_BYTES]; // 24
-	uint16_t packet_size; // 26
+	struct pif_parrep_ctldata ctldata; // 32
+	union t4_data parsed_fields;
+	uint16_t packet_size;
 };
 
 // idea -> round up to next whole LW, i.e. 4-bytes.
 #define RL_WORK_LWS ((sizeof(struct rl_work_item) + 3) >> 2)
+#define RL_WORK_LEN_ALIGN (RL_WORK_LWS << 2)
 
 struct policy_install_data {
 	uint32_t tile;

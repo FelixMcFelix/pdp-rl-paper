@@ -40,37 +40,9 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		unsigned int mu_island = 1;
 		unsigned int ring_number = (mu_island << 10) | RL_RING_NUMBER;
 		struct rl_work_item work_to_send;
-		// __declspec(emem) __addr40 uint8_t *slot;
 
-		// See "out/callbackapi/pif_plugin_rt.h"
-		// Only these should come up...
-
-		// SEE pif_parrep.c !!!
-		// I believe these measures are in logn words, and SEVERAL MIGHT OVERLAP!
-		// Identify first/last bytes we need in all cases...
-		// These seem to be all laid out as one big block; just need to find the offsets.
-
-		// RL Type, if it exists (it should).
-		//__lmem uint32_t *lb = headers + PIF_PARREP_rt_OFF_LW;
-		// RL cfg, if it exists.
-		//__lmem struct pif_header_rct *rct = (__lmem struct pif_header_rct *) (headers + PIF_PARREP_rct_OFF_LW);
-		// RL insert command.
-		//__lmem uint32_t *lm32_2 = headers + PIF_PARREP_ins_OFF_LW;
-
-		// Upper bound is at... headers + PIF_PARREP_standard_metadata_OFF_LW
-		// assuming nothing changes in the P4 SDK impl (it won't).
-		// Okay, now copy this crap into mem,
-		//memcpy_lmem_lmem(
-		//	(void*)work_to_send.rl_header,
-		//	(void*)(headers + PIF_PARREP_rt_OFF_LW),
-		//	(PIF_PARREP_standard_metadata_OFF_LW - PIF_PARREP_rt_OFF_LW) * sizeof(uint32_t)
-		//);
-
-		ua_memcpy_mem40_mem40(
-			(void*)work_to_send.rl_header, 0,
-			(void*)(headers + PIF_PARREP_rt_OFF_LW), 0,
-			(PIF_PARREP_standard_metadata_OFF_LW - PIF_PARREP_rt_OFF_LW) * sizeof(uint32_t)
-		);
+		work_to_send.ctldata = *(__lmem struct pif_parrep_ctldata *)headers;
+		work_to_send.parsed_fields.raw[0] = headers[PIF_PARREP_T4_OFF_LW];
 
 		// Allocate the space here somehow...
 		// Using RL-island's yonder free-list
@@ -78,10 +50,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		work_to_send.packet_payload = rl_pkt_get_slot(&rl_pkts);
 
 		test_write_register = sizeof(__declspec(emem) __addr40 uint8_t *);
-		//mem_write32(&test_write_register,
-		//	work_to_send.packet_payload,
-		//	4);
-
+	
 		// packet my be split between "cluster target memory"
 		// and "MU"
 		// (memory unit, includes imem, emem, ctm)
@@ -122,9 +91,6 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		work_to_send.packet_size = (uint16_t)(count + mu_len);
 		workq_write_register = work_to_send;
 
-		// FIXME: change this (and the receive end) to make sure that the right
-		// workq size is used (need to round up to next amount of uint_32 words).
-
 		// I believe the doc-compliant version of these might be located in <nfp/mem_ring.h> (flowenv/lib/...)
 		//cmd_mem_workq_add_work(ring_number, &workq_write_register, RL_WORK_LWS, sig_done, &sig);
 		/**
@@ -140,7 +106,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 			RL_RING_NUMBER,
 			mem_ring_get_addr(rl_mem_workq),
 			&workq_write_register,
-			RL_WORK_LWS * sizeof(uint32_t)
+			RL_WORK_LEN_ALIGN
 		);
 
 		__implicit_read(&payload);
@@ -148,7 +114,6 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		__implicit_read(&count);
 
 		return PIF_PLUGIN_RETURN_DROP;
-		//return PIF_PLUGIN_RETURN_FORWARD;
 	} else {
 		// p4 cfg should make sure that only RL packets get stuck here.
 		// This should just pass over any packets which aren't RL.

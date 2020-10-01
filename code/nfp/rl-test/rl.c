@@ -75,12 +75,14 @@ uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
 union two_u16s {
 	uint32_t raw;
 	uint16_t ints[2];
+	uint8_t bytes[4];
 };
 
 union four_u16s {
 	uint64_t raw;
 	uint32_t words[2];
 	uint16_t shorts[4];
+	uint8_t bytes[8];
 };
 
 void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
@@ -172,6 +174,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 	// then if n_dims != 0:
 	//  tile_location
 	//  n x u16 (dimensions in tiling)
+	__declspec(xfer_read_reg) union two_u16s word;
 
 	int cursor = 0;
 	int num_tilings = 0;
@@ -181,18 +184,18 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 
 	while(cursor < pkt->packet_size) {
 		uint32_t tiles_in_tiling = cfg->num_actions;
-		uint16_t num_dims;
+
+		mem_read32(
+			&(word.raw),
+			pkt->packet_payload + cursor,
+			sizeof(union two_u16s)
+		);
+		cursor += sizeof(uint16_t);
 
 		// need to switch on num_dims
-		memcpy_cls_mem(
-			(void*)&(cfg->tiling_sets[num_tilings].num_dims),
-			pkt->packet_payload + (cursor += sizeof(uint16_t)),
-			sizeof(uint16_t)
-		);
+		cfg->tiling_sets[num_tilings].num_dims = word.ints[0];
 
-		num_dims = cfg->tiling_sets[num_tilings].num_dims;
-
-		switch (num_dims) {
+		switch (word.ints[0]) {
 			case 0:
 				// bias tile
 				// in a clean packet, this ALWAYS comes first if it does appear.
@@ -206,19 +209,18 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 			default:
 				// normal tile
 				// location (u8)
-				memcpy_cls_mem(
-					(void*)&(cfg->tiling_sets[num_tilings].location),
-					pkt->packet_payload + (cursor += sizeof(uint8_t)),
-					sizeof(uint8_t)
-				);
-				// dims (num_dims * uint16_t)
-				memcpy_cls_mem(
-					(void*)&(cfg->tiling_sets[num_tilings].dims),
-					pkt->packet_payload + (cursor += num_dims * sizeof(uint16_t)),
-					num_dims * sizeof(uint16_t)
-				);
+				cfg->tiling_sets[num_tilings].location = word.bytes[2];
+				cursor += sizeof(uint8_t);
 
-				tiles_in_tiling *= cfg->tilings_per_set * cfg->tiles_per_dim * cfg->tiling_sets[num_tilings].num_dims;
+				// dims (num_dims * uint16_t)
+				ua_memcpy_mem40_mem40(
+					&(cfg->tiling_sets[num_tilings].dims), 0,
+					pkt->packet_payload + cursor, 0,
+					word.ints[0] * sizeof(uint16_t)
+				);
+				cursor += word.ints[0] * sizeof(uint16_t);
+
+				tiles_in_tiling *= cfg->tilings_per_set * cfg->tiles_per_dim * word.ints[0];
 
 				// need to handle offset reset to 0 on tier change
 				// Assumes that locs are specified in-order in the tiling packet.
@@ -324,15 +326,20 @@ main() {
 	while (1) {
 		__declspec(read_reg) struct rl_work_item workq_read_register;
 
-		mem_workq_add_thread(RL_RING_NUMBER, r_addr, &workq_read_register, RL_WORK_LWS);
+		mem_workq_add_thread(
+			RL_RING_NUMBER,
+			r_addr,
+			&workq_read_register,
+			RL_WORK_LEN_ALIGN
+		);
 
 		// NOTE: look into using the header validity fields which are part of PIF.
 		// Failing that, drop the magic number...
-		switch (workq_read_register.rl_header[0]) {
-			case 0:
+		switch (workq_read_register.ctldata.t4_type) {
+			case PIF_PARREP_TYPE_rct:
 				//cfg
 				// type should occur at header + 4 * (PIF_PARREP_rct_OFF_LW - PIF_PARREP_rt_OFF_LW)
-				switch (workq_read_register.rl_header[4 * (PIF_PARREP_rct_OFF_LW - PIF_PARREP_rt_OFF_LW)]) {
+				switch (workq_read_register.parsed_fields.config.cfg_type) {
 					case 0:
 						test_work = workq_read_register;
 						setup_packet(&cfg, &workq_read_register);
@@ -344,13 +351,14 @@ main() {
 						break;
 				}
 				break;
-			case 1:
+			case PIF_PARREP_TYPE_ins:
 				//ins
 				// block policy insertion
 				policy_block_copy(&cfg, &workq_read_register);
 				break;
-			case 2:
+			case 999:
 				//state
+				//fixme: not got a code for this yet
 			default:
 				break;
 		}
