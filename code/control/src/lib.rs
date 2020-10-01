@@ -455,8 +455,8 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets, t_cfg: &TransportConfig) {
 
 fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(&setup.global, &setup.transport, buf);
-	cursor += build_type(buf, RlType::Config);
-	cursor += build_config_type(buf, RlConfigType::Setup);
+	cursor += build_type(&mut buf[cursor..], RlType::Config);
+	cursor += build_config_type(&mut buf[cursor..], RlConfigType::Setup);
 
 	{
 		let mut body = &mut buf[cursor..];
@@ -491,8 +491,8 @@ fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
 
 fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(&tile_cfg.global, &tile_cfg.transport, buf);
-	cursor += build_type(buf, RlType::Config);
-	cursor += build_config_type(buf, RlConfigType::Tiles);
+	cursor += build_type(&mut buf[cursor..], RlType::Config);
+	cursor += build_config_type(&mut buf[cursor..], RlConfigType::Tiles);
 
 	{
 		let mut body = &mut buf[cursor..];
@@ -521,7 +521,7 @@ fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResult<us
 
 fn build_policy_packet_base(tile_cfg: &PolicyConfig, buf: &mut [u8]) -> IoResult<(usize, TransportOffsets)> {
 	let (mut cursor, offsets) = build_transport(&tile_cfg.global, &tile_cfg.transport, buf);
-	cursor += build_type(buf, RlType::Insert);
+	cursor += build_type(&mut buf[cursor..], RlType::Insert);
 
 	// finalize(&mut buf[..cursor], &offsets, &tile_cfg.transport);
 
