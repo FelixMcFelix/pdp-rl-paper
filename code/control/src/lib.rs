@@ -305,6 +305,11 @@ impl<'a> PolicyConfig<'a> {
 	}
 }
 
+pub struct FakePolicyGeneratorConfig {
+	pub tiling: TilingSet,
+	pub setup: Setup,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PolicyFormat<T> {
 	Sparse(Vec<SparsePolicyEntry<T>>),
@@ -680,4 +685,79 @@ pub fn insert_policy(cfg: &mut PolicyConfig) {
 			write_and_send_policy(cfg, &mut buffer, base, d.into_iter(), &offsets);
 		},
 	}
+}
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct Setup {
+// 	pub n_dims: u16,
+
+// 	pub tiles_per_dim: u16,
+
+// 	pub tilings_per_set: u16,
+
+// 	pub n_actions: u16,
+
+// 	pub epsilon: RatioDef<Tile>,
+
+// 	pub alpha: RatioDef<Tile>,
+
+// 	pub epsilon_decay_amt: Tile,
+
+// 	pub epsilon_decay_freq: u32,
+
+// 	pub maxes: Vec<Tile>,
+
+// 	pub mins: Vec<Tile>,
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct TilingSet {
+// 	pub tilings: Vec<Tiling>,
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct Tiling {
+// 	pub dims: Vec<u16>,
+// 	pub location: Option<u8>,
+// }
+
+// pub struct FakePolicyGeneratorConfig {
+// 	pub tiling: TilingSet,
+// 	pub setup: Setup,
+// }
+
+pub fn generate_policy(cfg: &FakePolicyGeneratorConfig) {
+	let mut tiles: usize = 0 as usize;
+
+	let a = cfg.setup.n_actions as usize;
+	let s = cfg.setup.tilings_per_set as usize;
+
+	let n = cfg.setup.tiles_per_dim as usize;
+
+	let mut bias = false;
+
+	for tiling in cfg.tiling.tilings.iter() {
+		if tiling.location.is_none() {
+			bias = true;
+		} else {
+			tiles += n.pow(tiling.dims.len() as u32);
+			// println!("{:?}", tiles);
+		}
+	}
+
+	let cap = (a * s * tiles) + if bias {
+		a
+	} else {
+		0
+	};
+
+	let mut policy_data = vec![0; cap];
+
+	for (i, val) in policy_data[0..].iter_mut().enumerate() {
+		*val = ((i as Tile) % 20) - 10;
+	}
+
+	let policy = Policy::Quantised{ data: PolicyFormat::Dense(policy_data) };
+
+	println!("{}", serde_json::to_string_pretty(&policy).unwrap());
 }

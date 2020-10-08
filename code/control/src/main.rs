@@ -4,6 +4,7 @@ use clap::{
 	SubCommand,
 };
 use control::{
+	FakePolicyGeneratorConfig,
 	GlobalConfig,
 	PolicyConfig,
 	SetupConfig,
@@ -129,6 +130,16 @@ fn main() {
 				.help("Input JSON file used to build policy packets.")
 				.takes_value(true)
 				.required(true)))
+		.subcommand(SubCommand::with_name("fake-policy")
+			.about("Generates a dummy policy according to the tiling and config information given.")
+			.arg(Arg::with_name("SETUP")
+				.help("Input JSON file used to build setup packet.")
+				.takes_value(true)
+				.required(true))
+			.arg(Arg::with_name("TILING")
+				.help("Input JSON file used to build tiling packet.")
+				.takes_value(true)
+				.required(true)))
 		.get_matches();
 
 	match matches.subcommand() {
@@ -163,7 +174,7 @@ fn main() {
 			}
 
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
-				.expect("Setup file couldnot be opened.");
+				.expect("Setup file could not be opened.");
 
 			cfg.setup = serde_json::from_reader(BufReader::new(setup_file))
 				.expect("Invalid setup packet config file!");
@@ -200,7 +211,7 @@ fn main() {
 			}
 
 			let setup_file = File::open(sub_m.value_of("TILING").unwrap())
-				.expect("Tiling file couldnot be opened.");
+				.expect("Tiling file could not be opened.");
 
 			cfg.tiling = serde_json::from_reader(BufReader::new(setup_file))
 				.expect("Invalid setup packet config file!");
@@ -238,7 +249,7 @@ fn main() {
 			}
 
 			let setup_file = File::open(sub_m.value_of("POLICY").unwrap())
-				.expect("Tiling file couldnot be opened.");
+				.expect("Tiling file could not be opened.");
 
 			cfg.policy = serde_json::from_reader(BufReader::new(setup_file))
 				.expect("Invalid setup packet config file!");
@@ -247,9 +258,25 @@ fn main() {
 			println!("{:#?}", cfg.policy);
 
 			control::insert_policy(&mut cfg);
-		}
+		},
+		("fake-policy", Some(sub_m)) => {
+			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
+				.expect("Setup file could not be opened.");
+
+			let tiling_file = File::open(sub_m.value_of("TILING").unwrap())
+				.expect("Tiling file could not be opened.");
+
+			let cfg = FakePolicyGeneratorConfig {
+				tiling: serde_json::from_reader(BufReader::new(tiling_file))
+					.expect("Invalid tiling packet config file!"),
+				setup: serde_json::from_reader(BufReader::new(setup_file))
+					.expect("Invalid setup packet config file!"),
+			};
+
+			control::generate_policy(&cfg);
+		},
 		_ => {
 			println!("{}", matches.usage());
-		}
+		},
 	}
 }

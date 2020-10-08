@@ -1,6 +1,6 @@
 {
-	"n_dims":3,
-	"tiles_per_dim":1,
+	"n_dims":4,
+	"tiles_per_dim":3,
 	"tilings_per_set":1,
 	"n_actions":2,
 	"epsilon":{
@@ -16,11 +16,13 @@
 	"maxes":[
 		1000,
 		100,
-		500
+		500,
+		10
 	],
 	"mins":[
 		-1000,
 		0,
-		0
+		0,
+		-10
 	]
 }
