@@ -247,48 +247,59 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 }
 
 void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+	__declspec(xfer_read_reg) union four_u16s bigword;
 	uint8_t loc;
 	int cursor = 0;
-	struct policy_install_data info;
 	uint32_t offset;
 
-	memcpy_lmem_mem(
-		(void*)&info,
-		pkt->packet_payload + (cursor += sizeof(struct policy_install_data)),
-		sizeof(struct policy_install_data)
+	/*
+	struct policy_install_data {
+		uint32_t tile;
+		uint16_t count;
+	};
+	*/
+	// bigword.words[0] = info.tile
+	// bigword.shorts[2] = info.count
+	mem_read64(
+		&(bigword.raw),
+		pkt->packet_payload,
+		sizeof(union four_u16s)
 	);
+
+	cursor += sizeof(uint32_t) + sizeof(uint16_t);
+
 
 	for (loc = 0; loc < 3; ++loc) {
 		uint32_t loc_start = cfg->first_tier_tile[loc];
-		if (info.tile < loc_start) {
+		if (bigword.words[0] < loc_start) {
 			loc -= 1;
 			break;
 		}
 	}
 
 	// gives us the "inner offset" in the active policy tier.
-	offset = info.tile - cfg->first_tier_tile[loc];
+	offset = bigword.words[0] - cfg->first_tier_tile[loc];
 
 	switch (loc) {
 		case TILE_LOCATION_T1:
-			memcpy_cls_mem(
-				(void*)&(t1_tiles[offset]),
-				pkt->packet_payload + cursor,
-				info.count * sizeof(tile_t)
+			ua_memcpy_cls40_mem40(
+				&(t1_tiles[offset]), 0,
+				pkt->packet_payload + cursor, 0,
+				bigword.shorts[2] * sizeof(tile_t)
 			);
 			break;
 		case TILE_LOCATION_T2:
-			memcpy_lmem_mem(
-				(void*)&(t2_tiles[offset]),
-				pkt->packet_payload + cursor,
-				info.count * sizeof(tile_t)
+			ua_memcpy_mem40_mem40(
+				&(t2_tiles[offset]), 0,
+				pkt->packet_payload + cursor, 0,
+				bigword.shorts[2] * sizeof(tile_t)
 			);
 			break;
 		case TILE_LOCATION_T3:
-			memcpy_lmem_mem(
-				(void*)&(t3_tiles[offset]),
-				pkt->packet_payload + cursor,
-				info.count * sizeof(tile_t)
+			ua_memcpy_mem40_mem40(
+				&(t3_tiles[offset]), 0,
+				pkt->packet_payload + cursor, 0,
+				bigword.shorts[2] * sizeof(tile_t)
 			);
 			break;
 	}
@@ -337,8 +348,6 @@ main() {
 		// Failing that, drop the magic number...
 		switch (workq_read_register.ctldata.t4_type) {
 			case PIF_PARREP_TYPE_rct:
-				//cfg
-				// type should occur at header + 4 * (PIF_PARREP_rct_OFF_LW - PIF_PARREP_rt_OFF_LW)
 				switch (workq_read_register.parsed_fields.config.cfg_type) {
 					case 0:
 						test_work = workq_read_register;
@@ -352,7 +361,6 @@ main() {
 				}
 				break;
 			case PIF_PARREP_TYPE_ins:
-				//ins
 				// block policy insertion
 				policy_block_copy(&cfg, &workq_read_register);
 				break;
