@@ -246,8 +246,8 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 	cfg->num_tilings = num_tilings;
 }
 
-void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
-	__declspec(xfer_read_reg) union four_u16s bigword;
+void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint32_t tile) {
+	__declspec(xfer_read_reg) union two_u16s word;
 	uint8_t loc;
 	int cursor = 0;
 	uint32_t offset;
@@ -260,46 +260,46 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 	*/
 	// bigword.words[0] = info.tile
 	// bigword.shorts[2] = info.count
-	mem_read64(
-		&(bigword.raw),
+	mem_read32(
+		&(word.raw),
 		pkt->packet_payload,
-		sizeof(union four_u16s)
+		sizeof(union two_u16s)
 	);
 
-	cursor += sizeof(uint32_t) + sizeof(uint16_t);
+	cursor += + sizeof(uint16_t);
 
 
 	for (loc = 0; loc < 3; ++loc) {
 		uint32_t loc_start = cfg->first_tier_tile[loc];
-		if (bigword.words[0] < loc_start) {
+		if (tile < loc_start) {
 			loc -= 1;
 			break;
 		}
 	}
 
 	// gives us the "inner offset" in the active policy tier.
-	offset = bigword.words[0] - cfg->first_tier_tile[loc];
+	offset = tile - cfg->first_tier_tile[loc];
 
 	switch (loc) {
 		case TILE_LOCATION_T1:
 			ua_memcpy_cls40_mem40(
 				&(t1_tiles[offset]), 0,
 				pkt->packet_payload + cursor, 0,
-				bigword.shorts[2] * sizeof(tile_t)
+				word.ints[0] * sizeof(tile_t)
 			);
 			break;
 		case TILE_LOCATION_T2:
 			ua_memcpy_mem40_mem40(
 				&(t2_tiles[offset]), 0,
 				pkt->packet_payload + cursor, 0,
-				bigword.shorts[2] * sizeof(tile_t)
+				word.ints[0] * sizeof(tile_t)
 			);
 			break;
 		case TILE_LOCATION_T3:
 			ua_memcpy_mem40_mem40(
 				&(t3_tiles[offset]), 0,
 				pkt->packet_payload + cursor, 0,
-				bigword.shorts[2] * sizeof(tile_t)
+				word.ints[0] * sizeof(tile_t)
 			);
 			break;
 	}
@@ -362,7 +362,7 @@ main() {
 				break;
 			case PIF_PARREP_TYPE_ins:
 				// block policy insertion
-				policy_block_copy(&cfg, &workq_read_register);
+				policy_block_copy(&cfg, &workq_read_register, workq_read_register.parsed_fields.insert.offset);
 				break;
 			case 999:
 				//state

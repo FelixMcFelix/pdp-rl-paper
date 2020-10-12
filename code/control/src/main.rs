@@ -129,6 +129,14 @@ fn main() {
 			.arg(Arg::with_name("POLICY")
 				.help("Input JSON file used to build policy packets.")
 				.takes_value(true)
+				.required(true))
+			.arg(Arg::with_name("SETUP")
+				.help("Input JSON file used to build setup packet.")
+				.takes_value(true)
+				.required(true))
+			.arg(Arg::with_name("TILING")
+				.help("Input JSON file used to build tiling packet.")
+				.takes_value(true)
 				.required(true)))
 		.subcommand(SubCommand::with_name("fake-policy")
 			.about("Generates a dummy policy according to the tiling and config information given.")
@@ -248,11 +256,25 @@ fn main() {
 				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
-			let setup_file = File::open(sub_m.value_of("POLICY").unwrap())
+			let policy_file = File::open(sub_m.value_of("POLICY").unwrap())
 				.expect("Tiling file could not be opened.");
 
-			cfg.policy = serde_json::from_reader(BufReader::new(setup_file))
+			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
+				.expect("Setup file could not be opened.");
+
+			let tiling_file = File::open(sub_m.value_of("TILING").unwrap())
+				.expect("Tiling file could not be opened.");
+
+			//
+
+			cfg.policy = serde_json::from_reader(BufReader::new(policy_file))
+				.expect("Invalid policy config file!");
+
+			cfg.setup = serde_json::from_reader(BufReader::new(setup_file))
 				.expect("Invalid setup packet config file!");
+
+			cfg.tiling = serde_json::from_reader(BufReader::new(tiling_file))
+				.expect("Invalid tiling packet config file!");
 
 			println!("{}", serde_json::to_string_pretty(&cfg.policy).unwrap());
 			println!("{:#?}", cfg.policy);
