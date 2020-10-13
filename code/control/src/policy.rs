@@ -30,6 +30,7 @@ impl Default for Policy {
 	}
 }
 
+#[derive(Debug)]
 pub struct PolicyBoundaries(pub [usize; LOCATION_MAX as usize]);
 
 impl PolicyBoundaries {

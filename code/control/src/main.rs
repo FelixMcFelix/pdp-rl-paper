@@ -257,7 +257,7 @@ fn main() {
 			}
 
 			let policy_file = File::open(sub_m.value_of("POLICY").unwrap())
-				.expect("Tiling file could not be opened.");
+				.expect("Policy file could not be opened.");
 
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
 				.expect("Setup file could not be opened.");
