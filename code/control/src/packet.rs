@@ -224,7 +224,7 @@ pub fn write_and_send_policy(
 		cursor += std::mem::size_of::<i32>();
 		curr_send_tiles += 1;
 
-		if curr_send_tiles >= max_send_tiles || boundaries.0[active_bound] == i {
+		if curr_send_tiles >= max_send_tiles || (i > 0 && boundaries.0[active_bound] == (i - 1)) {
 			finalize(&mut buf[..cursor], &offsets, &cfg.transport);
 
 			if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {

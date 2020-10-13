@@ -81,7 +81,7 @@ struct rl_config {
 	uint16_t tilings_per_set; // 414
 	uint16_t num_actions; // 416 -> 418
 
-	uint32_t first_tier_tile[3]; // 420 -> 432
+	uint32_t last_tier_tile[3]; // 420 -> 432
 
 	// one max/min pair per dimension.
 	// populated by config packets.

@@ -26,6 +26,8 @@ _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER g
 __declspec(export, emem) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
+volatile __declspec(export, emem) uint64_t really_really_bad = 0;
+
 __declspec(export, emem) struct rl_work_item test_work;
 
 /** Convert a state vector into a list of tile indices.
@@ -184,6 +186,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 
 	while(cursor < pkt->packet_size) {
 		uint32_t tiles_in_tiling = cfg->num_actions;
+		uint16_t pow_helper;
 
 		mem_read32(
 			&(word.raw),
@@ -202,7 +205,6 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 				cfg->tiling_sets[num_tilings].location = TILE_LOCATION_T1;
 				cfg->tiling_sets[num_tilings].offset = 0;
 				cfg->tiling_sets[num_tilings].start_tile = 0;
-				cfg->first_tier_tile[0] = 0;
 
 				cfg->tiling_sets[num_tilings].end_tile = tiles_in_tiling;
 				break;
@@ -220,22 +222,32 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 				);
 				cursor += word.ints[0] * sizeof(uint16_t);
 
-				tiles_in_tiling *= cfg->tilings_per_set * cfg->tiles_per_dim * word.ints[0];
+				tiles_in_tiling *= cfg->tilings_per_set;
+				pow_helper = word.ints[0];
+				while (pow_helper != 0) {
+					tiles_in_tiling *= cfg->tiles_per_dim;
+					pow_helper--;
+				}
 
 				// need to handle offset reset to 0 on tier change
 				// Assumes that locs are specified in-order in the tiling packet.
-				if (loc != cfg->tiling_sets[num_tilings].location) {
+				// also, skipping over previous locs should copy the right-edge.
+				while (loc != cfg->tiling_sets[num_tilings].location) {
 					inner_offset = 0;
-					loc = cfg->tiling_sets[num_tilings].location;
-					cfg->first_tier_tile[loc] = current_start_tile;
+					cfg->last_tier_tile[loc] = current_start_tile;
+					loc++;
 				}
 
 				cfg->tiling_sets[num_tilings].offset = inner_offset;
 				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
 		}
 
+		// loc transition? write current start tile to cfg->last_tier_tile;
+
 		current_start_tile += tiles_in_tiling;
 		inner_offset += tiles_in_tiling;
+
+		cfg->last_tier_tile[loc] = current_start_tile;
 
 		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling;
 		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
@@ -243,64 +255,57 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 		num_tilings++;
 	}
 
+	// fill out remaining right-edges.
+	while (loc <= TILE_LOCATION_T3) {
+		cfg->last_tier_tile[loc] = current_start_tile;
+		loc++;
+	}
+
 	cfg->num_tilings = num_tilings;
 }
 
 void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint32_t tile) {
-	__declspec(xfer_read_reg) union two_u16s word;
+	__declspec(xfer_write_reg) uint64_t nani;
 	uint8_t loc;
-	int cursor = 0;
 	uint32_t offset;
 
-	/*
-	struct policy_install_data {
-		uint32_t tile;
-		uint16_t count;
-	};
-	*/
-	// bigword.words[0] = info.tile
-	// bigword.shorts[2] = info.count
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload,
-		sizeof(union two_u16s)
-	);
-
-	cursor += + sizeof(uint16_t);
-
-
 	for (loc = 0; loc < 3; ++loc) {
-		uint32_t loc_start = cfg->first_tier_tile[loc];
+		uint32_t loc_start = cfg->last_tier_tile[loc];
 		if (tile < loc_start) {
-			loc -= 1;
 			break;
 		}
 	}
 
 	// gives us the "inner offset" in the active policy tier.
-	offset = tile - cfg->first_tier_tile[loc];
+	offset = tile - ((loc == 0)
+		? 0
+		: cfg->last_tier_tile[loc-1]);
 
 	switch (loc) {
 		case TILE_LOCATION_T1:
 			ua_memcpy_cls40_mem40(
 				&(t1_tiles[offset]), 0,
-				pkt->packet_payload + cursor, 0,
-				word.ints[0] * sizeof(tile_t)
+				pkt->packet_payload, 0,
+				pkt->packet_size
 			);
 			break;
 		case TILE_LOCATION_T2:
 			ua_memcpy_mem40_mem40(
 				&(t2_tiles[offset]), 0,
-				pkt->packet_payload + cursor, 0,
-				word.ints[0] * sizeof(tile_t)
+				pkt->packet_payload, 0,
+				pkt->packet_size
 			);
 			break;
 		case TILE_LOCATION_T3:
 			ua_memcpy_mem40_mem40(
 				&(t3_tiles[offset]), 0,
-				pkt->packet_payload + cursor, 0,
-				word.ints[0] * sizeof(tile_t)
+				pkt->packet_payload, 0,
+				pkt->packet_size
 			);
+			break;
+		default:
+			nani = loc;
+			mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 			break;
 	}
 }
