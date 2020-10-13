@@ -197,9 +197,11 @@ pub fn write_and_send_policy(
 	offsets: &TransportOffsets,
 )
 {
-	// Ok(0)
+	let boundaries = PolicyBoundaries::compute(&cfg.setup, &cfg.tiling);
+	let mut active_bound = 0;
+
 	let max_send_bytes = buf.len() - base_offset;
-	let max_send_tiles = (max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<i32>();
+	let max_send_tiles = (max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<Tile>();
 
 	let mut packet_offset = None;
 
@@ -213,11 +215,16 @@ pub fn write_and_send_policy(
 			packet_offset = Some(i);
 		}
 
+		// Might be in a 0-tile tiling...
+		while i > boundaries.0[active_bound] {
+			active_bound += 1;
+		}
+
 		(&mut buf[cursor..]).write_i32::<BigEndian>(tile).unwrap();
 		cursor += std::mem::size_of::<i32>();
 		curr_send_tiles += 1;
 
-		if curr_send_tiles >= max_send_tiles {
+		if curr_send_tiles >= max_send_tiles || boundaries.0[active_bound] == i {
 			finalize(&mut buf[..cursor], &offsets, &cfg.transport);
 
 			if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {

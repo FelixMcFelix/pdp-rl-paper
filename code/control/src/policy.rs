@@ -60,4 +60,8 @@ impl PolicyBoundaries {
 
 		Self(out)
 	}
+
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
 }
