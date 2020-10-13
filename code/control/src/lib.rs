@@ -87,6 +87,8 @@ pub fn insert_policy(cfg: &mut PolicyConfig) {
 
 	// cfg.policy.validate();
 
+	println!("{:?}", PolicyBoundaries::compute(&cfg.setup, &cfg.tiling));
+
 	let (base, offsets) = build_policy_packet_base(&cfg, &mut buffer[..]).unwrap();
 
 	match cfg.policy.take().unwrap() {
