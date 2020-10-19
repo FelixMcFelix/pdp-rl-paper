@@ -6,6 +6,7 @@
 #include "callbackapi/pif_plugin.h"
 #include "callbackapi/pif_plugin_ins.h"
 #include "callbackapi/pif_plugin_rct.h"
+#include "callbackapi/pif_plugin_in_state.h"
 
 typedef int32_t tile_t;
 
@@ -26,11 +27,17 @@ typedef int32_t tile_t;
 #define T2_MAX_SETS 8
 #define T3_MAX_SETS 1
 
+#define RL_MAX_SETS T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS
+
 enum tile_location {
 	TILE_LOCATION_T1,
 	TILE_LOCATION_T2,
 	TILE_LOCATION_T3,
 };
+
+// maximum number of tiles that can be returned as active
+// calls to `tile_code` must have at least this size.
+#define RL_MAX_TILE_HITS MAX_TILINGS_PER_SET*RL_MAX_SETS
 
 // I don't think there's a conveneient way to macro this
 #define T1_MAX_TILES_PER_TILING MAX_TILES_PER_DIM
@@ -120,6 +127,7 @@ union t4_data {
 	uint32_t raw[1];
 	struct pif_plugin_rct config;
 	struct pif_plugin_ins insert;
+	struct pif_plugin_in_state state;
 };
 
 struct rl_work_item {

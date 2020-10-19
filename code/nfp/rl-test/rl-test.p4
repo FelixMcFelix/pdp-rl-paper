@@ -74,6 +74,10 @@ header rl_ins_t {
     bit<32> offset;
 }
 
+header rl_state_t {
+    bit<16> dim_count;
+}
+
 struct headers_t {
     ethernet_t ethernet;
     //ip_t ip;
@@ -84,6 +88,7 @@ struct headers_t {
     rl_t rt;
     rl_cfg_t rct;
     rl_ins_t ins;
+    rl_state_t in_state;
 }
 
 // NOTE: think about header_union for ipv4/6, and for RL messages?
@@ -101,6 +106,7 @@ parser rl_parser (
 
     const bit<8> RL_T_CFG = 0;
     const bit<8> RL_T_INS = 1;
+    const bit<8> RL_T_STATE = 2;
 
     const bit<8> RL_CFG_T_TILES = 0;
 
@@ -109,6 +115,7 @@ parser rl_parser (
         transition select(headers.rt.rl_type) {
             RL_T_CFG: cfg;
             RL_T_INS: insert;
+            RL_T_STATE: in_state;
             _: reject;
         }
     }
@@ -120,6 +127,11 @@ parser rl_parser (
 
     state insert {
         b.extract(headers.ins);
+        transition accept;
+    }
+
+    state in_state {
+        b.extract(headers.in_state);
         transition accept;
     }
 }
@@ -140,6 +152,7 @@ parser my_parser (
 
     const bit<8> RL_T_CFG = 0;
     const bit<8> RL_T_INS = 1;
+    const bit<8> RL_T_STATE = 2;
 
     const bit<8> RL_CFG_T_TILES = 0;
 
@@ -210,6 +223,8 @@ parser my_parser (
         transition select(headers.rt.rl_type) {
             RL_T_CFG: cfg;
             RL_T_INS: insert;
+            RL_T_STATE: state_pkt;
+            _: accept;
         }
     }
 
@@ -220,6 +235,11 @@ parser my_parser (
 
     state insert {
         b.extract(headers.ins);
+        transition accept;
+    }
+
+    state state_pkt {
+        b.extract(headers.in_state);
         transition accept;
     }
 }
@@ -264,6 +284,7 @@ control deparser(packet_out b, in headers_t headers) {
         b.emit(headers.rt);
         b.emit(headers.rct);
         b.emit(headers.ins);
+        b.emit(headers.in_state);
     }
 }
 

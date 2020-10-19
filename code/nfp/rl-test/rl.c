@@ -34,7 +34,7 @@ __declspec(export, emem) struct rl_work_item test_work;
 *
 * Returns length of tile coded list.
 */
-uint16_t tile_code(tile_t *state, struct rl_config *cfg, uint32_t *output) {
+uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg, uint32_t *output) {
 	uint16_t tiling_set_idx;
 	uint16_t out_idx = 0;
 
@@ -310,6 +310,30 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 	}
 }
 
+void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
+	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
+	uint16_t tc_count;
+	tile_t state[RL_DIMENSION_MAX];
+	__declspec(xfer_read_reg) union two_u16s word;
+	int i = 0;
+
+	if (dim_count != cfg->num_dims) {
+		return;
+	}
+
+	while (i != dim_count) {
+		mem_read32(
+			&(word.raw),
+			pkt->packet_payload + (i * sizeof(union two_u16s)),
+			sizeof(union two_u16s)
+		);
+		state[i] = (tile_t)word.raw;
+		i++;
+	}
+
+	tc_count = tile_code(state, cfg, tc_indices);
+}
+
 main() {
 	mem_ring_addr_t r_addr;
 	SIGNAL sig;
@@ -317,15 +341,7 @@ main() {
 	if (__ctx() == 0) {
 		// init above huge blocks.
 		// compiler complaining about pointer types. Consider fixing this...
-		//memset_cls(t1_tiles, 0, MAX_CLS_SIZE);
-		//memset_mem(t2_tiles, 0, MAX_CTM_SIZE);
-		//memset_mem(t3_tiles, 0, MAX_IMEM_SIZE);
-
-		//memset_cls(&cfg, 0, sizeof(struct rl_config));
-
-		// try read some work?
 		init_rl_pkt_store(&rl_pkts, inpkt_buffer);
-		//mem_ring_init(ring_number, RING_SIZE_512K, mem_workq, mem_workq, 0);
 		r_addr = mem_workq_setup(RL_RING_NUMBER, rl_mem_workq, 512 * 1024);
 	} else {
 		r_addr = mem_ring_get_addr(rl_mem_workq);
@@ -369,8 +385,11 @@ main() {
 				// block policy insertion
 				policy_block_copy(&cfg, &workq_read_register, workq_read_register.parsed_fields.insert.offset);
 				break;
-			case 999:
+			case PIF_PARREP_TYPE_in_state:
 				//state
+				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
+				break;
+			case 999:
 				//fixme: not got a code for this yet
 			default:
 				break;
