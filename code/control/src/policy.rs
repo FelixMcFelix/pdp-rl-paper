@@ -20,13 +20,20 @@ pub struct SparsePolicyEntry<T> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Policy {
-	Float { data: PolicyFormat<f32>, quantiser: f32 },
-	Quantised { data: PolicyFormat<i32> },
+	Float {
+		data: PolicyFormat<f32>,
+		quantiser: f32,
+	},
+	Quantised {
+		data: PolicyFormat<i32>,
+	},
 }
 
 impl Default for Policy {
 	fn default() -> Self {
-		Self::Quantised{ data: Default::default() }
+		Self::Quantised {
+			data: Default::default(),
+		}
 	}
 }
 

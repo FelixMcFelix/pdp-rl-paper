@@ -20,12 +20,11 @@ impl GlobalConfig {
 
 		let channel = datalink::channel(&iface, Default::default())
 			.map_err(|e| eprintln!("{:?}", e))
-			.unwrap_or_else(|_| panic!("Failed to open channel on \"{}\"", iface_name.unwrap_or("")));
+			.unwrap_or_else(|_| {
+				panic!("Failed to open channel on \"{}\"", iface_name.unwrap_or(""))
+			});
 
-		Self {
-			iface,
-			channel,
-		}
+		Self { iface, channel }
 	}
 }
 
@@ -55,6 +54,20 @@ impl<'a> SetupConfig<'a> {
 		Self {
 			global,
 			setup: Default::default(),
+			transport: Default::default(),
+		}
+	}
+}
+
+pub struct SendStateConfig<'a> {
+	pub global: &'a mut GlobalConfig,
+	pub transport: TransportConfig,
+}
+
+impl<'a> SendStateConfig<'a> {
+	pub fn new(global: &'a mut GlobalConfig) -> Self {
+		Self {
+			global,
 			transport: Default::default(),
 		}
 	}
@@ -101,3 +114,5 @@ pub struct FakePolicyGeneratorConfig {
 	pub tiling: TilingSet,
 	pub setup: Setup,
 }
+
+pub type FakeStateGeneratorConfig = Setup;

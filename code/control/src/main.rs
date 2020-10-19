@@ -1,20 +1,6 @@
-use clap::{
-	Arg,
-	App,
-	SubCommand,
-};
-use control::{
-	FakePolicyGeneratorConfig,
-	GlobalConfig,
-	PolicyConfig,
-	SetupConfig,
-	TilingsConfig,
-};
-use std::{
-	fs::File,
-	io::BufReader,
-	net::IpAddr,
-};
+use clap::{App, Arg, SubCommand};
+use control::*;
+use std::{fs::File, io::BufReader, net::IpAddr};
 
 fn main() {
 	let matches = App::new("(Netronome) PDP RL Control Packet Generator")
@@ -138,6 +124,39 @@ fn main() {
 				.help("Input JSON file used to build tiling packet.")
 				.takes_value(true)
 				.required(true)))
+		.subcommand(SubCommand::with_name("state")
+			.about("Sends state packet.")
+			.arg(Arg::with_name("src-ip")
+				.short("s")
+				.long("src-ip")
+				.value_name("IPV4")
+				.help("Source IP for control packets. Defaults to selected interface.")
+				.takes_value(true))
+			.arg(Arg::with_name("dst-ip")
+				.short("d")
+				.long("dst-ip")
+				.value_name("IPV4")
+				.help("Destination IP for control packets. Defaults to selected interface.")
+				.takes_value(true)
+				.default_value("192.168.1.141"))
+			.arg(Arg::with_name("src-port")
+				.short("p")
+				.long("src-port")
+				.value_name("U16")
+				.help("Source UDP port for control packets.")
+				.takes_value(true)
+				.default_value("16767"))
+			.arg(Arg::with_name("dst-port")
+				.short("P")
+				.long("dst-port")
+				.value_name("U16")
+				.help("Destination port for control packets.")
+				.takes_value(true)
+				.default_value("16768"))
+			.arg(Arg::with_name("STATE")
+				.help("Input JSON file used to build state packet.")
+				.takes_value(true)
+				.required(true)))
 		.subcommand(SubCommand::with_name("fake-policy")
 			.about("Generates a dummy policy according to the tiling and config information given.")
 			.arg(Arg::with_name("SETUP")
@@ -146,6 +165,12 @@ fn main() {
 				.required(true))
 			.arg(Arg::with_name("TILING")
 				.help("Input JSON file used to build tiling packet.")
+				.takes_value(true)
+				.required(true)))
+		.subcommand(SubCommand::with_name("fake-state")
+			.about("Generates a dummy state according to the config information given.")
+			.arg(Arg::with_name("SETUP")
+				.help("Input JSON file used to build setup packet.")
 				.takes_value(true)
 				.required(true)))
 		.get_matches();
@@ -159,26 +184,37 @@ fn main() {
 			let mut cfg = SetupConfig::new(&mut g_cfg);
 
 			if let Some(ip) = sub_m.value_of("src-ip") {
-				cfg.transport.src_addr.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
+				cfg.transport
+					.src_addr
+					.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
 			} else {
 				let ip = (&cfg.global.iface.ips)
 					.iter()
-					.filter_map(|ip_n| match ip_n.ip() { IpAddr::V4(i) => Some(i), _ => None })
+					.filter_map(|ip_n| match ip_n.ip() {
+						IpAddr::V4(i) => Some(i),
+						_ => None,
+					})
 					.next()
 					.expect("Interface did not have a default IPv4 address to bind to.");
 				cfg.transport.src_addr.set_ip(ip);
 			}
 
 			if let Some(port) = sub_m.value_of("src-port") {
-				cfg.transport.src_addr.set_port(port.parse().expect("Invalid source port (u16)."));
+				cfg.transport
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
 			}
 
 			if let Some(ip) = sub_m.value_of("dst-ip") {
-				cfg.transport.dst_addr.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+				cfg.transport
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
 			}
 
 			if let Some(port) = sub_m.value_of("dst-port") {
-				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
+				cfg.transport
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
@@ -196,26 +232,37 @@ fn main() {
 			let mut cfg = TilingsConfig::new(&mut g_cfg);
 
 			if let Some(ip) = sub_m.value_of("src-ip") {
-				cfg.transport.src_addr.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
+				cfg.transport
+					.src_addr
+					.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
 			} else {
 				let ip = (&cfg.global.iface.ips)
 					.iter()
-					.filter_map(|ip_n| match ip_n.ip() { IpAddr::V4(i) => Some(i), _ => None })
+					.filter_map(|ip_n| match ip_n.ip() {
+						IpAddr::V4(i) => Some(i),
+						_ => None,
+					})
 					.next()
 					.expect("Interface did not have a default IPv4 address to bind to.");
 				cfg.transport.src_addr.set_ip(ip);
 			}
 
 			if let Some(port) = sub_m.value_of("src-port") {
-				cfg.transport.src_addr.set_port(port.parse().expect("Invalid source port (u16)."));
+				cfg.transport
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
 			}
 
 			if let Some(ip) = sub_m.value_of("dst-ip") {
-				cfg.transport.dst_addr.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+				cfg.transport
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
 			}
 
 			if let Some(port) = sub_m.value_of("dst-port") {
-				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
+				cfg.transport
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
 			let setup_file = File::open(sub_m.value_of("TILING").unwrap())
@@ -234,26 +281,37 @@ fn main() {
 			let mut cfg = PolicyConfig::new(&mut g_cfg);
 
 			if let Some(ip) = sub_m.value_of("src-ip") {
-				cfg.transport.src_addr.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
+				cfg.transport
+					.src_addr
+					.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
 			} else {
 				let ip = (&cfg.global.iface.ips)
 					.iter()
-					.filter_map(|ip_n| match ip_n.ip() { IpAddr::V4(i) => Some(i), _ => None })
+					.filter_map(|ip_n| match ip_n.ip() {
+						IpAddr::V4(i) => Some(i),
+						_ => None,
+					})
 					.next()
 					.expect("Interface did not have a default IPv4 address to bind to.");
 				cfg.transport.src_addr.set_ip(ip);
 			}
 
 			if let Some(port) = sub_m.value_of("src-port") {
-				cfg.transport.src_addr.set_port(port.parse().expect("Invalid source port (u16)."));
+				cfg.transport
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
 			}
 
 			if let Some(ip) = sub_m.value_of("dst-ip") {
-				cfg.transport.dst_addr.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+				cfg.transport
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
 			}
 
 			if let Some(port) = sub_m.value_of("dst-port") {
-				cfg.transport.dst_addr.set_port(port.parse().expect("Invalid destination port (u16)."));
+				cfg.transport
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
 			let policy_file = File::open(sub_m.value_of("POLICY").unwrap())
@@ -281,6 +339,57 @@ fn main() {
 
 			control::insert_policy(&mut cfg);
 		},
+		("state", Some(sub_m)) => {
+			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
+			let mut cfg = SendStateConfig::new(&mut g_cfg);
+
+			if let Some(ip) = sub_m.value_of("src-ip") {
+				cfg.transport
+					.src_addr
+					.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
+			} else {
+				let ip = (&cfg.global.iface.ips)
+					.iter()
+					.filter_map(|ip_n| match ip_n.ip() {
+						IpAddr::V4(i) => Some(i),
+						_ => None,
+					})
+					.next()
+					.expect("Interface did not have a default IPv4 address to bind to.");
+				cfg.transport.src_addr.set_ip(ip);
+			}
+
+			if let Some(port) = sub_m.value_of("src-port") {
+				cfg.transport
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
+			}
+
+			if let Some(ip) = sub_m.value_of("dst-ip") {
+				cfg.transport
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+			}
+
+			if let Some(port) = sub_m.value_of("dst-port") {
+				cfg.transport
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
+			}
+
+			let state_file = File::open(sub_m.value_of("STATE").unwrap())
+				.expect("Policy file could not be opened.");
+
+			//
+
+			let state: Vec<Tile> = serde_json::from_reader(BufReader::new(state_file))
+				.expect("Invalid policy config file!");
+
+			// println!("{}", serde_json::to_string_pretty(&cfg.policy).unwrap());
+			// println!("{:#?}", cfg.policy);
+
+			control::send_state(&mut cfg, state);
+		},
 		("fake-policy", Some(sub_m)) => {
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
 				.expect("Setup file could not be opened.");
@@ -296,6 +405,15 @@ fn main() {
 			};
 
 			control::generate_policy(&cfg);
+		},
+		("fake-state", Some(sub_m)) => {
+			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
+				.expect("Setup file could not be opened.");
+
+			let cfg: FakeStateGeneratorConfig = serde_json::from_reader(BufReader::new(setup_file))
+				.expect("Invalid tiling packet config file!");
+
+			control::generate_state(&cfg);
 		},
 		_ => {
 			println!("{}", matches.usage());

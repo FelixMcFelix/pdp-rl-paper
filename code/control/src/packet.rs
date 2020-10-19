@@ -1,13 +1,14 @@
 use super::*;
 
-enum_from_primitive!{
+enum_from_primitive! {
 pub enum RlType {
 	Config = 0,
 	Insert,
+	State,
 }
 }
 
-enum_from_primitive!{
+enum_from_primitive! {
 pub enum RlConfigType {
 	Setup = 0,
 	Tiles,
@@ -20,13 +21,21 @@ pub struct TransportOffsets {
 	data: usize,
 }
 
-fn build_transport(cfg: &GlobalConfig, t_cfg: &TransportConfig, buf: &mut [u8]) -> (usize, TransportOffsets) {
-	let mut out = TransportOffsets { ip: 0, udp: 0, data: 0 };
+fn build_transport(
+	cfg: &GlobalConfig,
+	t_cfg: &TransportConfig,
+	buf: &mut [u8],
+) -> (usize, TransportOffsets) {
+	let mut out = TransportOffsets {
+		ip: 0,
+		udp: 0,
+		data: 0,
+	};
 
 	let mut cursor = 0;
 	{
-		let mut eth_pkt = MutableEthernetPacket::new(&mut buf[cursor..])
-			.expect("Plenty of room...");
+		let mut eth_pkt =
+			MutableEthernetPacket::new(&mut buf[cursor..]).expect("Plenty of room...");
 		eth_pkt.set_destination(MacAddr::broadcast());
 		eth_pkt.set_ethertype(EtherTypes::Ipv4);
 		eth_pkt.set_source(cfg.iface.mac_address());
@@ -37,8 +46,7 @@ fn build_transport(cfg: &GlobalConfig, t_cfg: &TransportConfig, buf: &mut [u8]) 
 	{
 		out.ip = cursor;
 
-		let mut ipv4_pkt = MutableIpv4Packet::new(&mut buf[cursor..])
-			.expect("Plenty of room...");
+		let mut ipv4_pkt = MutableIpv4Packet::new(&mut buf[cursor..]).expect("Plenty of room...");
 		ipv4_pkt.set_version(4);
 		ipv4_pkt.set_header_length(5);
 		ipv4_pkt.set_ttl(64);
@@ -54,8 +62,7 @@ fn build_transport(cfg: &GlobalConfig, t_cfg: &TransportConfig, buf: &mut [u8]) 
 	{
 		out.udp = cursor;
 
-		let mut udp_pkt = MutableUdpPacket::new(&mut buf[cursor..])
-			.expect("Plenty of room...");
+		let mut udp_pkt = MutableUdpPacket::new(&mut buf[cursor..]).expect("Plenty of room...");
 		udp_pkt.set_source(t_cfg.src_addr.port());
 		udp_pkt.set_destination(t_cfg.dst_addr.port());
 		// checksum is optional in ipv4
@@ -91,8 +98,7 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets, t_cfg: &TransportConfig) {
 	{
 		let region = &mut buf[off.ip..];
 		let len = region.len();
-		let mut ipv4_pkt = MutableIpv4Packet::new(region)
-			.expect("Plenty of room...");
+		let mut ipv4_pkt = MutableIpv4Packet::new(region).expect("Plenty of room...");
 		ipv4_pkt.set_total_length(len as u16);
 
 		ipv4_pkt.set_checksum(ipv4::checksum(&ipv4_pkt.to_immutable()));
@@ -101,8 +107,7 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets, t_cfg: &TransportConfig) {
 	{
 		let (region, payload) = (&mut buf[off.udp..]).split_at_mut(off.data - off.udp);
 		let len = region.len() + payload.len();
-		let mut udp_pkt = MutableUdpPacket::new(region)
-			.expect("Plenty of room...");
+		let mut udp_pkt = MutableUdpPacket::new(region).expect("Plenty of room...");
 		udp_pkt.set_length(len as u16);
 
 		udp_pkt.set_checksum(udp::ipv4_checksum_adv(
@@ -180,7 +185,10 @@ pub fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResul
 	Ok(cursor)
 }
 
-pub fn build_policy_packet_base(tile_cfg: &PolicyConfig, buf: &mut [u8]) -> IoResult<(usize, TransportOffsets)> {
+pub fn build_policy_packet_base(
+	tile_cfg: &PolicyConfig,
+	buf: &mut [u8],
+) -> IoResult<(usize, TransportOffsets)> {
 	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
 	cursor += build_type(&mut buf[cursor..], RlType::Insert);
 
@@ -193,15 +201,15 @@ pub fn write_and_send_policy(
 	cfg: &mut PolicyConfig,
 	buf: &mut [u8],
 	base_offset: usize,
-	policy: impl Iterator<Item=i32>,
+	policy: impl Iterator<Item = i32>,
 	offsets: &TransportOffsets,
-)
-{
+) {
 	let boundaries = PolicyBoundaries::compute(&cfg.setup, &cfg.tiling);
 	let mut active_bound = 0;
 
 	let max_send_bytes = buf.len() - base_offset;
-	let max_send_tiles = (max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<Tile>();
+	let max_send_tiles =
+		(max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<Tile>();
 
 	let mut packet_offset = None;
 
@@ -210,7 +218,9 @@ pub fn write_and_send_policy(
 
 	for (i, tile) in policy.enumerate() {
 		if packet_offset.is_none() {
-			(&mut buf[cursor..]).write_u32::<BigEndian>(i as u32).unwrap();
+			(&mut buf[cursor..])
+				.write_u32::<BigEndian>(i as u32)
+				.unwrap();
 			cursor += std::mem::size_of::<u32>();
 			packet_offset = Some(i);
 		}
@@ -254,10 +264,9 @@ pub fn write_and_send_sparse_policy(
 	cfg: &mut PolicyConfig,
 	buf: &mut [u8],
 	base_offset: usize,
-	policy: impl Iterator<Item=SparsePolicyEntry<i32>>,
+	policy: impl Iterator<Item = SparsePolicyEntry<i32>>,
 	offsets: &TransportOffsets,
-)
-{
+) {
 	for part in policy {
 		let cursor = {
 			let mut body = &mut buf[base_offset..];
@@ -280,4 +289,31 @@ pub fn write_and_send_sparse_policy(
 			eprintln!("Failed to send packet: no channel found");
 		}
 	}
+}
+
+pub fn build_state_packet(
+	tile_cfg: &SendStateConfig,
+	buf: &mut [u8],
+	state: Vec<Tile>,
+) -> IoResult<usize> {
+	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
+	cursor += build_type(&mut buf[cursor..], RlType::State);
+
+	{
+		let mut body = &mut buf[cursor..];
+		let space_start = body.len();
+
+		body.write_u16::<BigEndian>(state.len() as u16)?;
+
+		for el in state.iter() {
+			body.write_i32::<BigEndian>(*el)?;
+		}
+
+		let space_end = body.len();
+		cursor += space_start - space_end;
+	}
+
+	finalize(&mut buf[..cursor], &offsets, &tile_cfg.transport);
+
+	Ok(cursor)
 }

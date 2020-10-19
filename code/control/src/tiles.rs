@@ -22,9 +22,7 @@ impl TilingSet {
 		// Place bias tile at top, if present.
 		// Remove excess bias tiles.
 		// Bias tile must have no location.
-		let has_bias = self.tilings.iter()
-			.find(|el| el.dims.len() == 0)
-			.is_some();
+		let has_bias = self.tilings.iter().find(|el| el.dims.len() == 0).is_some();
 
 		if has_bias {
 			clean.push(Default::default());

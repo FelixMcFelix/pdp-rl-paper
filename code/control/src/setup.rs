@@ -6,15 +6,19 @@ pub struct RatioDef<T: Integer> {
 	pub denom: T,
 }
 
-impl<T> From<RatioDef<T>> for Ratio<T> 
-	where T: Integer + Clone {
+impl<T> From<RatioDef<T>> for Ratio<T>
+where
+	T: Integer + Clone,
+{
 	fn from(def: RatioDef<T>) -> Ratio<T> {
 		Ratio::new(def.numer, def.denom)
 	}
 }
 
-impl<T> From<Ratio<T>> for RatioDef<T> 
-	where T: Integer + Clone {
+impl<T> From<Ratio<T>> for RatioDef<T>
+where
+	T: Integer + Clone,
+{
 	fn from(def: Ratio<T>) -> RatioDef<T> {
 		RatioDef {
 			numer: def.numer().clone(),
