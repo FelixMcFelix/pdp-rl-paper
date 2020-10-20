@@ -28,6 +28,9 @@ volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
+__declspec(export, emem) uint32_t global_tc_indices[RL_MAX_TILE_HITS] = {0};
+__declspec(export, emem) uint16_t global_tc_count;
+
 __declspec(export, emem) struct rl_work_item test_work;
 
 /** Convert a state vector into a list of tile indices.
@@ -332,6 +335,12 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	}
 
 	tc_count = tile_code(state, cfg, tc_indices);
+	global_tc_count = tc_count;
+
+	i=0;
+	for (i=0; i<tc_count; i++) {
+		global_tc_indices[i] = tc_indices[i];
+	}
 }
 
 main() {

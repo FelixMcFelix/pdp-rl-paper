@@ -507,6 +507,103 @@ I can think of one way to evaluate this if we employ classification performance:
 	\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
 \end{enumerate}
 
+\newpage
+
+\section{Bullets on (intended) design.}
+See also: \cref{fig:netro-arch}.
+\begin{itemize}
+	\item High-level overview.
+	\begin{itemize}
+		\item RL operations \emph{do not happen on the core path}.
+		\item Another island (or set of cores) is dedicated to handling inputs, configuration, computation.
+		\item Cross-island communication happens over \emph{rings} (Netronome-specific).
+		\begin{itemize}
+			\item E.g., this is how the P4 firmware propagates rules from master island to P4 workers.
+		\end{itemize}
+		\item Controller is \emph{always} co-hosted, interfaces over PCI-e. This also applies to Barefoot Tofino.
+	\end{itemize}
+	\item Policy configuration.
+	\begin{itemize}
+		\item (Re)-configurable at runtime.
+		\item Custom DSCP marker acts as indicator of RL packets (i.e., bother with parsing past UDP).
+		\item P4 parser extracts headers, parser state and payload passed over ring to another core dedicated to RL operations.
+		\item Policy dimensions, size, action count, tiling strategies, learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) can all be chosen and changed live.
+	\end{itemize}
+	\item State Handling.
+	\begin{itemize}
+		\item State input to model \emph{always} should produce an action.
+		\item State vectors should come from elsewhere on the device: this may either be a dedicated island/core cluster (i.e., also performing INT management), or it may be a packet from the network.
+	\end{itemize}
+	\item Action Handling.
+	\begin{itemize}
+		\item A state vector is tile coded, action probabilities are produced, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
+		\item \emph{Open question: how to configure action destination? This should either be another core (after an optional transformation), a packet sent out to a destination, maybe talk back to the controller.}
+	\end{itemize}
+	\item Learning.
+	\begin{itemize}
+		\item \emph{Open question: how to safely \& reasonably map state back to incoming rewards?}
+		\item \emph{Open question: Can/should this also support on-chip reward signals?}
+	\end{itemize}
+\end{itemize}
+
+\section{What's implemented 'til now?}
+System?
+\begin{itemize}
+	\item Core-to-core communication.
+	\item P4 parser for relevant packets.
+	\item Packet copy + handoff from P4 to RL MEs.
+	\item Dynamic base configuration.
+	\item Dynamic tiling configuration.
+	\item Policy installation via block-copy.
+	\item Packet generation for above config functions, as well as policy quantisation and splitting.
+	\item Tile-coding of quantised states on-chip, and state packet receipt.
+\end{itemize}
+
+Experiments?
+\begin{itemize}
+	\item Policy quantisation divergence \& accuracy (via mininet).
+\end{itemize}
+
+\section{Intermediate steps?}
+System?
+\begin{itemize}
+	\item Action computation on-chip.
+	\begin{itemize}
+		\item \emph{\num{1} week.}
+	\end{itemize}
+	\item Figure out PIF rule installation.
+	\begin{itemize}
+		\item \emph{\num{1} week.}
+		\item Rationale: understand and describe mechanism, do NOT implement. We know that we can save 1 controller RTT.
+	\end{itemize}
+	\item Setup other core as event source.
+	\begin{itemize}
+		\item \emph{\num{2} week.}
+		\item Idea: proxy for idea of INT core mentioned elsewhere, combined with the main periodic event sending that the last RL work relied upon. So, say "you can put that state management and extraction on another core, here's what the comms cost is" or similar.
+	\end{itemize}
+	\item Implement rudimentary training.
+	\begin{itemize}
+		\item \emph{\num{2} week.}
+	\end{itemize}
+\end{itemize}
+
+Experiments?
+\begin{itemize}
+	\item Measure DPDK SmartNIC RTT as a lower bound on controller access time.
+	\begin{itemize}
+		\item \emph{\num{0.5} weeks.}
+		\item Same mechanism applies to other manufacturers (Barefoot), so generalisable.
+	\end{itemize}
+	\item Measure on-switch times: ring-ring communication, tile-coding cost, action compute cost.
+	\begin{itemize}
+		\item \emph{\num{1} week.}
+	\end{itemize}
+	\item Measure times $t_{1...3}$ described elsewhere, or closest analogues in impl'd system.
+	\begin{itemize}
+		\item \emph{\num{1} week.}
+	\end{itemize}
+\end{itemize}
+
 \section{Related Work}
 
 \begin{itemize}

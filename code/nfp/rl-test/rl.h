@@ -27,7 +27,7 @@ typedef int32_t tile_t;
 #define T2_MAX_SETS 8
 #define T3_MAX_SETS 1
 
-#define RL_MAX_SETS T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS
+#define RL_MAX_SETS (T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS)
 
 enum tile_location {
 	TILE_LOCATION_T1,
