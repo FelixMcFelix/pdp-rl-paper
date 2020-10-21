@@ -5,7 +5,7 @@
 #include <nfp.h>
 
 #define RL_PKT_MAX_SZ 1504
-#define RL_PKT_STORE_COUNT 10
+#define RL_PKT_STORE_COUNT 100
 
 struct rl_pkt_store {
 	// Need a mutex

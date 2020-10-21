@@ -97,7 +97,7 @@ struct rl_config {
 
 	// 1-D width of a tile in each dimension.
 	// must be computed!
-	// this is w' = (max - min) / (n_tiles_per_dim + 1)
+	// this is w' = (max - min) / (n_tiles_per_dim - 1)
 	tile_t width[RL_DIMENSION_MAX]; // 592 -> 672
 	// every tiling in the same set is then shifted by n * this.
 	// This is w'/tilings_per_set

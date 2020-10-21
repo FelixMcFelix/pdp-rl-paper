@@ -41,20 +41,31 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 	uint16_t tiling_set_idx;
 	uint16_t out_idx = 0;
 
+	// Tiling sets: each relies upon its own dimension list.
+	// Each of these is one entry in a tiling packet.
 	for (tiling_set_idx = 0; tiling_set_idx < cfg->num_tilings; ++tiling_set_idx) {
 		uint16_t tiling_idx;
 		uint32_t local_tile_base = cfg->tiling_sets[tiling_set_idx].start_tile;
 
+		// Repeat the selected tiling set, changing shift.
+		// Each of these is a *copy* of the above loop, shifted along by the relevant indices.
 		for (tiling_idx = 0; tiling_idx < cfg->tilings_per_set; ++tiling_idx) {
 			uint16_t dim_idx;
-			uint32_t width_product = 1;
+			// We can either divide the tile base, and mult all the tile indices later.
+			// Or... we could do it here, and save the trouble!
+			// (ordinarily, this would start at 1 for "true tile indices" (action-free))
+			uint32_t width_product = cfg->num_actions;
 			uint32_t local_tile = local_tile_base;
 
-			for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_idx].num_dims; ++dim_idx) {
-				uint16_t active_dim = cfg->tiling_sets[tiling_idx].dims[dim_idx];
+			// These goes over each dimension in the top-level loop
+			for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_set_idx].num_dims; ++dim_idx) {
+				uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
 				uint8_t reduce_tile;
 				tile_t val = state[active_dim];
+
+				// This is what varies per tiling in a set.
 				tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
+
 				tile_t max = cfg->adjusted_maxes[active_dim] - shift;
 				tile_t min = cfg->mins[active_dim] - shift;
 
@@ -165,10 +176,22 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	);
 
 	// Fill in width, shift_amt, adjusted_max...
-	for (dim = 0; dim < cfg->num_dims; ++dim) {
-		cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (1 + cfg->tiles_per_dim);
-		cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
-		cfg->adjusted_maxes[dim] = cfg->maxes[dim] + cfg->width[dim];
+	if (cfg->tilings_per_set == 1) {
+		// SPECIAL CASE:
+		// do no cool shift/offset stuff.
+		// map ONLY to the subtended space.
+		// min max casing is already handled within.
+		for (dim = 0; dim < cfg->num_dims; ++dim) {
+			cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (cfg->tiles_per_dim);
+			cfg->shift_amt[dim] = 0;
+			cfg->adjusted_maxes[dim] = cfg->maxes[dim];
+		}
+	} else {
+		for (dim = 0; dim < cfg->num_dims; ++dim) {
+			cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (cfg->tiles_per_dim - 1);
+			cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
+			cfg->adjusted_maxes[dim] = cfg->maxes[dim] + cfg->width[dim];
+		}
 	}
 }
 
