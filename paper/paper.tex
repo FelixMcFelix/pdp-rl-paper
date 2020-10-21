@@ -519,6 +519,7 @@ See also: \cref{fig:netro-arch}.
 		\item Cross-island communication happens over \emph{rings} (Netronome-specific).
 		\begin{itemize}
 			\item E.g., this is how the P4 firmware propagates rules from master island to P4 workers.
+			\item My impl.\ specific---shared freelist for memory pointers in EMEM.
 		\end{itemize}
 		\item Controller is \emph{always} co-hosted, interfaces over PCI-e. This also applies to Barefoot Tofino.
 	\end{itemize}

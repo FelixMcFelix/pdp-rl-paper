@@ -31,6 +31,8 @@ volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 __declspec(export, emem) uint32_t global_tc_indices[RL_MAX_TILE_HITS] = {0};
 __declspec(export, emem) uint16_t global_tc_count;
 
+__declspec(export, emem) tile_t global_prefs[MAX_ACTIONS] = {0};
+
 __declspec(export, emem) struct rl_work_item test_work;
 
 /** Convert a state vector into a list of tile indices.
@@ -86,6 +88,51 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 		}
 	}
 	return out_idx;
+}
+
+/** Convert a tile list into a list of action preferences.
+*
+* Length written into act_list is guaranteed to be equal to cfg->num_actions.
+* Note, that act_list must be at least of size MAX_ACTIONS.
+*/
+void action_preferences(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, tile_t *act_list) {
+	enum tile_location loc = TILE_LOCATION_T1;
+	uint16_t i = 0;
+	uint16_t j = 0;
+	uint16_t act_count = cfg->num_actions;
+
+	for (i = 0; i < tile_hit_count; i++) {
+		uint32_t target = tile_indices[i];
+		uint32_t loc_base = cfg->last_tier_tile[loc];
+		uint32_t base;
+
+		while (target >= loc_base) {
+			loc++;
+			loc_base = cfg->last_tier_tile[loc];
+		}
+
+		// find location of tier in memory.
+		switch (loc) {
+			case TILE_LOCATION_T1:
+				base = target;
+				for (j = 0; j < act_count; j++) {
+					act_list[j] += t1_tiles[base + j];
+				}
+				break;
+			case TILE_LOCATION_T2:
+				base = target - cfg->last_tier_tile[loc-1];
+				for (j = 0; j < act_count; j++) {
+					act_list[j] += t2_tiles[base + j];
+				}
+				break;
+			case TILE_LOCATION_T3:
+				base = target - cfg->last_tier_tile[loc-1];
+				for (j = 0; j < act_count; j++) {
+					act_list[j] += t3_tiles[base + j];
+				}
+				break;
+		}
+	}
 }
 
 union two_u16s {
@@ -187,6 +234,8 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 			cfg->adjusted_maxes[dim] = cfg->maxes[dim];
 		}
 	} else {
+		// Adds on an "extra tile" to the right of each dimension,
+		// later tilings reach deeped
 		for (dim = 0; dim < cfg->num_dims; ++dim) {
 			cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (cfg->tiles_per_dim - 1);
 			cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
@@ -339,7 +388,11 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
 	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
 	uint16_t tc_count;
+
 	tile_t state[RL_DIMENSION_MAX];
+
+	tile_t prefs[MAX_ACTIONS] = {0};
+
 	__declspec(xfer_read_reg) union two_u16s word;
 	int i = 0;
 
@@ -363,6 +416,13 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	i=0;
 	for (i=0; i<tc_count; i++) {
 		global_tc_indices[i] = tc_indices[i];
+	}
+
+	action_preferences(tc_indices, tc_count, cfg, prefs);
+
+	i=0;
+	for (i=0; i < cfg->num_actions; i++) {
+		global_prefs[i] = prefs[i];
 	}
 }
 
