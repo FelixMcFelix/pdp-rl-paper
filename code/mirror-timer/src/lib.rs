@@ -37,8 +37,7 @@ pub fn run(cfg: &mut Config) {
 			let mut body = &mut buffer[cursor..];
 			let space_start = body.len();
 
-			body.write_u64::<BigEndian>(i)
-				.expect("Eh?");
+			body.write_u64::<BigEndian>(i).expect("Eh?");
 			let space_end = body.len();
 
 			space_start - space_end
@@ -61,5 +60,7 @@ pub fn run(cfg: &mut Config) {
 		}
 	}
 
-	println!("{:?}", measurements);
+	for el in &measurements[..] {
+		println!("{}", el);
+	}
 }
