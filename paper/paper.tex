@@ -280,7 +280,7 @@ What is our goal?
 		\end{itemize}
 		\item If addressed, what do I use them for?
 		\begin{itemize}
-			\item There's ongoing research which attempts to execute NN/DNN-based RL/ML models in switches, but these work under heavy concessions.
+			\item There's ongoing research which attempts to execute NN/DNN-based RL/ML models in switches, but these work under heavy concessions. Need binarisation, reduced accuracy, can't run backpropagation on SmartNIC hardware...
 			\item Training and format conversion must happen off of the device, so can't be done online.
 		\end{itemize}
 		\item What applications is this affecting?
@@ -291,6 +291,7 @@ What is our goal?
 		\item What would its solution be useful for?
 		\begin{itemize}
 			\item Ensures that online learning is possible in the contexts we're interested in.
+			\item I.e., DDoS prevention (evolving problem).
 		\end{itemize}
 	\end{itemize}
 	
@@ -299,8 +300,8 @@ What is our goal?
 		\item What can I do with these observations?
 		\begin{itemize}
 			\item We should use P4 where possible to make implementation of in-network compute possible.
-			\item \emph{But} we would be remiss not to make use of the multicore, general-purpose compute that the core on many of these devices are fundamentally built to do.
-			\item In-network compute and/or PDPs give us the tools we need to put action computation, the mechanism of action, and state measurement at the same location in the network!
+			\item \emph{But} we would be remiss not to make use of the multicore, general-purpose compute that many of these devices are fundamentally built to do.
+			\item In-network compute and/or PDPs give us the tools we need to put RL action computation, the mechanism of action, and state measurement at the same location in the network!
 		\end{itemize}
 		\item If addressed, what do I use them for?
 		\begin{itemize}
@@ -588,8 +589,6 @@ I can think of one way to evaluate this if we employ classification performance:
 	\item For each level of quantisation needed, examine average performance.
 	\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
 \end{enumerate}
-
-\newpage
 
 \section{Bullets on (intended) design.}
 See also: \cref{fig:netro-arch}.
