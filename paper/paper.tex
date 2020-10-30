@@ -122,8 +122,8 @@
 \acmISBN{}
 
 %Conference
-%\acmConference[Submitted for review to SIGCOMM]{}
-%\acmYear{2018}
+\acmConference[SOSR '21]{}
+%\acmYear{2021}
 %\copyrightyear{}
 
 %% {} with no args suppresses printing of the price
@@ -225,12 +225,94 @@ What is our goal?
 
 \begin{itemize}
 	\item Research into asynchronous RL shows that clever reordering and mitigation can reduce the effects of state slippage on learning time and on accuracy of actions. However, it cannot completely eliminate the effect of state evolving due to the costs of action computation, execution, and policy updates~\cite{DBLP:journals/firai/TravnikMSP18}.
+	\begin{itemize}
+		\item What can I do with these observations?
+		\begin{itemize}
+			\item Reordering steps in an actively learning system is a necessary part in reducing state-slippage on learning.
+			\item Minimising these effects needs us to build our system explicitly to reduce this further.
+		\end{itemize}
+		\item What can I do to address this?
+		\begin{itemize}
+			\item Reduce the time required to compute an action, to react to state, and to install that action in the network.
+			\item Ensure that state is measured at agent (on-chip, or close by).
+			\item Ensure actions are computed as close to where they occur as possible.
+		\end{itemize}
+		\item How are these being addressed?
+		\begin{itemize}
+			\item Place agents/decision-making as close to the switch as possible.
+		\end{itemize}
+		\item What applications is this affecting?
+		\begin{itemize}
+			\item Time-sensitive RL: DDoS mitigation, Congestion-control algorithms, ...
+		\end{itemize}
+		\item What would its solution be useful for?
+		\begin{itemize}
+			\item Make actions taken more ``correct'' (as underlying state change has been reduced).
+			\item In online settings, reduce the noise of the state-action-reward function being learned.
+		\end{itemize}
+	\end{itemize}
 	
 	\item What if we do stop the world (i.e., block operation) to ensure this doesn't happen? In case of congestion control, significant throughput drops (as DNN inference takes \SI{30}{\milli\second}), so asynchrony is necessary~\cite{DBLP:journals/corr/abs-1910-04054}.
+	\begin{itemize}
+		\item What can I do with these observations?
+		\begin{itemize}
+			\item We can't pause operation of a system to collect more state, while updating the model, or while choosing an action.
+		\end{itemize}
+		\item What can I do to address this?
+		\begin{itemize}
+			\item Use state coalescing measures like in \textcite{DBLP:journals/tnsm/SimpsonRP20} and \textcite{DBLP:journals/corr/abs-1910-04054}.
+		\end{itemize}
+		\item What applications is this affecting?
+		\begin{itemize}
+			\item Congestion control algorithms primarily, others where some system depends on the output of an RL agent.
+		\end{itemize}
+	\end{itemize}
 	
 	\item Training deep RL models has its own costs (need many parallel simulations). What if we only have one stream of experience to learn from? E.g., evolution of the system is too difficult to predict and model. In general, DNNs can't be trained effectively from a single, online, real-time stream of experience.
+	\begin{itemize}
+		\item What can I do with these observations?
+		\begin{itemize}
+			\item This suggests that we should also look into non-DNN based RL approaches, if we find that RL is the best tool for the job.
+		\end{itemize}
+		\item What can I do to address this?
+		\begin{itemize}
+			\item Employ classical RL methods, which don't need many streams of parallel execution traces to learn effectively.
+		\end{itemize}
+		\item If addressed, what do I use them for?
+		\begin{itemize}
+			\item There's ongoing research which attempts to execute NN/DNN-based RL/ML models in switches, but these work under heavy concessions.
+			\item Training and format conversion must happen off of the device, so can't be done online.
+		\end{itemize}
+		\item What applications is this affecting?
+		\begin{itemize}
+			\item In-network RL applications needing real-time evolution, where DNN online training is not doable.
+			\item Likely invites some accuracy impact---linear (e.g., tile-coded) function approximation not as expressive or powerful as DNNs.
+		\end{itemize}
+		\item What would its solution be useful for?
+		\begin{itemize}
+			\item Ensures that online learning is possible in the contexts we're interested in.
+		\end{itemize}
+	\end{itemize}
 	
 	\item PDP hardware is advertised as supporting P4, EBPF... But almost all implementations compile to a more complex/expressive language. Presence of externs is almost universal when it comes to in-switch compute---i.e., Tofino Native Architecture\footnote{\url{    https://www.barefootnetworks.com/products/brief-p4-studio/}}, Netronome Micro-C\footnote{\url{https://www.netronome.com/products/datapath-programming-tools/}}, P4$\rightarrow$NetFPGA toolchain\footnote{\url{https://github.com/NetFPGA/P4-NetFPGA-public}}.
+	\begin{itemize}
+		\item What can I do with these observations?
+		\begin{itemize}
+			\item We should use P4 where possible to make implementation of in-network compute possible.
+			\item \emph{But} we would be remiss not to make use of the multicore, general-purpose compute that the core on many of these devices are fundamentally built to do.
+			\item In-network compute and/or PDPs give us the tools we need to put action computation, the mechanism of action, and state measurement at the same location in the network!
+		\end{itemize}
+		\item If addressed, what do I use them for?
+		\begin{itemize}
+			\item Identify the common aspects of non-NetFPGA P4-capable devices.
+			\item Determine whether these allow a common architecture (but not common reimplementation since different languages, low-level specifics).
+			\item Might need to describe the same mechanism as implemented in both Netronome and Barefoot?
+		\end{itemize}
+		\item What applications is this affecting?
+		\begin{itemize}
+			\item PDP applications in general.
+		\end{itemize}
+	\end{itemize}
 \end{itemize}
 
 What aspects of the state-of-the-art are relevant here?
