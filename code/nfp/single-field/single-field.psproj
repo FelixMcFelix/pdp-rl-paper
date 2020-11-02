@@ -1,0 +1,252 @@
+{
+    "project": {
+        "P4_project": true, 
+        "build": {
+            "common": {
+                "assembler": {
+                    "include_paths": [], 
+                    "include_std_lib_paths": true, 
+                    "predefined_macros": {
+                        "_comment": "future use"
+                    }
+                }, 
+                "compiler": {
+                    "include_paths": [], 
+                    "include_std_lib_paths": true, 
+                    "nfcc_ng": true, 
+                    "predefined_macros": {
+                        "_comment": "future use"
+                    }
+                }, 
+                "events": {
+                    "post_build_evt_params": "", 
+                    "post_build_evt_script": "", 
+                    "pre_build_evt_params": "", 
+                    "pre_build_evt_script": ""
+                }, 
+                "include_paths": {
+                    "_comment": "future use"
+                }, 
+                "p4compiler": {
+                    "include_std_lib_paths": "true", 
+                    "predefined_macros": {
+                        "_comment": "future use"
+                    }
+                }, 
+                "parallel_build": true, 
+                "predefined_macros": [], 
+                "rev_max": -1, 
+                "rev_min": 16
+            }, 
+            "targets": {
+                ".\\single-field": {
+                    "build_required": true, 
+                    "list_assignments": {}, 
+                    "settings": {
+                        "additional_options": "", 
+                        "chip_name": "<unnamed>", 
+                        "debug_info": true, 
+                        "elf_64": true, 
+                        "fill": "default", 
+                        "fill_enable": false, 
+                        "gen_mem_map_file": false, 
+                        "gen_seg_h_file": false, 
+                        "insert_nffwmip": false, 
+                        "insert_rt_syms": false, 
+                        "island_partial_fw_map": {}, 
+                        "map_file": ".\\single-field_", 
+                        "memories": {}, 
+                        "nn_chains": {}, 
+                        "produce_u_cstore_ecc": true, 
+                        "quad_shared_codestores_enabled": false, 
+                        "shared_codestores_enabled": false, 
+                        "user_note_files": {}
+                    }, 
+                    "target": "nffw", 
+                    "tool": "linker"
+                }
+            }
+        }, 
+        "chips": {
+            "<unnamed>": {
+                "chip_id": "AMDA0078-0011:0", 
+                "chip_rev_num": 16, 
+                "clock_freq_config": {
+                    "ILK0SERDESCLK": 10.3125, 
+                    "ILK1SERDESCLK": 10.3125, 
+                    "fD0_CLK": 933.0, 
+                    "fD1_CLK": 933.0, 
+                    "fD2_CLK": 933.0, 
+                    "fILA0_CLK": 800.0, 
+                    "fILA1_CLK": 800.0, 
+                    "fP_CLK": 1000.0, 
+                    "fT_CLK": 1200.0
+                }, 
+                "memory_config": {
+                    "i24": {
+                        "channels": "2", 
+                        "leveling_enabled": true, 
+                        "size": "8G"
+                    }, 
+                    "i25": {
+                        "channels": "2", 
+                        "leveling_enabled": true, 
+                        "size": "8G"
+                    }, 
+                    "i26": {
+                        "channels": "2", 
+                        "leveling_enabled": true, 
+                        "size": "8G"
+                    }
+                }, 
+                "micro_engine_data": {
+                    "i1.me0": {}, 
+                    "i1.me1": {}, 
+                    "i1.me2": {}, 
+                    "i1.me3": {}, 
+                    "i12.me0": {}, 
+                    "i12.me1": {}, 
+                    "i12.me2": {}, 
+                    "i12.me3": {}, 
+                    "i13.me0": {}, 
+                    "i13.me1": {}, 
+                    "i13.me2": {}, 
+                    "i13.me3": {}, 
+                    "i32.me0": {}, 
+                    "i32.me1": {}, 
+                    "i32.me10": {}, 
+                    "i32.me11": {}, 
+                    "i32.me2": {}, 
+                    "i32.me3": {}, 
+                    "i32.me4": {}, 
+                    "i32.me5": {}, 
+                    "i32.me6": {}, 
+                    "i32.me7": {}, 
+                    "i32.me8": {}, 
+                    "i32.me9": {}, 
+                    "i33.me0": {}, 
+                    "i33.me1": {}, 
+                    "i33.me10": {}, 
+                    "i33.me11": {}, 
+                    "i33.me2": {}, 
+                    "i33.me3": {}, 
+                    "i33.me4": {}, 
+                    "i33.me5": {}, 
+                    "i33.me6": {}, 
+                    "i33.me7": {}, 
+                    "i33.me8": {}, 
+                    "i33.me9": {}, 
+                    "i34.me0": {}, 
+                    "i34.me1": {}, 
+                    "i34.me10": {}, 
+                    "i34.me11": {}, 
+                    "i34.me2": {}, 
+                    "i34.me3": {}, 
+                    "i34.me4": {}, 
+                    "i34.me5": {}, 
+                    "i34.me6": {}, 
+                    "i34.me7": {}, 
+                    "i34.me8": {}, 
+                    "i34.me9": {}, 
+                    "i35.me0": {}, 
+                    "i35.me1": {}, 
+                    "i35.me10": {}, 
+                    "i35.me11": {}, 
+                    "i35.me2": {}, 
+                    "i35.me3": {}, 
+                    "i35.me4": {}, 
+                    "i35.me5": {}, 
+                    "i35.me6": {}, 
+                    "i35.me7": {}, 
+                    "i35.me8": {}, 
+                    "i35.me9": {}, 
+                    "i36.me0": {}, 
+                    "i36.me1": {}, 
+                    "i36.me10": {}, 
+                    "i36.me11": {}, 
+                    "i36.me2": {}, 
+                    "i36.me3": {}, 
+                    "i36.me4": {}, 
+                    "i36.me5": {}, 
+                    "i36.me6": {}, 
+                    "i36.me7": {}, 
+                    "i36.me8": {}, 
+                    "i36.me9": {}, 
+                    "i37.me0": {}, 
+                    "i37.me1": {}, 
+                    "i37.me10": {}, 
+                    "i37.me11": {}, 
+                    "i37.me2": {}, 
+                    "i37.me3": {}, 
+                    "i37.me4": {}, 
+                    "i37.me5": {}, 
+                    "i37.me6": {}, 
+                    "i37.me7": {}, 
+                    "i37.me8": {}, 
+                    "i37.me9": {}, 
+                    "i38.me0": {}, 
+                    "i38.me1": {}, 
+                    "i38.me10": {}, 
+                    "i38.me11": {}, 
+                    "i38.me2": {}, 
+                    "i38.me3": {}, 
+                    "i38.me4": {}, 
+                    "i38.me5": {}, 
+                    "i38.me6": {}, 
+                    "i38.me7": {}, 
+                    "i38.me8": {}, 
+                    "i38.me9": {}, 
+                    "i4.me0": {}, 
+                    "i4.me1": {}, 
+                    "i4.me2": {}, 
+                    "i4.me3": {}, 
+                    "i48.me0": {}, 
+                    "i48.me1": {}, 
+                    "i48.me2": {}, 
+                    "i48.me3": {}, 
+                    "i49.me0": {}, 
+                    "i49.me1": {}, 
+                    "i49.me2": {}, 
+                    "i49.me3": {}, 
+                    "i5.me0": {}, 
+                    "i5.me1": {}, 
+                    "i5.me2": {}, 
+                    "i5.me3": {}
+                }
+            }
+        }, 
+        "debug_only": false, 
+        "files": {
+            "c_script": {}, 
+            "microc": {}, 
+            "microcode": {}, 
+            "p4code": {}, 
+            "p4userconfigs": {}
+        }, 
+        "folder_mapping": {}, 
+        "legacy_mode": false, 
+        "managed_c_project": false, 
+        "p4_version": "16", 
+        "pif_gen_version": "0.0.0", 
+        "pkt_strm_config": {
+            "nbi": {
+                "0": {
+                    "channel_configs": [], 
+                    "mac_config": ""
+                }, 
+                "1": {
+                    "channel_configs": [], 
+                    "mac_config": ""
+                }
+            }
+        }, 
+        "project_name": "single-field", 
+        "project_path": "C:\\Users\\Kyle\\gits\\pdp-rl-paper\\code\\nfp\\single-field\\single-field.psproj", 
+        "sim_startup_options": {
+            "imported_var_data_file": "", 
+            "sim_profile_started": true, 
+            "startup_scripts": {}
+        }, 
+        "version": "63.00"
+    }
+}
