@@ -1,1 +1,0 @@
-{"tables":{"ingress::forward":{"rules":[{"action":{"data":{"port":{"value":"p0"}},"type":"ingress::set_egress_spec"},"match":{"ethernet.eth_dst":{"value":"00:00:00:00:00:00"}},"name":"0"}]}}}

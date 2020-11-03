@@ -1,1 +1,1 @@
-rtecli design-load -f out/nfp_6x_40.nffw -p out/pif_design.json -c example.p4cfg
+rtecli design-load -f out/single-field.nffw -p out/pif_design.json -c example.p4cfg
