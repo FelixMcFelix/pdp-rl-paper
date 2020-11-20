@@ -78,6 +78,20 @@ struct tiling_options {
 	uint32_t tiling_size; //20 -> 24
 };
 
+enum key_source_kind {
+	KEY_SRC_SHARED,
+	KEY_SRC_FIELD
+};
+
+union key_source_body {
+	uint16_t field_id;
+};
+
+struct key_source {
+	enum key_source_kind kind;
+	union key_source_body body;
+};
+
 struct rl_config {
 	//Need to store info for each active tiling.
 	struct tiling_options tiling_sets[T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS];
@@ -112,6 +126,9 @@ struct rl_config {
 	tile_t epsilon_decay_amt; // 848
 	uint32_t epsilon_decay_freq; // 852
 	// 856
+
+	struct key_source state_key;
+	struct key_source reward_key;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
@@ -144,6 +161,12 @@ struct rl_work_item {
 struct policy_install_data {
 	uint32_t tile;
 	uint16_t count;
+};
+
+struct state_action_pair {
+	uint16_t action;
+	uint16_t len;
+	tile_t tiles[RL_MAX_TILE_HITS];
 };
 
 #endif /* !_RL_H_ */

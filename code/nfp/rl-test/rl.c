@@ -4,8 +4,10 @@
 //#include <nfp_mem_ring.h>
 //#include <nfp_mem_workq.h>
 #include <nfp/mem_bulk.h>
+//#include <nfp/mem_lkup.h>
 #include <nfp/mem_ring.h>
 #include <rtl.h>
+#include <lu/cam_hash.h>
 #include "rl.h"
 #include "rl-pkt-store.h"
 #include "pif_parrep.h"
@@ -28,12 +30,27 @@ volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
+volatile __declspec(export, emem) uint32_t cycle_estimate = 0;
+
 __declspec(export, emem) uint32_t global_tc_indices[RL_MAX_TILE_HITS] = {0};
 __declspec(export, emem) uint16_t global_tc_count;
 
 __declspec(export, emem) tile_t global_prefs[MAX_ACTIONS] = {0};
 
 __declspec(export, emem) struct rl_work_item test_work;
+
+// Testing out CAM table creation here.
+
+/*#define SA_CAM_BUCKETS 0x40000
+#define SA_TABLE_SZ (SA_CAM_BUCKETS * 16)
+
+__export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entry lkup_table[SA_CAM_BUCKETS];*/
+
+#define SA_ENTRIES 0x20000
+CAMHT_DECLARE(state_action_map, SA_ENTRIES, struct state_action_pair)
+
+#define REWARD_ENTRIES 0x10
+CAMHT_DECLARE(reward_map, REWARD_ENTRIES, tile_t)
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -383,6 +400,8 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 			mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 			break;
 	}
+
+	CAMHT_LOOKUP(reward_map, &cfg);
 }
 
 void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
@@ -393,8 +412,15 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	tile_t prefs[MAX_ACTIONS] = {0};
 
+	uint32_t t0;
+	uint32_t t1;
+
+	__declspec(xfer_write_reg) uint32_t time_taken;
+
 	__declspec(xfer_read_reg) union two_u16s word;
 	int i = 0;
+
+	t0 = local_csr_read(local_csr_timestamp_low);
 
 	if (dim_count != cfg->num_dims) {
 		return;
@@ -419,6 +445,12 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	}
 
 	action_preferences(tc_indices, tc_count, cfg, prefs);
+
+	t1 = local_csr_read(local_csr_timestamp_low);
+
+	time_taken = t1 - t0;
+
+	mem_write32(&time_taken, &cycle_estimate, sizeof(uint32_t));
 
 	i=0;
 	for (i=0; i < cfg->num_actions; i++) {

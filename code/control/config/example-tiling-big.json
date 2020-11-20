@@ -1,0 +1,74 @@
+{
+  "tilings": [
+    {
+      "dims": [],
+      "location": null
+    },
+    {
+      "dims": [0],
+      "location": 0
+    },
+    {
+      "dims": [1],
+      "location": 0
+    },
+    {
+      "dims": [2],
+      "location": 0
+    },
+    {
+      "dims": [3],
+      "location": 0
+    },
+    {
+      "dims": [4],
+      "location": 0
+    },
+    {
+      "dims": [5],
+      "location": 0
+    },
+    {
+      "dims": [6],
+      "location": 0
+    },
+
+    {
+      "dims": [7],
+      "location": 1
+    },
+    {
+      "dims": [0,8],
+      "location": 1
+    },
+    {
+      "dims": [1,8],
+      "location": 1
+    },
+    {
+      "dims": [2,8],
+      "location": 1
+    },
+    {
+      "dims": [3,8],
+      "location": 1
+    },
+    {
+      "dims": [4,8],
+      "location": 1
+    },
+    {
+      "dims": [5,8],
+      "location": 1
+    },
+    {
+      "dims": [6,8],
+      "location": 1
+    },
+
+    {
+      "dims": [9,10,11,12],
+      "location": 2
+    }
+  ]
+}
