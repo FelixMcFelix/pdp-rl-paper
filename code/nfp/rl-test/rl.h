@@ -80,11 +80,13 @@ struct tiling_options {
 
 enum key_source_kind {
 	KEY_SRC_SHARED,
-	KEY_SRC_FIELD
+	KEY_SRC_FIELD,
+	KEY_SRC_VALUE
 };
 
 union key_source_body {
 	uint16_t field_id;
+	tile_t value;
 };
 
 struct key_source {

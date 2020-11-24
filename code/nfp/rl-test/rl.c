@@ -46,11 +46,11 @@ __declspec(export, emem) struct rl_work_item test_work;
 
 __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entry lkup_table[SA_CAM_BUCKETS];*/
 
-#define SA_ENTRIES 0x20000
+/*#define SA_ENTRIES 0x20000
 CAMHT_DECLARE(state_action_map, SA_ENTRIES, struct state_action_pair)
 
 #define REWARD_ENTRIES 0x10
-CAMHT_DECLARE(reward_map, REWARD_ENTRIES, tile_t)
+CAMHT_DECLARE(reward_map, REWARD_ENTRIES, tile_t)*/
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -60,11 +60,21 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 	uint16_t tiling_set_idx;
 	uint16_t out_idx = 0;
 
+	// FIXME: misses out special casing for bias tile?
+
 	// Tiling sets: each relies upon its own dimension list.
 	// Each of these is one entry in a tiling packet.
 	for (tiling_set_idx = 0; tiling_set_idx < cfg->num_tilings; ++tiling_set_idx) {
 		uint16_t tiling_idx;
 		uint32_t local_tile_base = cfg->tiling_sets[tiling_set_idx].start_tile;
+
+		if (cfg->tiling_sets[tiling_set_idx].num_dims == 0) {
+			// This is a bias tile.
+			// Forcibly select it!.
+			output[out_idx++] = local_tile_base;
+
+			continue;
+		}
 
 		// Repeat the selected tiling set, changing shift.
 		// Each of these is a *copy* of the above loop, shifted along by the relevant indices.
@@ -101,7 +111,7 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 			}
 
 			output[out_idx++] = local_tile;
-			local_tile_base += cfg->tiling_sets[tiling_set_idx].tiling_size;
+			local_tile_base += cfg->tiling_sets[tiling_set_idx].tiling_size / cfg->tilings_per_set;
 		}
 	}
 	return out_idx;
@@ -238,6 +248,12 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		pkt->packet_payload + cursor, 0,
 		cfg->num_dims * sizeof(tile_t)
 	);
+
+	// TODO: update setup packet to take these from 
+	// the config packet.
+	cfg->state_key.kind = KEY_SRC_SHARED;
+
+	cfg->reward_key.kind = KEY_SRC_SHARED;
 
 	// Fill in width, shift_amt, adjusted_max...
 	if (cfg->tilings_per_set == 1) {
@@ -401,7 +417,22 @@ void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspe
 			break;
 	}
 
-	CAMHT_LOOKUP(reward_map, &cfg);
+	// CAMHT_LOOKUP(reward_map, &cfg);
+}
+
+// Selects the state-action / reward key from a given state vector.
+tile_t select_key(struct key_source key_src, tile_t *state_vec) {
+	switch(key_src.kind) {
+		case KEY_SRC_SHARED:
+			break;
+		case KEY_SRC_FIELD:
+			return state_vec[key_src.body.field_id];
+		case KEY_SRC_VALUE:
+			return key_src.body.value;
+	}
+
+	// Assumes shared in usual case.
+	return 0;
 }
 
 void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
@@ -419,6 +450,9 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	__declspec(xfer_read_reg) union two_u16s word;
 	int i = 0;
+
+	//tile_t state_key = select_key(cfg->state_key, state);
+	//tile_t reward_key = select_key(cfg->reward_key, state);
 
 	t0 = local_csr_read(local_csr_timestamp_low);
 
