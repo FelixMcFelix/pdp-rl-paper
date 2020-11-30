@@ -125,12 +125,18 @@ struct rl_config {
 	// the decay in the numerator, and how often to do so.
 	struct tile_fraction epsilon; // 832
 	struct tile_fraction alpha; // 840
+	struct tile_fraction gamma; // 840
 	tile_t epsilon_decay_amt; // 848
 	uint32_t epsilon_decay_freq; // 852
 	// 856
 
+	// TODO: remove bases from alpha, gamma, and use this for policy.
+	uint32_t quantiser_shift;
+
 	struct key_source state_key;
 	struct key_source reward_key;
+
+	uint8_t do_updates;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
@@ -168,6 +174,7 @@ struct policy_install_data {
 struct state_action_pair {
 	uint16_t action;
 	uint16_t len;
+	tile_t val;
 	tile_t tiles[RL_MAX_TILE_HITS];
 };
 

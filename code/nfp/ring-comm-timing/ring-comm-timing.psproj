@@ -85,6 +85,88 @@
                 "rev_min": 16
             }, 
             "targets": {
+                ".\\out\\diff-isl-reflector.list\\diff-isl-reflector.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            ".\\isl-isl-reflector.c", 
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\out\\diff-isl-src.list\\diff-isl-src.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            ".\\isl-isl-src.c", 
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
                 ".\\out\\same-isl-reflector.list\\same-isl-reflector.list": {
                     "build_required": false, 
                     "input_files": {
@@ -175,6 +257,12 @@
                         ], 
                         "i32.me1": [
                             "same-isl-reflector.list"
+                        ], 
+                        "i33.me0": [
+                            "diff-isl-reflector.list"
+                        ], 
+                        "i34.me0": [
+                            "diff-isl-src.list"
                         ]
                     }, 
                     "settings": {
@@ -355,6 +443,12 @@
             "c_script": {}, 
             "microc": {
                 "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c": {
+                    "update": "YES"
+                }, 
+                ".\\isl-isl-reflector.c": {
+                    "update": "YES"
+                }, 
+                ".\\isl-isl-src.c": {
                     "update": "YES"
                 }, 
                 ".\\me-me-reflector.c": {

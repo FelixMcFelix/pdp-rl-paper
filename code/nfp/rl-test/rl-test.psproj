@@ -1090,7 +1090,9 @@
                     "build_required": false, 
                     "input_files": {
                         "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\std\\libstd.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_arm.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cls_reflect.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_cluster_target.c", 
@@ -1113,6 +1115,7 @@
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_workq.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
+                            ".\\quant_math.c", 
                             ".\\rl.c", 
                             ".\\rl-pkt-store.c"
                         ], 
@@ -1625,6 +1628,9 @@
                 "$(SDKDIR)\\components\\flowenv\\me\\blocks\\blm\\libblm.c": {
                     "update": "YES"
                 }, 
+                "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c": {
+                    "update": "YES"
+                }, 
                 "$(SDKDIR)\\components\\flowenv\\me\\lib\\modscript\\libmodscript.c": {
                     "update": "YES"
                 }, 
@@ -1890,6 +1896,12 @@
                     "update": "YES"
                 }, 
                 ".\\out\\pif_tables.c": {
+                    "update": "YES"
+                }, 
+                ".\\quant_math.c": {
+                    "update": "YES"
+                }, 
+                ".\\quant_math.h": {
                     "update": "YES"
                 }, 
                 ".\\rl-pkt-store.c": {
