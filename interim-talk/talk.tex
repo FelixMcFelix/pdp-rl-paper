@@ -5,7 +5,7 @@
 %,notes=only
 %,notes
 %,show notes on second screen=right
-%,handout
+,handout
 ]{beamer}
 \usetheme[background=light, numbering=fraction]{metropolis}
 \usepackage{appendixnumberbeamer}
@@ -459,65 +459,7 @@
 	We'll mainly focus on SmartNICs.
 \end{frame}
 
-\begin{frame}{Timing: Why not offload to the controller?}
-	\begin{columns}
-		\begin{column}{0.5\linewidth}
-			For SmartNICs, the attached host \emph{is the (closest) controller}.
-			
-			\begin{itemize}
-				\item PCIe access times $\mathcal{O}(\si{\micro\second})$.\footnotemark
-				\item MATs recompiled $\mathcal{O}(\si{\second})$. Many rules $\implies$ batching.
-				\item Thrift serde time $\mathcal{O}(\si{\milli\second})$.
-			\end{itemize}
-			
-			%	?? https://github.com/rpclib/benchmarks/blob/master/plots/get_blob_real_log.svg
-			
-			\alert{Meanwhile core-to-core on chip around \SI{100}{\nano\second} @ \SI{1.2}{\giga\hertz}.}
-		\end{column}
-		\begin{column}{0.5\linewidth}
-			\begin{figure}
-				\includegraphics[width=0.9\linewidth]{../plots/build/rte-timer/rte-times-logx}
-				\caption{Netronome rule installation cost \\(1 table, \numrange{1}{65536} rules).}
-			\end{figure}
-		\end{column}
-	\end{columns}
-	
-	\footcitetext{DBLP:conf/sigcomm/NeugebauerAZAL018}
-\end{frame}
 
-\begin{frame}{Quantisation}
-	\begin{columns}
-		\begin{column}{0.5\linewidth}
-			\begin{figure}
-				\includegraphics[width=0.9\linewidth]{../plots/build/marl-quant/accuracy-binary}
-				\caption{DDoS throttle accuracy wrt. fixed-point Q$n$.}
-			\end{figure}
-		\end{column}
-		\begin{column}{0.5\linewidth}
-			No FPU... so use \alert{Q$n$ fixed-point}.
-			\begin{itemize}
-				\item For RL updates: need only shift, multiply, add.
-				\item \alert{Policy exec only needs add}.
-				\item \SI{16}{\bit} fraction has negligible loss.
-			\end{itemize}
-		\end{column}
-	\end{columns}
-\end{frame}
-
-\begin{frame}{Dynamic Action Installation}
-	\begin{itemize}
-		\item Netronome w/ P4?
-		\begin{itemize}
-			\item MAT structure (DCFL) computed on host...
-			\item So can't directly interop with P4.
-			\item ...But we can have other actions/externs maintain their own lookup tables.
-		\end{itemize}
-		\item Tofino has features to make this more feasible.
-		\begin{itemize}
-			\item Action Profiles/Selects
-		\end{itemize}
-	\end{itemize}
-\end{frame}
 
 \begin{frame}{Architecting On-NIC RL}
 	\begin{columns}
@@ -608,7 +550,7 @@
 
 \begin{frame}{How could this (hypothetically) fit the case study?}
 	\begin{itemize}
-		\item P4 action to gather state on collected flows.
+		\item P4 table-action to gather state on collected flows.
 		\begin{itemize}
 			\item Flow telemetry in P4 well-documented.
 			\item Pass in/schedule state vectors every $\delta{}t$.
@@ -623,6 +565,66 @@
 	\end{itemize}
 \end{frame}
 
+\begin{frame}{Timing: Why not offload to the controller?}
+	\begin{columns}
+		\begin{column}{0.5\linewidth}
+			For SmartNICs, the attached host \emph{is the (closest) controller}.
+			
+			\begin{itemize}
+				\item PCIe access times $\mathcal{O}(\si{\micro\second})$.\footnotemark
+				\item MATs recompiled $\mathcal{O}(\si{\second})$. Many rules $\implies$ batching.
+				\item Thrift serde time $\mathcal{O}(\si{\milli\second})$.
+			\end{itemize}
+			
+			%	?? https://github.com/rpclib/benchmarks/blob/master/plots/get_blob_real_log.svg
+			
+			\alert{Meanwhile core-to-core on chip around \SI{100}{\nano\second} @ \SI{1.2}{\giga\hertz}.}
+		\end{column}
+		\begin{column}{0.5\linewidth}
+			\begin{figure}
+				\includegraphics[width=0.9\linewidth]{../plots/build/rte-timer/rte-times-logx}
+				\caption{Netronome rule installation cost \\(1 table, \numrange{1}{65536} rules).}
+			\end{figure}
+		\end{column}
+	\end{columns}
+	
+	\footcitetext{DBLP:conf/sigcomm/NeugebauerAZAL018}
+\end{frame}
+
+\begin{frame}{Quantisation}
+	\begin{columns}
+		\begin{column}{0.5\linewidth}
+			\begin{figure}
+				\includegraphics[width=0.9\linewidth]{../plots/build/marl-quant/accuracy-binary}
+				\caption{DDoS throttle accuracy wrt. fixed-point Q$n$.}
+			\end{figure}
+		\end{column}
+		\begin{column}{0.5\linewidth}
+			No FPU... so use \alert{Q$n$ fixed-point}.
+			\begin{itemize}
+				\item For RL updates: need only shift, multiply, add.
+				\item \alert{Policy exec only needs add}.
+				\item \SI{16}{\bit} fraction has negligible loss.
+			\end{itemize}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}{Dynamic Action Installation}
+	\begin{itemize}
+		\item Netronome w/ P4?
+		\begin{itemize}
+			\item MAT structure (DCFL) computed on host...
+			\item So can't directly interop with P4.
+			\item ...But we can have other actions/externs maintain their own lookup tables.
+		\end{itemize}
+		\item Tofino has features to make this more feasible.
+		\begin{itemize}
+			\item Action Profiles/Selects
+		\end{itemize}
+	\end{itemize}
+\end{frame}
+
 %\begin{frame}{What about higher port-density devices?}
 %	content...
 %\end{frame}
@@ -633,7 +635,8 @@
 			\begin{itemize}
 				\item Single-threaded---still to be accelerated.
 				\item Small? One tiling per memory tier.
-				\item Versus use-case: \SI{330}{\micro\second} on commodity i7.
+				\item Max? 20-element state, 17 mixed-dim tilings, 8 per set.
+				\item Versus use-case: \SI{330}{\micro\second} on commodity i7 (\SI{4.2}{\giga\hertz}).
 			\end{itemize}
 		\end{column}
 		\begin{column}{0.6\linewidth}
@@ -649,11 +652,12 @@
 \end{frame}
 
 \begin{frame}[standout]
+	Takeaways:
 	\begin{itemize}
-		\item Online in-NIC RL is possible!
+		\item \alert{Online in-NIC RL is possible!}
 		\item In-switch? Less so.
-		\item Arch-specific, but similar design for similar hardware class.
-		\item Work-in-progress: end-to-end timing, training accuracy, other use-cases, optimisation.
+		\item Platform-specific, but similar design for SmartNIC hardware class.
+		\item \alert{Work-in-progress}: end-to-end timing, training accuracy, other use-cases (AQM?), optimisation.
 	\end{itemize}
 	\alert{Questions?}
 \end{frame}
