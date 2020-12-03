@@ -123,15 +123,16 @@ struct rl_config {
 
 	// exploration param.
 	// the decay in the numerator, and how often to do so.
-	struct tile_fraction epsilon; // 832
-	struct tile_fraction alpha; // 840
-	struct tile_fraction gamma; // 840
+	tile_t epsilon; // 832
+	tile_t alpha; // 840
+	tile_t gamma; // 840
+
 	tile_t epsilon_decay_amt; // 848
 	uint32_t epsilon_decay_freq; // 852
 	// 856
 
 	// TODO: remove bases from alpha, gamma, and use this for policy.
-	uint32_t quantiser_shift;
+	uint8_t quantiser_shift;
 
 	struct key_source state_key;
 	struct key_source reward_key;

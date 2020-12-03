@@ -1,18 +1,17 @@
 {
+	"quantiser_shift":8,
+	"do_updates":true,
 	"n_dims":4,
 	"tiles_per_dim":3,
 	"tilings_per_set":1,
 	"n_actions":2,
-	"epsilon":{
-		"numer":1,
-		"denom":10
-	},
-	"alpha":{
-		"numer":1,
-		"denom":20
-	},
+	"epsilon":26,
+	"alpha":13,
+	"gamma":205,
 	"epsilon_decay_amt":1,
 	"epsilon_decay_freq":1,
+	"state_key": {"Field": 0},
+	"reward_key": "Shared",
 	"maxes":[
 		1000,
 		100,

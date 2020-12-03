@@ -223,14 +223,29 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	// setup information.
 	// rest of packet body is:
+	// do_updates (u8)
+	// quantiser_shift (u8)
 	// n_dims in all state vectors (u16)
 	// tiles_per_dim (u16)
 	// tilings_per_set (u16)
 	// n_actions (u16)
-	// epsilon (frac = 2xtile_t)
-	// alpha (frac = 2xtile_t)
+	// epsilon (tile_t)
+	// alpha (tile_t)
+	// gamma (tile_t)
 	// epsilon_d (tile_t)
 	// epsilon_f (uint32_t)
+	// * state_key (u8 + i32)
+	// * reward_key (u8 + i32)
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(uint16_t);
+
+	cfg->do_updates = word.bytes[0];
+	cfg->quantiser_shift = word.bytes[1];
+
 	mem_read64(
 		&(bigword.raw),
 		pkt->packet_payload,
@@ -243,29 +258,32 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	cfg->tilings_per_set = bigword.shorts[2];
 	cfg->num_actions = bigword.shorts[3];
 
-	mem_read64(
-		&(bigword.raw),
+	mem_read32(
+		&(word.raw),
 		pkt->packet_payload + cursor,
-		sizeof(union four_u16s)
+		sizeof(union two_u16s)
 	);
-	cursor += sizeof(union four_u16s);
+	cursor += sizeof(union two_u16s);
 
-	cfg->epsilon.numerator = (tile_t) bigword.words[0];
-	cfg->epsilon.divisor = (tile_t) bigword.words[1];
+	cfg->epsilon = (tile_t) word.raw;
 
-	mem_read64(
-		&(bigword.raw),
+	mem_read32(
+		&(word.raw),
 		pkt->packet_payload + cursor,
-		sizeof(union four_u16s)
+		sizeof(union two_u16s)
 	);
-	cursor += sizeof(union four_u16s);
+	cursor += sizeof(union two_u16s);
 
-	cfg->alpha.numerator = (tile_t) bigword.words[0];
-	cfg->alpha.divisor = (tile_t) bigword.words[1];
+	cfg->alpha = (tile_t) word.raw;
 
-	// TODO: Extract gamma from packet.
-	// This currently sets to zero w/ usable divisor.
-	cfg->gamma.divisor = (tile_t) bigword.words[1];
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(union two_u16s);
+
+	cfg->gamma = (tile_t) word.raw;
 
 	mem_read64(
 		&(bigword.raw),
@@ -276,6 +294,44 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	cfg->epsilon_decay_amt = (tile_t) bigword.words[0];
 	cfg->epsilon_decay_freq = bigword.words[1];
+
+	cfg->state_key.kind = pkt->packet_payload[cursor];
+	cursor += 1;
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(union two_u16s);
+	switch(cfg->state_key.kind) {
+		case KEY_SRC_FIELD:
+			cfg->state_key.body.field_id = word.ints[1];
+			break;
+		case KEY_SRC_VALUE:
+			cfg->state_key.body.value = (int32_t) word.raw;
+			break;
+		default:
+			break;
+	}
+
+	cfg->reward_key.kind = pkt->packet_payload[cursor];
+	cursor += 1;
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(union two_u16s);
+	switch(cfg->reward_key.kind) {
+		case KEY_SRC_FIELD:
+			cfg->reward_key.body.field_id = word.ints[1];
+			break;
+		case KEY_SRC_VALUE:
+			cfg->reward_key.body.value = (int32_t) word.raw;
+			break;
+		default:
+			break;
+	}
 
 	// n x tile_t maxes
 	// n x tile_t mins
@@ -527,7 +583,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	
 	// choose action
 	rng_draw = local_csr_read(local_csr_pseudo_random_number);
-	if ((rng_draw % (1 << cfg->quantiser_shift)) <= cfg->epsilon.numerator) {
+	if ((rng_draw % (1 << cfg->quantiser_shift)) <= cfg->epsilon) {
 		// Choose random
 		// This is probably subtly biased... whatever
 		chosen_action = local_csr_read(local_csr_pseudo_random_number) % cfg->num_actions;
@@ -541,9 +597,9 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		}
 	}
 
-	if (cfg->epsilon.numerator > 0) {
+	if (cfg->epsilon > 0) {
 		// TODO: reduce by correct/config'able amount.
-		cfg->epsilon.numerator -= 1;
+		cfg->epsilon -= 1;
 	}
 
 	if (cfg->do_updates) {
@@ -562,14 +618,14 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 		tile_t value_of_chosen_action = prefs[chosen_action]; // TODO
 
-		tile_t adjustment = cfg->alpha.numerator;
+		tile_t adjustment = cfg->alpha;
 		tile_t dt;
 
 		lsap.action = chosen_action;
 		lsap.val = value_of_chosen_action;
 		// don't copy the tile list, that's probably TOO heavy.
 		
-		dt = matched_reward + quant_mul(cfg->alpha.numerator, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
+		dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
 
 		adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
 

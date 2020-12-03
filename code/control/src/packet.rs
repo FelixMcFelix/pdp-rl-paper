@@ -128,19 +128,28 @@ pub fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
+		body.write_u8(setup.setup.do_updates as u8)?;
+		body.write_u8(setup.setup.quantiser_shift)?;
+
 		body.write_u16::<BigEndian>(setup.setup.n_dims)?;
 		body.write_u16::<BigEndian>(setup.setup.tiles_per_dim)?;
 		body.write_u16::<BigEndian>(setup.setup.tilings_per_set)?;
 		body.write_u16::<BigEndian>(setup.setup.n_actions)?;
 
-		body.write_i32::<BigEndian>(setup.setup.epsilon.numer)?;
-		body.write_i32::<BigEndian>(setup.setup.epsilon.denom)?;
+		//serialise do_updates, quantiser_shift, gamma, reward_key, state_key
 
-		body.write_i32::<BigEndian>(setup.setup.alpha.numer)?;
-		body.write_i32::<BigEndian>(setup.setup.alpha.denom)?;
+		body.write_i32::<BigEndian>(setup.setup.epsilon)?;
+		body.write_i32::<BigEndian>(setup.setup.alpha)?;
+		body.write_i32::<BigEndian>(setup.setup.gamma)?;
 
 		body.write_i32::<BigEndian>(setup.setup.epsilon_decay_amt)?;
 		body.write_u32::<BigEndian>(setup.setup.epsilon_decay_freq)?;
+
+		body.write_u8(setup.setup.state_key.id())?;
+		body.write_i32::<BigEndian>(setup.setup.state_key.body())?;
+
+		body.write_u8(setup.setup.reward_key.id())?;
+		body.write_i32::<BigEndian>(setup.setup.reward_key.body())?;
 
 		for el in setup.setup.maxes.iter().chain(setup.setup.mins.iter()) {
 			body.write_i32::<BigEndian>(*el)?;
