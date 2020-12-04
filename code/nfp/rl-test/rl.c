@@ -248,7 +248,7 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	mem_read64(
 		&(bigword.raw),
-		pkt->packet_payload,
+		pkt->packet_payload + cursor,
 		sizeof(union four_u16s)
 	);
 	cursor += sizeof(union four_u16s);
@@ -348,14 +348,6 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		pkt->packet_payload + cursor, 0,
 		cfg->num_dims * sizeof(tile_t)
 	);
-
-	// TODO: update setup packet to take these from 
-	// the config packet.
-	cfg->state_key.kind = KEY_SRC_SHARED;
-	cfg->reward_key.kind = KEY_SRC_SHARED;
-
-	// TODO: extract update-doing from system.
-	cfg->do_updates = 0;
 
 	// Fill in width, shift_amt, adjusted_max...
 	if (cfg->tilings_per_set == 1) {
@@ -549,6 +541,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	uint32_t t1;
 
 	__declspec(xfer_write_reg) uint32_t time_taken;
+	__declspec(xfer_write_reg) uint64_t nani;
 
 	__declspec(xfer_read_reg) union two_u16s word;
 	int i = 0;
@@ -559,6 +552,8 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	t0 = local_csr_read(local_csr_timestamp_low);
 
 	if (dim_count != cfg->num_dims) {
+		nani = (dim_count << 16) | cfg->num_dims;
+		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 		return;
 	}
 
