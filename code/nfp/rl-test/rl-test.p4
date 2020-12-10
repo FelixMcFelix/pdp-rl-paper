@@ -78,6 +78,11 @@ header rl_state_t {
     bit<16> dim_count;
 }
 
+header rl_reward_t {
+    bit<32> measured_value;
+    bit<32> lookup_key;
+}
+
 struct headers_t {
     ethernet_t ethernet;
     //ip_t ip;
@@ -89,6 +94,7 @@ struct headers_t {
     rl_cfg_t rct;
     rl_ins_t ins;
     rl_state_t in_state;
+    rl_reward_t in_reward;
 }
 
 // NOTE: think about header_union for ipv4/6, and for RL messages?
@@ -153,6 +159,7 @@ parser my_parser (
     const bit<8> RL_T_CFG = 0;
     const bit<8> RL_T_INS = 1;
     const bit<8> RL_T_STATE = 2;
+    const bit<8> RL_T_REWARD = 3;
 
     const bit<8> RL_CFG_T_TILES = 0;
 
@@ -224,6 +231,7 @@ parser my_parser (
             RL_T_CFG: cfg;
             RL_T_INS: insert;
             RL_T_STATE: state_pkt;
+            RL_T_REWARD: reward_pkt;
             _: accept;
         }
     }
@@ -240,6 +248,11 @@ parser my_parser (
 
     state state_pkt {
         b.extract(headers.in_state);
+        transition accept;
+    }
+
+    state reward_pkt {
+        b.extract(headers.in_reward);
         transition accept;
     }
 }
@@ -285,6 +298,7 @@ control deparser(packet_out b, in headers_t headers) {
         b.emit(headers.rct);
         b.emit(headers.ins);
         b.emit(headers.in_state);
+        b.emit(headers.in_reward);
     }
 }
 

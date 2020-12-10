@@ -129,9 +129,9 @@ struct rl_config {
 
 	tile_t epsilon_decay_amt; // 848
 	uint32_t epsilon_decay_freq; // 852
+	uint32_t epsilon_decay_freq_cnt; // 852
 	// 856
 
-	// TODO: remove bases from alpha, gamma, and use this for policy.
 	uint8_t quantiser_shift;
 
 	struct key_source state_key;
@@ -154,6 +154,7 @@ union t4_data {
 	struct pif_plugin_rct config;
 	struct pif_plugin_ins insert;
 	struct pif_plugin_in_state state;
+	struct pif_plugin_in_reward reward;
 };
 
 struct rl_work_item {

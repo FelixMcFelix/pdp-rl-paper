@@ -167,6 +167,211 @@
                     "target": "list", 
                     "tool": "compiler"
                 }, 
+                ".\\out\\nn-forward-swap.list\\nn-forward-swap.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            ".\\nn-forward-swap.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\out\\nn-forward.list\\nn-forward.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            ".\\nn-forward.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\out\\nn-src.list\\nn-src.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            ".\\nn-src.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\out\\ref-forward.list\\ref-forward.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            ".\\ref-forward.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
+                ".\\out\\ref-src.list\\ref-src.list": {
+                    "build_required": false, 
+                    "input_files": {
+                        "c_source_files": [
+                            "$(SDKDIR)\\components\\flowenv\\me\\lib\\nfp\\libnfp.c", 
+                            ".\\ref-src.c"
+                        ], 
+                        "ext_obj_files": [], 
+                        "obj_files": []
+                    }, 
+                    "list_type": "user", 
+                    "settings": {
+                        "additional_options": "", 
+                        "alloc_microstore_size": 8192, 
+                        "allow_mixing_with_other_modules": false, 
+                        "asm_code_file": false, 
+                        "command_line": "", 
+                        "context_mode": 8, 
+                        "cycle_utilization": 100, 
+                        "debug_info": true, 
+                        "define": [], 
+                        "edit_override": false, 
+                        "enable_cmd_intrinsics": true, 
+                        "first_context": 0, 
+                        "force_includes": [], 
+                        "include_std_c_source_file": true, 
+                        "inlining": 1, 
+                        "local_memory_size": 4096, 
+                        "local_memory_start": 0, 
+                        "local_memory_use_all": true, 
+                        "mix_mode": false, 
+                        "neighbor_mode": 0, 
+                        "num_contexts": 8, 
+                        "obj_target": false, 
+                        "optimize": 2, 
+                        "spill_control": 1, 
+                        "warning_level": 3
+                    }, 
+                    "target": "list", 
+                    "tool": "compiler"
+                }, 
                 ".\\out\\same-isl-reflector.list\\same-isl-reflector.list": {
                     "build_required": false, 
                     "input_files": {
@@ -252,6 +457,12 @@
                 ".\\ring-comm-timing": {
                     "build_required": false, 
                     "list_assignments": {
+                        "i12.me0": [
+                            "ref-src.list"
+                        ], 
+                        "i12.me1": [
+                            "ref-forward.list"
+                        ], 
                         "i32.me0": [
                             "same-isl-src.list"
                         ], 
@@ -263,6 +474,12 @@
                         ], 
                         "i34.me0": [
                             "diff-isl-src.list"
+                        ], 
+                        "i4.me0": [
+                            "nn-src.list"
+                        ], 
+                        "i4.me1": [
+                            "nn-forward.list"
                         ]
                     }, 
                     "settings": {
@@ -455,6 +672,21 @@
                     "update": "YES"
                 }, 
                 ".\\me-me-src.c": {
+                    "update": "YES"
+                }, 
+                ".\\nn-forward-swap.c": {
+                    "update": "YES"
+                }, 
+                ".\\nn-forward.c": {
+                    "update": "YES"
+                }, 
+                ".\\nn-src.c": {
+                    "update": "YES"
+                }, 
+                ".\\ref-forward.c": {
+                    "update": "YES"
+                }, 
+                ".\\ref-src.c": {
                     "update": "YES"
                 }
             }, 

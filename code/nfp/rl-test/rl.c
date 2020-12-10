@@ -52,8 +52,12 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
     camht_lookup_idx_add(CAMHT_HASH_TBL(_name), CAMHT_NB_ENTRIES(_name),    \
                      (void *)_key, sizeof(*_key), added)
 
+// Need to use this due to size limits on struct in CAMHT def, even
+// if key is different.
 #define SA_ENTRIES 0x20000
-CAMHT_DECLARE(state_action_map, SA_ENTRIES, struct state_action_pair)
+CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
+
+__declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
 
 #define REWARD_ENTRIES 0x10
 CAMHT_DECLARE(reward_map, REWARD_ENTRIES, tile_t)
@@ -349,6 +353,8 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		cfg->num_dims * sizeof(tile_t)
 	);
 
+	cfg->epsilon_decay_freq_cnt = 0;
+
 	// Fill in width, shift_amt, adjusted_max...
 	if (cfg->tilings_per_set == 1) {
 		// SPECIAL CASE:
@@ -592,63 +598,66 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		}
 	}
 
+	// reduce epsilon as required.
+	// realisation: can reinduce training without needing policy re-insertion!
 	if (cfg->epsilon > 0) {
-		// TODO: reduce by correct/config'able amount.
-		cfg->epsilon -= 1;
+		cfg->epsilon_decay_freq_cnt += 1;
+		if (cfg->epsilon_decay_freq_cnt >= cfg->epsilon_decay_freq) {
+			cfg->epsilon_decay_freq_cnt = 0;
+			cfg->epsilon -= cfg->epsilon_decay_amt;
+		}
 	}
 
 	if (cfg->do_updates) {
 		// This dummies the access cost.
 		// For some reason, it bugs out if struct size is lte 32bit?
-		uint64_t reward_key = cfg->reward_key.body.value;
-		uint64_t state_key = cfg->state_key.body.value;
+		uint64_t reward_key = select_key(cfg->reward_key, state);
+		uint64_t state_key = select_key(cfg->state_key, state);
 
-		uint32_t reward_found = CAMHT_LOOKUP(reward_map, &reward_key);
-		tile_t matched_reward = 1 << cfg->quantiser_shift; // TODO: not fake this.
+		int32_t state_added = 0;
+
+		int32_t reward_found = CAMHT_LOOKUP(reward_map, &reward_key);
 
 		// This is dummied until I figure out the mechanism better.
-		uint32_t state_found = CAMHT_LOOKUP(reward_map, &reward_key);//CAMHT_LOOKUP(state_action_map, &state_key);
-		// dummy the access cost:
-		struct state_action_pair lsap = state_action_map_key_tbl[0];
+		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
+		uint32_t changed_key = 0;
 
-		tile_t value_of_chosen_action = prefs[chosen_action]; // TODO
+		if (state_action_map_key_tbl[state_found] != state_key) {
+			state_action_map_key_tbl[state_found] = state_key;
+			changed_key = 1;
+		}
 
-		tile_t adjustment = cfg->alpha;
-		tile_t dt;
+		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
+			tile_t matched_reward = reward_map_key_tbl[reward_found];
+			struct state_action_pair lsap = state_action_pairs[state_found];
 
-		lsap.action = chosen_action;
-		lsap.val = value_of_chosen_action;
-		// don't copy the tile list, that's probably TOO heavy.
+			tile_t value_of_chosen_action = prefs[chosen_action];
+
+			tile_t adjustment = cfg->alpha;
+			tile_t dt;
+
+			lsap.action = chosen_action;
+			lsap.val = value_of_chosen_action;
+			// don't copy the tile list, that's probably TOO heavy.
 		
-		dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
+			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
 
-		adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
+			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
 
-		// tc_indices, tc_count, cfg, prefs
-		update_action_preferences(tc_indices, tc_count, cfg, chosen_action, adjustment);
-
-		// TODO: calculate/retrieve the tiles hit by the last matched action.
-		// TODO: retrieve the reward.
-		// TODO: know the *value* of the chosen action.
-
+			// tc_indices, tc_count, cfg, prefs
+			update_action_preferences(tc_indices, tc_count, cfg, chosen_action, adjustment);
+		}
 
 		// TODO: figure out "broken-math" version of this (indiv tile shifts)
-		// TODO: calculate value of last state-action pair.
 
-		// TODO: calculate dt
-		// TODO: calculate alpha * dt
-
-		// TODO: add adjustment to all tiles hit in the state hashtable match.
-
-		// TODO: store the tile list, chosen action, and its value.
-		state_action_map_key_tbl[1].action = chosen_action;
-		state_action_map_key_tbl[1].val = prefs[chosen_action];
-		state_action_map_key_tbl[1].len = tc_count;
-		// state_action_map_key_tbl[1].tiles = tc_indices;
+		// store the tile list, chosen action, and its value.
+		state_action_pairs[state_found].action = chosen_action;
+		state_action_pairs[state_found].val = prefs[chosen_action];
+		state_action_pairs[state_found].len = tc_count;
 
 		// dst, src, size
 		ua_memcpy_mem40_mem40(
-			&(state_action_map_key_tbl[1].tiles), 0,
+			&(state_action_pairs[state_found].tiles), 0,
 			(void*)tc_indices, 0,
 			tc_count * sizeof(tile_t)
 		);
@@ -665,6 +674,31 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	i=0;
 	for (i=0; i < cfg->num_actions; i++) {
 		global_prefs[i] = prefs[i];
+	}
+}
+
+void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, tile_t value, uint32_t reward_insert_loc) {
+	// Switch on self->reward_key
+	// if shared, place into key 0 I guess?
+	uint32_t loc = 0;
+	uint64_t long_key = reward_insert_loc;
+	int32_t added = 0;
+
+	switch (cfg->reward_key.kind) {
+		case KEY_SRC_SHARED:
+			break;
+		case KEY_SRC_FIELD:
+			// need to hash reward_insert_loc
+			loc = CAMHT_LOOKUP_IDX_ADD(reward_map, &long_key, &added);
+			break;
+		case KEY_SRC_VALUE:
+			// need to use reward_insert_loc
+			loc = reward_insert_loc;
+			break;
+	}
+
+	if (added >= 0) {
+		reward_map_key_tbl[loc] = value;
 	}
 }
 
@@ -722,6 +756,14 @@ main() {
 			case PIF_PARREP_TYPE_in_state:
 				//state
 				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
+				break;
+			case PIF_PARREP_TYPE_in_reward:
+				//reward
+				reward_packet(
+					&cfg,
+					(tile_t) workq_read_register.parsed_fields.reward.measured_value,
+					workq_read_register.parsed_fields.reward.lookup_key
+				);
 				break;
 			case 999:
 				//fixme: not got a code for this yet
