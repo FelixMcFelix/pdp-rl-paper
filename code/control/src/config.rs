@@ -73,6 +73,20 @@ impl<'a> SendStateConfig<'a> {
 	}
 }
 
+pub struct SendRewardConfig<'a> {
+	pub global: &'a mut GlobalConfig,
+	pub transport: TransportConfig,
+}
+
+impl<'a> SendRewardConfig<'a> {
+	pub fn new(global: &'a mut GlobalConfig) -> Self {
+		Self {
+			global,
+			transport: Default::default(),
+		}
+	}
+}
+
 pub struct TilingsConfig<'a> {
 	pub global: &'a mut GlobalConfig,
 	pub tiling: TilingSet,

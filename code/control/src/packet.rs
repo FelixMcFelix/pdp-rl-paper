@@ -5,6 +5,7 @@ pub enum RlType {
 	Config = 0,
 	Insert,
 	State,
+	Reward,
 }
 }
 
@@ -317,6 +318,31 @@ pub fn build_state_packet(
 		for el in state.iter() {
 			body.write_i32::<BigEndian>(*el)?;
 		}
+
+		let space_end = body.len();
+		cursor += space_start - space_end;
+	}
+
+	finalize(&mut buf[..cursor], &offsets, &tile_cfg.transport);
+
+	Ok(cursor)
+}
+
+pub fn build_reward_packet(
+	tile_cfg: &SendRewardConfig,
+	buf: &mut [u8],
+	quant_reward: i32,
+	value_loc: i32,
+) -> IoResult<usize> {
+	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
+	cursor += build_type(&mut buf[cursor..], RlType::Reward);
+
+	{
+		let mut body = &mut buf[cursor..];
+		let space_start = body.len();
+
+		body.write_i32::<BigEndian>(quant_reward)?;
+		body.write_i32::<BigEndian>(value_loc)?;
 
 		let space_end = body.len();
 		cursor += space_start - space_end;

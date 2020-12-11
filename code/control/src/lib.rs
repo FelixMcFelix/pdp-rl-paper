@@ -162,3 +162,18 @@ pub fn generate_state(cfg: &FakeStateGeneratorConfig) {
 
 	println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
+
+pub fn send_reward(cfg: &mut SendRewardConfig, value_loc: i32, reward: f32, shift: usize) {
+	let mut buffer = [0u8; MAX_PKT_SIZE];
+
+	let quant_reward = (reward * ((1 << shift) as f32)) as i32;
+
+	let sz = build_reward_packet(cfg, &mut buffer[..], quant_reward, value_loc)
+		.expect("Packet building failed...");
+
+	if let Channel::Ethernet(ref mut tx, _rx) = &mut cfg.global.channel {
+		tx.send_to(&buffer[..sz], None);
+	} else {
+		eprintln!("Failed to send packet: no channel found");
+	}
+}
