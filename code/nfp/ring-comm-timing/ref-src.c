@@ -18,10 +18,11 @@ __declspec(remote read_reg) uint32_t foreign_x;
 __declspec(remote) SIGNAL foreign_sig;
 
 // details of thread who sends to us
-#define READ_REG_TYPE 0
-#define PRODUCER_ME 5 // 1 + 4;
-#define PRODUCER_ISLAND 12
+#define READ_REG_TYPE 0 // 0 = transfer registers, 1 = csr registers. 	Bit 16
+#define PRODUCER_ME 5 // 1 + 4; FPC + 4 == "Master number"				Bits 13:10
+#define PRODUCER_ISLAND 12 // Island number. 							Bits 29:24
 #define PRODUCER_LOC (PRODUCER_ISLAND << 4) + PRODUCER_ME
+// Then register number is bits 9:2
 
 // Details for thread we send to
 #define CONSUMER_CTX 0
@@ -54,7 +55,7 @@ main() {
 	base_address |= CONSUMER_ME << 10;
 	base_address |= register_no << 2;
 
-	remote_sig = (1 << 13) | (client_sig << 9);
+	remote_sig = (client_sig << 9);
 
 	__implicit_write(&receiver_x);
 	__implicit_write((void*)&receiver_sig);

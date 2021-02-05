@@ -9,7 +9,7 @@
 
 #include "shared_defs.h"
 
-__nnr uint32_t in_val;
+__declspec(export, emem) uint32_t ref_times_ct = 0;
 
 // See https://groups.google.com/g/open-nfp/c/gAIBsqolNdY/m/gjbe4VIzBwAJ
 // for reflector usage.
@@ -27,7 +27,7 @@ __declspec(visible) SIGNAL foreign_sig;
 #define READ_REG_TYPE 0
 
 // details of thread who sends to us
-#define PRODUCER_ME 5 // 1 + 4;
+#define PRODUCER_ME 4 // 0 + 4;
 #define PRODUCER_ISLAND 12
 #define PRODUCER_LOC (PRODUCER_ISLAND << 4) + PRODUCER_ME
 
@@ -45,9 +45,11 @@ main() {
 	unsigned int client_sig = __signal_number(&receiver_sig, CONSUMER_LOC);
 	unsigned int register_no = __xfer_reg_number(&receiver_x, CONSUMER_LOC) & 4095;
 
+	__declspec(xfer_write_reg) uint32_t cter;
+
 	client_sig |= CONSUMER_CTX << 4;
 
-	remote_sig = (1 << 13) | (client_sig << 9);
+	remote_sig = (client_sig << 9);
 
 	base_address = CONSUMER_ISLAND << 24;
 	base_address |= READ_REG_TYPE << 16;
@@ -75,5 +77,7 @@ main() {
 			alu[remote_sig, --, B, 3, <<13]
 			ct[reflect_write_sig_remote, me0_x, base_address, 0, 1], indirect_ref
 		}
+
+		mem_write32(&cter, &ref_times_ct, new_i);
 	}
 }

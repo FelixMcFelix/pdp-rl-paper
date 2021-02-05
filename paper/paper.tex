@@ -61,17 +61,24 @@
 %picky abt et al.
 \usepackage{xpatch}
 
-\xpatchbibmacro{name:andothers}{%
-	\bibstring{andothers}%
-}{%
-	\bibstring[\emph]{andothers}%
-}{}{}
-
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage[nameinlink]{cleveref}
 \newcommand{\crefrangeconjunction}{--}
 \crefname{table}{table}{tables}
+
+\DefineBibliographyStrings{english}{%
+	andothers = {\emph{et al}\adddot}
+}
+\DeclareFieldFormat[inproceedings]{url}{}
+\DeclareFieldFormat[article]{url}{}
+%\DeclareFieldFormat[inproceedings]{doi}{}
+%\DeclareFieldFormat[article]{doi}{}
+%\DeclareFieldFormat[inproceedings]{editor}{}
+%\DeclareFieldFormat[proceedings]{editor}{}
+%\DeclareFieldFormat[article]{editor}{}
+
+\newcommand{\fakepara}[1]{\noindent\textbf{#1:}}
 
 % Official colours!
 
@@ -116,10 +123,10 @@
 \settopmatter{printacmref=false, printccs=false, printfolios=true}
 
 % DOI
-\acmDOI{}
+\acmDOI{12345}
 
 % ISBN
-\acmISBN{}
+\acmISBN{67890}
 
 %Conference
 \acmConference[SOSR '21]{}
@@ -175,152 +182,191 @@ I aim to examine the effects of these choices on an existing RL-based DDoS attac
 
 I will discuss early development efforts (including challenges and results) on the Netronome Agilio SmartNIC, which supports the P4 language as well as some degree of arbitrary microcode. I intend to present how reinforcement learning execution and network telemetry will differ in the above metrics when compared to a vNF-based deployment (i.e., software on external commodity servers).
 
-\section{Motivation}
+This paper contributes:
+\begin{itemize}
+	\item A thing (?? REFERENCE SECTION). Here's how that thing is utterly fantastic and will change the world, or not.
+\end{itemize}
+
+\section{Motivation}\label{sec:motivation}
+\fakepara{Reinforcement learning in asynchronous environments}
+RL techniques allow an \emph{agent} to learn how to iteratively interact with a system in an optimal fashion.
+However, there is some degree of divergence between their theory and implementation.
+Consider \cref{fig:state-slip}: the traditional formulation of a Markov decision process assumes that an agent receives a new view of the world's state at fixed time intervals, and then decides upon and executes an action instantly.
+The reality is that state information takes time to traverse the network, service times are offset by how quickly hosts respond to interrupts and deserialise requests, and action preference lists are often computed via expensive policy approximations.
+Action installation also incurs costs in fields such as network administration, initially to contact the controller and then for those actions to be installed via the control plane.
+
+These delays (and variance thereof) add noise to the state-action mapping being learned, which has a potent reduction to learning rate and final accuracy, even for simple grid world tasks according to \textcite{DBLP:journals/firai/TravnikMSP18}.
+They in turn show that reordering algorithmic steps can reduce these costs for online 1-step algorithms, but that reducing this further requires detailed agent-environment co-design.
+This principle has influenced the design of real network use cases, such RL-based congestion-control algorithms~\parencite{DBLP:journals/corr/abs-1910-04054}, showing that asynchrony is necessary for high-speed applications.
+Achieving this often requires that state measurements are combined or coalesced~\parencite{DBLP:journals/corr/abs-1910-04054,DBLP:journals/tnsm/SimpsonRP20} while expensive computations are ongoing.
+`Stopping the world' in the algorithmic sense causes significant performance degradation, as inference takes up to \SI{30}{\milli\second} in the above work on congestion control, or any time-sensitive control problems.
 
 \begin{figure}
 	\begin{subfigure}{0.45\linewidth}
 		\resizebox{\linewidth}{!}{
+			\centering
 			\begin{tikzpicture}
-					\node[circle, draw] (state) {$S$};
-					\node[circle, draw] (state') at ($(state) + (0, -2)$) {$S'$};
-					
-					\node (agent) at ($(2, 0) + (state)$) {Agent};
-					\node[below of=agent] (action) {Action $A$};
-					
-					\node[right of=state'] {$+ R$};
-					
-					\draw[->] (state) -- (state') node[midway, right] {$A$};
-					
-					\draw[dotted, ->, bend left = 30] (state) -- (agent);
-					\draw[->] (agent) -- (action);
-					\draw[dotted, ->] (action) -- (state);
+				\node[circle, draw] (state) {$S$};
+				\node[circle, draw] (state') at ($(state) + (0, -2)$) {$S'$};
+				
+				\node (agent) at ($(2, 0) + (state)$) {Agent};
+				\node[below of=agent] (action) {Action $A$};
+				
+				\node[right of=state'] {$+ R$};
+				
+				\draw[->] (state) -- (state') node[midway, right] {$A$};
+				
+				\draw[dotted, ->, bend left = 30] (state) -- (agent);
+				\draw[->] (agent) -- (action);
+				\draw[dotted, ->] (action) -- (state);
 		\end{tikzpicture}}
 		\caption{Theory: state measurement, action computation, and learning are zero-cost.}
 	\end{subfigure}
 	\begin{subfigure}{0.45\linewidth}
-		\resizebox{\linewidth}{!}{
+		\resizebox{0.75\linewidth}{!}{
+			\centering
 			\begin{tikzpicture}
-					\node[circle, draw] (state) {$S$};
-					\node[circle, draw] (state') at ($(state) + (0, -1.5)$) {$S'$};
-					\node[circle, draw] (state'') at ($(state') + (0, -1.5)$) {$S''$};
-					
-					\node (agent) at ($(2, 0) + (state)$) {Agent};
-					\node[below of=agent] (action) {Action $A$};
-					
-					\node[right of=state''] {$+ R$};
-					
-					\draw[->] (state) -- (state') node[midway, right] {$\varnothing$};
-					\draw[->] (state') -- (state'') node[midway, right] {$A$};
-					
-					\draw[dotted, ->, bend left = 30] (state) -- (agent) node[midway, above] {$t_1$};
-					\draw[->] (agent) -- (action) node[midway, right] {$t_2$};
-					\draw[dotted, ->] (action) -- (state') node[midway, below] {$t_3$};
+				\node[circle, draw] (state) {$S$};
+				\node[circle, draw] (state') at ($(state) + (0, -1.5)$) {$S'$};
+				\node[circle, draw] (state'') at ($(state') + (0, -1.5)$) {$S''$};
+				
+				\node (agent) at ($(2, 0) + (state)$) {Agent};
+				\node[below of=agent] (action) {Action $A$};
+				
+				\node[right of=state''] {$+ R$};
+				
+				\draw[->] (state) -- (state') node[midway, right] {$\varnothing$};
+				\draw[->] (state') -- (state'') node[midway, right] {$A$};
+				
+				\draw[dotted, ->, bend left = 30] (state) -- (agent) node[midway, above] {$t_1$};
+				\draw[->] (agent) -- (action) node[midway, right] {$t_2$};
+				\draw[dotted, ->] (action) -- (state') node[midway, below] {$t_3$};
 		\end{tikzpicture}}
 		\caption{Reality: costs of measurement and action lead to \emph{state drift}---over a time delay $t_1+t_2+t_3$, inaction transforms state $S$ into $S'$.}
 	\end{subfigure}
-\caption{Asynchronous RL delays and state slippage (policy updates omitted).\label{fig:state-slip}}
+	\caption{Asynchronous RL delays and state slippage (policy updates omitted).\label{fig:state-slip}}
 \end{figure}
 
-What is our goal?
+?? Find some cites citing the relevance of this problem wrt. self-driving cars, robotics, etc.
 
-\begin{itemize}
-	\item Research into asynchronous RL shows that clever reordering and mitigation can reduce the effects of state slippage on learning time and on accuracy of actions. However, it cannot completely eliminate the effect of state evolving due to the costs of action computation, execution, and policy updates~\cite{DBLP:journals/firai/TravnikMSP18}.
-	\begin{itemize}
-		\item What can I do with these observations?
-		\begin{itemize}
-			\item Reordering steps in an actively learning system is a necessary part in reducing state-slippage on learning.
-			\item Minimising these effects needs us to build our system explicitly to reduce this further.
-		\end{itemize}
-		\item What can I do to address this?
-		\begin{itemize}
-			\item Reduce the time required to compute an action, to react to state, and to install that action in the network.
-			\item Ensure that state is measured at agent (on-chip, or close by).
-			\item Ensure actions are computed as close to where they occur as possible.
-		\end{itemize}
-		\item How are these being addressed?
-		\begin{itemize}
-			\item Place agents/decision-making as close to the switch as possible.
-		\end{itemize}
-		\item What applications is this affecting?
-		\begin{itemize}
-			\item Time-sensitive RL: DDoS mitigation, Congestion-control algorithms, ...
-		\end{itemize}
-		\item What would its solution be useful for?
-		\begin{itemize}
-			\item Make actions taken more ``correct'' (as underlying state change has been reduced).
-			\item In online settings, reduce the noise of the state-action-reward function being learned.
-		\end{itemize}
-	\end{itemize}
-	
-	\item What if we do stop the world (i.e., block operation) to ensure this doesn't happen? In case of congestion control, significant throughput drops (as DNN inference takes \SI{30}{\milli\second}), so asynchrony is necessary~\cite{DBLP:journals/corr/abs-1910-04054}.
-	\begin{itemize}
-		\item What can I do with these observations?
-		\begin{itemize}
-			\item We can't pause operation of a system to collect more state, while updating the model, or while choosing an action.
-		\end{itemize}
-		\item What can I do to address this?
-		\begin{itemize}
-			\item Use state coalescing measures like in \textcite{DBLP:journals/tnsm/SimpsonRP20} and \textcite{DBLP:journals/corr/abs-1910-04054}.
-		\end{itemize}
-		\item What applications is this affecting?
-		\begin{itemize}
-			\item Congestion control algorithms primarily, others where some system depends on the output of an RL agent.
-		\end{itemize}
-	\end{itemize}
-	
-	\item Training deep RL models has its own costs (need many parallel simulations). What if we only have one stream of experience to learn from? E.g., evolution of the system is too difficult to predict and model. In general, DNNs can't be trained effectively from a single, online, real-time stream of experience.
-	\begin{itemize}
-		\item What can I do with these observations?
-		\begin{itemize}
-			\item This suggests that we should also look into non-DNN based RL approaches, if we find that RL is the best tool for the job.
-		\end{itemize}
-		\item What can I do to address this?
-		\begin{itemize}
-			\item Employ classical RL methods, which don't need many streams of parallel execution traces to learn effectively.
-		\end{itemize}
-		\item If addressed, what do I use them for?
-		\begin{itemize}
-			\item There's ongoing research which attempts to execute NN/DNN-based RL/ML models in switches, but these work under heavy concessions. Need binarisation, reduced accuracy, can't run backpropagation on SmartNIC hardware...
-			\item Training and format conversion must happen off of the device, so can't be done online.
-		\end{itemize}
-		\item What applications is this affecting?
-		\begin{itemize}
-			\item In-network RL applications needing real-time evolution, where DNN online training is not doable.
-			\item Likely invites some accuracy impact---linear (e.g., tile-coded) function approximation not as expressive or powerful as DNNs.
-		\end{itemize}
-		\item What would its solution be useful for?
-		\begin{itemize}
-			\item Ensures that online learning is possible in the contexts we're interested in.
-			\item I.e., DDoS prevention (evolving problem).
-		\end{itemize}
-	\end{itemize}
-	
-	\item PDP hardware is advertised as supporting P4, EBPF... But almost all implementations compile to a more complex/expressive language. Presence of externs is almost universal when it comes to in-switch compute---i.e., Tofino Native Architecture\footnote{\url{    https://www.barefootnetworks.com/products/brief-p4-studio/}}, Netronome Micro-C\footnote{\url{https://www.netronome.com/products/datapath-programming-tools/}}, P4$\rightarrow$NetFPGA toolchain\footnote{\url{https://github.com/NetFPGA/P4-NetFPGA-public}}.
-	\begin{itemize}
-		\item What can I do with these observations?
-		\begin{itemize}
-			\item We should use P4 where possible to make implementation of in-network compute possible.
-			\item \emph{But} we would be remiss not to make use of the multicore, general-purpose compute that many of these devices are fundamentally built to do.
-			\item In-network compute and/or PDPs give us the tools we need to put RL action computation, the mechanism of action, and state measurement at the same location in the network!
-		\end{itemize}
-		\item If addressed, what do I use them for?
-		\begin{itemize}
-			\item Identify the common aspects of non-NetFPGA P4-capable devices.
-			\item Determine whether these allow a common architecture (but not common reimplementation since different languages, low-level specifics).
-			\item Might need to describe the same mechanism as implemented in both Netronome and Barefoot?
-		\end{itemize}
-		\item What applications is this affecting?
-		\begin{itemize}
-			\item PDP applications in general.
-		\end{itemize}
-	\end{itemize}
-\end{itemize}
+The solution we propose is to make use of the recent wave of programmable network devices to \emph{bring reinforcement learning to the data plane}---placing state measurement ($t_1$), low-cost decision-making processes ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
+In networks, actions are most likely to be installed on backbone switches, bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts.
+Ideally, these functions which comprise an RL agent would all be collocated on the same chip or device, but this is easier said than done. 
+Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
 
-What aspects of the state-of-the-art are relevant here?
+\fakepara{Programmable hardware capabilities}
+The introduction of the P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} language has led to explosive growth in the research community surrounding in-network computation and offloading.
+Providing a single language which is compatible with network devices of many form factors has been instrumental in the development of novel fine-grained traffic measurement approaches~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
+However, this requires that there be a reasonably consistent interface and behaviour between device classes.
+This need for underpins the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}, which defines a conceptual model of match-action tables divided into ingress and egress pipelines.
+The PSA presents a sensible lower bound on the device capabilities required to implement a P4 dataplane, but the reality is more complex and interesting.
 
-\begin{itemize}
-	\item Hmmm...
-\end{itemize}
+We would be remiss to believe that the P4 and the PSA define all capabilities that programmable hardware can support.
+Many compatible devices have legacies predating these developments, for instance many-core SOC-based Netronome SmartNIC~\parencite{netronome-smartnic}, and NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14} NICs.
+The first of these compiles from P4$\rightarrow$Micro-C$\rightarrow$bytecode (with Micro-C externs), while the latter can combine the P4$\rightarrow$NetFPGA toolchain~\parencite{DBLP:conf/fpga/IbanezBMZ19} with arbitrary circuit externs---both exposing further device capabilities beyond the specification.
+Even Intel Tofino~\parencite{barefoot-intel} ASICs, which architecturally mirror the PSA, expose additional matching capabilities and ALU functions via the Tofino Native Architecture.
+Regardless, floating-point operations key to ML/RL workloads are very rarely supported outside of DL accelerators (which, in turn, lack packet switching functionality).
+Moreover, the limited memory/block RAM and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
+
+Luckily, the task of bringing machine learning models to resource-constrained environments is well-studied.
+Quantisation and alternative data formats have been suggested to make ML inference feasible on resource- and power-limited platforms, work around hardware constraints, or compute faster and more efficiently.
+Lower bit-depths reduce memory footprints, and improve throughput in designs such as \emph{bfloat16}~\parencite{bfloat16-blog} in Google TPUs~\parencite{DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
+In many cases, accuracy losses for doing so are negligible.
+Much of this work goes further still towards integer~\parencite{tensorrt-8bit} or binarised~\parencite{DBLP:journals/corr/MiyashitaLM16,DBLP:conf/eccv/RastegariORF16,DBLP:journals/corr/KimS16,DBLP:conf/nips/HubaraCSEB16} representations, sacrificing dynamic range for simpler arithmetic operations.
+This has the important side effect of making ML policy inference tractable on hardware without floating-point capabilities, which other works have leveraged to bring neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
+
+To make RL workloads feasible under such constraints, we propose the use of quantised, fixed-point representations such as $Qm.n$, which allow us to evaluate and update policies using only integer arithmetic.
+This is not only essential in performing this work, but also serves as a mechanism for reducing the processing and memory costs of function approximation ($t_2$, \cref{fig:state-slip}).
+Crucially, we train our focus on devices with a low port density, such as SmartNICs and NetFPGA devices.
+The designs of these devices make it reasonable to move policy processing \emph{outside of the packet pipeline}; SmartNICs expose many additional programmable cores, and NetFPGAs allow for the synthesis of independent functional units.
+The main benefit of doing so is that core control logic can be moved as close to the device as possible \emph{without impacting packet processing rates}.
+When combined with the above P4-driven techniques for in-network flow/device measurement, we at last have the mechanisms to collocate the key processes of an RL agent.
+Moreover, the base P4 dataplane can be used to simplify parsing logic and offer runtime control over which flows/packets are monitored, alongside other packet actions.
+This again fits our goals of integrating RL techniques directly within bump-in-the-wire installations and at end-hosts.
+
+?? relate update/execute operations here? i.e., policy execute needs only ALU add, train needs add+mul+shr. or in RL section? Should that come first?
+
+\fakepara{Online training}
+Some problems either evolve over time in unpredictable ways, or cannot be easily modelled.
+This can then make \emph{online} learning of the task an attractive prospect, using a single available stream of experience.
+DNNs, particularly when used as the basis for an RL agent's policy, require vast amounts of experience to converge on an accurate parameter set.
+In many problem domains, this equates to training from compute-years worth of distributed offline simulations, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
+Achieving stable learning requires sizeable batches of gradients to be computed, potentially using the entire experience replay from each simulation.
+Still, the computational cost of gradient computation via backpropagation is significant on embedded hardware.
+
+To then achieve \emph{online} learning, we return our focus to older \emph{classical} reinforcement learning methods.
+In particular, we suggest tile-coding~\cite[pp. \numrange{217}{221}]{RL2E}, with one-step temporal-difference learning algorithms such as Sarsa or Q-learning~\cite[pp. \numrange{129}{132}]{RL2E}.
+These choices have important benefits for in-NIC execution.
+Simpler function approximators do not require batches of inputs to learn in a more stable way, negating the additional memory required to store experience replays.
+Tile-coding in particular admits many optimisations, being an embarrassingly parallel problem.
+Furthermore, gradient calculation is trivial for linear methods like tile coding, particularly when compared to the computational cost of backpropagation required by neural networks.
+Finally, the choice of single-step algorithms (as opposed to $n$-step or Monte Carlo methods) bounds the amount of per-trace state required for online learning to just the last state-action pair.
+
+?? Probably want some cites on the need for batching in NN methods, even though this is understood. DL book?
+
+\fakepara{To-be-organised}
+Interesting thing I realised from \textcite{DBLP:conf/sigcomm/NeugebauerAZAL018}: GPU and NIC might cause IOMMU contention? Making line-rate offload of DDN to GPU impractical. Unsure if I want to twin this with later measurements/plots.
+
+\section{Background}
+
+\subsection{Classical Reinforcement Learning}
+?? Move into background parent section?
+
+?? RL~\parencite{RL2E}
+
+?? Use this to explain differences between the modern state of the art and older works.
+
+?? Probably give a rough introduction to the algorithm, show how computation needs only addition---particularly when using Qm.n fixed point.
+
+\subsection{Hmm..}
+Should motivation be in here? Unsure what other preliminaries need to be explained.
+
+\section{Design and Implementation}\label{sec:design}
+Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system.
+\Cref{fig:netro-arch} outlines our design and implementation on Netronome SmartNIC hardware in pursuit of this goal.
+At a high level, ...
+
+\subsection{Policy Storage}
+?? Blocks of dense quantised tiles: each an action preference list.
+
+?? Tiling data is split into regions of memory based on access time: higher-dimension tilings are sent to further NUMA regions (EMEM/IMEM).
+
+\subsection{Action Computation}
+?? Split across MEs.
+
+?? each ME can then subdivide by factor of 4 among contexts.
+
+\subsection{Communication}
+?? Free-list of packet handles shared between P4 pipeline threads for state/config/action handover.
+
+?? multi-producer-multi-consumer -- rings used to signal cores, place work, etc., combined with above free-list
+
+?? used for both directions of communication.
+
+\subsection{Notes from PGR}
+
+The main gist of this design is that RL operations \emph{do not happen on the core data path}, which ensures that action computation, installation, and updates don't stall packet transmission or affect throughput.
+In the default deployment of a P4 packet processing pipeline, several of these cores go unused, making this paradigm possible.
+These dedicated cores (\emph{micro-engines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
+The main interaction model is that platform-specific IPC mechanisms (message rings) are used to \emph{push} configuration, state vectors, and reward measurements to the RL system.
+These same mechanisms are used by other cores on the same device to \emph{pull} output actions from the RL system.
+Both input and output can occur on any other core of the device, i.e., as part of P4 \texttt{extern} plugins, while the P4 control plane itself provides granular control over which flows are monitored or affected.
+An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key in the state.
+Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
+
+?? Expand: this is based on PGR Year 3 atm.
+
+\subsection{Targetting other device classes}
+While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
+For instance, the availability of other cores can be handled by designing additional off-path functional units, much like the floating-point adders used by \textcite{DBLP:conf/isca/LiLYCSH19}.
+Rather than general-purpose cross-core communication, an RL functional unit would be hard-wired to and from the custom actions that interface with it, using the P4$\rightarrow$NetFPGA toolchain to offer the base framework and granular control over packet and flow selection.
+
+?? Fill out above with more specific instances.
+
+Bringing this to high-port density devices such as Intel Tofino-powered switches is more difficult.
+As discussed in \cref{sec:motivation}, Tofino ASICs map closely to the P4 PSA, meaning that there are no spare asynchronous general-purpose compute units to place this work on.
+A potential solution is to divide RL actions across several received packets (i.e., iteratively computing a portion of the action preference list each time) until any further work would delay outbound transmission.
+This, however, would introduce new issues surrounding concurrent accesses, work splitting, and altered timescales for learning: we leave their treatment and examination to future work.
 
 \section{Techniques}
 
@@ -471,68 +517,75 @@ Now how do we make this work?
 \begin{figure}
 	\centering
 	\resizebox{1.2\linewidth}{!}{\begin{tikzpicture}
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1cm, minimum width=2.9cm](p4-master){};
-		\node[below right, inner sep=2pt] at (p4-master.north west) {\small P4 Master Island};
-		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (p4-rules) at (p4-master.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Flow Control Rules\end{varwidth}};
-		
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1cm, minimum width=2cm, below = 0.1 of p4-master](sw1){};
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1cm, minimum width=2cm, below right= 0.1 of sw1.north west](sw2){};
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1cm, minimum width=2cm, below right= 0.1 of sw2.north west](switch){};
-		\node[below right, inner sep=2pt] at (switch.north west) {\small P4 Island};
-		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (oswlc) at (switch.south) {\begin{varwidth}{1.5 cm}\scriptsize \centering Control Packet Match\end{varwidth}};
-		
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2.9cm, below= 0.1 of switch](others){};
-		\node[below right, inner sep=2pt] at (others.north west) {\small Other Islands};
-		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (others-etc) at (others.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering \textellipsis \end{varwidth}};
-		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (others-int) at (others-etc.north) {\begin{varwidth}{2.5 cm}\scriptsize \centering In-band Network Telemetry\end{varwidth}};
-		
-		\node[fill=white!80!uofgsunshine, draw=black, minimum height=5cm, minimum width=5cm](rli) at ($(p4-master.east) + (3, -2)$){};
-		\node[below right, inner sep=2pt] at (rli.north west) (rli-text) {\small RL Island};
-		
-		\node[draw=black, dotted, minimum height=1cm, minimum width=2cm](wq-out) at ($(rli-text.south) + (0.5,-0.5)$){};
-		\node[below right, inner sep=2pt] at (wq-out.north west) {\small CLS};
-		\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (wq-in) at (wq-out.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Work Queue\end{varwidth}};
-		
-		\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (loop) at ($(wq-out.east) + (1.5,-0.5)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Control ME\end{varwidth}};
-		
-		\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-cls-out) at ($(loop.south) + (0,-1.5)$){};
-		\node[below right, inner sep=2pt] at (policy-cls-out.north west) {\small CLS};
-		\node[above right, inner sep=2pt] at (policy-cls-out.north west) {\small Policy};
-		\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-ctm-out) at ($(policy-cls-out.south) + (0,-0.25)$){};
-		\node[below right, inner sep=2pt] at (policy-ctm-out.north west) {\small CTM};
-		\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-emem-out) at ($(policy-ctm-out.south) + (0,-0.25)$){};
-		\node[below right, inner sep=2pt] at (policy-emem-out.north west) {\small EMEM};
-		
-		\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t1) at (policy-cls-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T1\end{varwidth}};
-		\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t2) at (policy-ctm-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T2\end{varwidth}};
-		\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t3) at (policy-emem-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T3\end{varwidth}};
-		
-		\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-1) at ($(wq-out.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-		
-		\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-2) at ($(po-me-1.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-		
-		\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-3) at ($(po-me-2.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-		
-		\draw[->] (loop.north) [out=90,in=45,looseness=0.75] to node[pos=0.5, rotate=0, anchor=center, above] {Rules, Tables}(p4-rules.north east);
-		
-		\draw[->] (p4-rules.west)  to [out=180,in=180,looseness=2]  node[pos=0.5, rotate=90, anchor=center, above] {Rules}(sw1);
-		\draw[->] (p4-rules.west)  to [out=180,in=180,looseness=2] (sw2);
-		\draw[->] (p4-rules.west)  to [out=180,in=180,looseness=2] (switch);
-		
-		\draw[->] (oswlc.east)  to node[midway, above, sloped] {\begin{varwidth}{2.5cm}\tiny \centering Control, Requests,\\State\end{varwidth}} (wq-in.west);
-		\draw[->] (others-int.east)  to node[midway, above, sloped] {\tiny State} (wq-in.west);
-		\draw[<->, dotted] (wq-in.east)  to (loop.west);
-		\draw[->, dotted] (loop.south) to (policy-cls-out);
-		
-		\draw[<->, dotted] (po-me-1.east) to (policy-cls-out.west);
-		\draw[<->, dotted] (po-me-2.east) to (policy-ctm-out.west);
-		\draw[<->, dotted] (po-me-3.east) to (policy-emem-out.west);
-		
-		\draw[->] (loop) to node[midway, above, sloped] {\tiny NNR} (po-me-1);
-		\draw[->] (po-me-1) to node[midway, above, sloped] {\tiny NNR} (po-me-2);
-		\draw[->] (po-me-2) to node[midway, above, sloped] {\tiny NNR} (po-me-3);
-		\draw[->] (po-me-3) to [out=-45,in=0,looseness=2.15] node[midway, above, sloped] {\tiny NNR} (loop);
-		\end{tikzpicture}}
+			\node (sw2) {};
+			
+			\node[fill=white!80!uofgcobalt, draw=black, minimum height=5.5cm, minimum width=2.9cm, below right= 0.1 of sw2.north west](p4-master){};
+			\node[below right, inner sep=2pt] at (p4-master.north west) {\small P4 Datapath};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.8] (p4-rules) at (p4-master.north) {\begin{varwidth}{2.5 cm}\scriptsize \centering Flow Control Rules\end{varwidth}};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n1) at (p4-rules.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Extern-based Action\end{varwidth}};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n2) at (n1.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering ...\end{varwidth}};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (oswlc) at (n2.south) {\begin{varwidth}{1.5 cm}\scriptsize \centering Control Packet Match\end{varwidth}};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n3) at (oswlc.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering ...\end{varwidth}};
+			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n4) at (n3.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Network Telemetry\end{varwidth}};
+			
+			
+			
+			\node (pkt-text) at ($(p4-master.north) + (0.0,0.6)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Packet In\end{varwidth}};
+			
+			\node (pkt-text-out) at ($(p4-master.south) + (0.0,-0.6)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Packet Out\end{varwidth}};
+			
+			\node[fill=white!80!uofgsunshine, draw=black, minimum height=5cm, minimum width=5cm](rli) at ($(p4-master.east) + (5, -1)$){};
+			\node[below right, inner sep=2pt] at (rli.north west) (rli-text) {\small RL Island};
+			
+			\node[draw=black, dotted, minimum height=1cm, minimum width=2cm](wq-out) at ($(rli-text.south) + (0.5,-0.5)$){};
+			\node[below right, inner sep=2pt] at (wq-out.north west) {\small EMEM};
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (wq-in) at (wq-out.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Input Queue\end{varwidth}};
+			
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (loop) at ($(wq-out.east) + (1.5,-0.5)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Control ME\end{varwidth}};
+			
+			\node[draw=black, dotted, minimum height=1cm, minimum width=2cm](wq-act) at ($(loop.north) + (0.0,1.5)$){};
+			\node[below right, inner sep=2pt] at (wq-act.north west) {\small EMEM};
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (wq-actin) at (wq-act.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Action Queue\end{varwidth}};
+			
+			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-cls-out) at ($(loop.south) + (0,-1.5)$){};
+			\node[below right, inner sep=2pt] at (policy-cls-out.north west) {\small CLS};
+			\node[above right, inner sep=2pt] at (policy-cls-out.north west) {\small Policy};
+			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-ctm-out) at ($(policy-cls-out.south) + (0,-0.25)$){};
+			\node[below right, inner sep=2pt] at (policy-ctm-out.north west) {\small CTM};
+			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-emem-out) at ($(policy-ctm-out.south) + (0,-0.25)$){};
+			\node[below right, inner sep=2pt] at (policy-emem-out.north west) {\small EMEM};
+			
+			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t1) at (policy-cls-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T1\end{varwidth}};
+			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t2) at (policy-ctm-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T2\end{varwidth}};
+			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t3) at (policy-emem-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T3\end{varwidth}};
+			
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-1) at ($(wq-out.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
+			
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-2) at ($(po-me-1.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
+			
+			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-3) at ($(po-me-2.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
+			
+			\draw[->] (oswlc.east)  to node[midway, above, sloped] {\tiny Control, Requests} (wq-in.west);
+			\draw[->] (n4.east)  to node[midway, above, sloped] {\tiny State} (wq-in.west);
+			\draw[<->, dotted] (wq-in.east)  to (loop.west);
+			\draw[->, dotted] (loop.south) to (policy-cls-out);
+			
+			\draw[->] (loop.north)  to node[midway, above, sloped] {\tiny Actions} (wq-actin.south);
+			
+			\draw[->] (wq-actin.west)  to node[midway, above, sloped] {\tiny Actions} (n1.east);
+			
+			\draw[<->, dotted] (po-me-1.east) to (policy-cls-out.west);
+			\draw[<->, dotted] (po-me-2.east) to (policy-ctm-out.west);
+			\draw[<->, dotted] (po-me-3.east) to (policy-emem-out.west);
+			
+			\draw[->] (pkt-text)  to  (p4-master.north);
+			\draw[->] (p4-master.south)  to  (pkt-text-out);
+			
+			\draw[->] (loop) to node[midway, above, sloped] {\tiny NN} (po-me-1);
+			\draw[->] (po-me-1) to node[midway, above, sloped] {\tiny NN} (po-me-2);
+			\draw[->] (po-me-2) to node[midway, above, sloped] {\tiny NN} (po-me-3);
+			\draw[->] (po-me-3) to [out=-45,in=0,looseness=2] node[midway, above, sloped] {\tiny NN} (loop);
+	\end{tikzpicture}}
 	\caption{Architecture for generalised RL agent on Netronome hardware.\label{fig:netro-arch}}
 \end{figure}
 
@@ -583,7 +636,7 @@ How do we evaluate this without looking into classification performance?
 \end{itemize}
 I can think of one way to evaluate this if we employ classification performance:
 \begin{enumerate}
-	\item Run the existing work~\cite{DBLP:journals/tnsm/SimpsonRP20}, acquire a policy for one node after full info sharing.
+	\item Run the existing work~\parencite{DBLP:journals/tnsm/SimpsonRP20}, acquire a policy for one node after full info sharing.
 	\item Load this policy onto the RL Island (\cref{fig:netro-arch}).
 	\item Either feed in raw state packets, or feed in traffic if we can get INT working.
 	\item For each level of quantisation needed, examine average performance.
@@ -639,58 +692,189 @@ System?
 	\item Policy installation via block-copy.
 	\item Packet generation for above config functions, as well as policy quantisation and splitting.
 	\item Tile-coding of quantised states on-chip, and state packet receipt.
+	\item Action computation on-chip.
+	\item Rudimentary, single-core training.
 \end{itemize}
 
 Experiments?
 \begin{itemize}
 	\item Policy quantisation divergence \& accuracy (via mininet).
+	\item Measure DPDK SmartNIC RTT as a lower bound on controller access time.
+	\begin{itemize}
+		\item Same mechanism applies to other manufacturers (Barefoot), so generalisable.
+		\item My results are non-DPDK, but there is a good study~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018} on exactly this.
+	\end{itemize}
+	\item Measure basic on-switch times: ring-ring communication, tile-coding cost, action compute cost, learning cost.
+\end{itemize}
+
+Known/understood (but not implemented)?
+\begin{itemize}
+	\item Figure out PIF rule installation.
+	\begin{itemize}
+		\item Not doable through P4 na\"{i}vely. Handing back rules to controller is expensive: need another action to deliberately use its own hash table etc., then batch back as faster P4 rules.
+	\end{itemize}
 \end{itemize}
 
 \section{Intermediate steps?}
 System?
 \begin{itemize}
-	\item Action computation on-chip.
-	\begin{itemize}
-		\item \emph{\num{1} week.}
-	\end{itemize}
-	\item Figure out PIF rule installation.
-	\begin{itemize}
-		\item \emph{\num{1} week.}
-		\item Rationale: understand and describe mechanism, do NOT implement. We know that we can save 1 controller RTT.
-	\end{itemize}
 	\item Setup other core as event source.
 	\begin{itemize}
 		\item \emph{\num{2} week.}
 		\item Idea: proxy for idea of INT core mentioned elsewhere, combined with the main periodic event sending that the last RL work relied upon. So, say "you can put that state management and extraction on another core, here's what the comms cost is" or similar.
 	\end{itemize}
-	\item Implement rudimentary training.
+	\item Fixes to hash table use, signalling.
+	\begin{itemize}
+		\item \emph{\num{1} week.}
+		\item Blocks progress on optimisation, correct multi-stream RL.
+	\end{itemize}
+	\item Optimise/parallelise action compute/learning.
 	\begin{itemize}
 		\item \emph{\num{2} week.}
+		\item Value? Proves this approach can scale according to resource availability/demand on the deployment device, at compile-time anyhow.
 	\end{itemize}
 \end{itemize}
 
 Experiments?
 \begin{itemize}
-	\item Measure DPDK SmartNIC RTT as a lower bound on controller access time.
-	\begin{itemize}
-		\item \emph{\num{0.5} weeks.}
-		\item Same mechanism applies to other manufacturers (Barefoot), so generalisable.
-	\end{itemize}
-	\item Measure on-switch times: ring-ring communication, tile-coding cost, action compute cost.
+	\item Measure sum of times $t_{1...3}$ described elsewhere.
 	\begin{itemize}
 		\item \emph{\num{1} week.}
+		\item Currently have individual, need ``end-to-end''.
 	\end{itemize}
-	\item Measure times $t_{1...3}$ described elsewhere, or closest analogues in impl'd system.
+	\item Throughput impact testing.
 	\begin{itemize}
 		\item \emph{\num{1} week.}
+		\item Requires current impl, creation of basic testbed and packet forwarding setup.
+		\item Use-case independent.
+	\end{itemize}
+	\item Measure execution, training costs for varying policy sizes.
+	\begin{itemize}
+		\item \emph{\num{1.5} weeks.}
+		\item Policies need not be meaningful, and can be garbage data. Use-case independent.
+		\item Partially blocked on multicore accelerated/optimised execution.
+	\end{itemize}
+	\item Measure rule installation cost on different platforms.
+	\begin{itemize}
+		\item \emph{\num{1.5} weeks.}
+		\item Blocked on creation of basic testbed and packet forwarding setup.
+	\end{itemize}
+	\item Investigate stationarity.
+	\begin{itemize}
+		\item \emph{\numrange{2}{3} weeks.}
+		\item Requires full use-case implementation.
+		\item Requires careful thought about sensible changes to normality.
+		\item Might be bolstered by comparison against an offline-trained system?
 	\end{itemize}
 \end{itemize}
+
+\section{Everything we could possibly evaluate}
+
+Evaluation will need to be divided into 2 main categories:
+\begin{enumerate}
+	\item Simulation/emulation based on mininet.
+	\begin{itemize}
+		\item These can only assess algorithmic properties, as performance measurements in mininet (i.e., a full mult-agent system) are not representative.
+	\end{itemize}
+	\item Testbed setup (2/3 configurations):
+	\begin{itemize}
+		\item These will assess key system performance properties of a \emph{single agent}, in control of a single switch/NIC as a bump in the wire. Bump-in-the-wire device will carry traffic between two hosts.
+		\item \emph{Time permitting, may need to send state vectors in packets rather than do feature/state extraction on-chip}.
+		\item \emph{Necessary.} RL runs on bump-in-the-wire SmartNIC.
+		\item \emph{Either/both.} P4-based off-path RL. Custom packet actions (e.g., random drop) will be implemented in P4 with externs. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction. Rules inserted via P4-device specific RTE.
+		\item \emph{Either/both.} OvS-based off-path RL. Custom packet actions are already implemented in OvS as OpenFlow extensions. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction.
+	\end{itemize}
+\end{enumerate}
+
+\subsection{What is this different from, or better than?}
+List below mainly for the benefit of helping enumerate everything I can compare against, and what their drawbacks are.
+
+\begin{itemize}
+	\item (Deep) neural network-backed RL.
+	\begin{itemize}
+		\item NNs infeasible to update online. Ordinarily this requires larger volumes of data than can be gathered in real time, but becomes substantially more difficult after change of representation (quantisation, binarisation). An online system (such as this) should be able to adapt to changes in underlying traffic, optimisation criteria, etc., dynamically.
+		\item Complexity of function approximation means that policy updates are more computationally complex to compute. For instance, NNs require use of the backpropagation algorithm, rather than the simpler classical schemes which need only the tile set already identified in action selection.
+		\item Only heavily quantised (i.e., binary neural networks) suitable for in-switch execution.
+	\end{itemize}
+
+	\item MARL and other ``agents as network functions'' designs.
+	\begin{itemize}
+		\item Action, state collection, updates etc. happen on nodes outside of the main packet path in this paradigm. Thus, state measurements, action computation, and so on, should induce the state drift described above. Also makes these approaches ``slower to react'' in theory.
+	\end{itemize}
+\end{itemize}
+
+At present, there are no other RL works in PDPs, let alone with online policy updates.
+Other existing RL use cases suitable for adaptation to the ``bump-in-the-wire'' model are proving tricky to find.
+
+\subsection{Emulation metrics}
+Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
+
+\textbf{Quantisation accuracy}, quantised training accuracy, \textbf{stationarity}.
+
+\subsubsection{Quantisation accuracy}
+Examination of whether lower resolution quantisation impacts RL agent decision accuracy substantially.
+
+This has been done using MARL in mininet, see \cref{fig:quant-acc}.
+
+\begin{figure}
+	\includegraphics{../plots/build/marl-quant/accuracy-binary}
+	\caption{Normalised accuracy of a converted, pre-trained floating-point tile-coded policy after conversion to $32Qn$ fixed-point.}\label{fig:quant-acc}
+\end{figure}
+
+\subsubsection{Interaction with stationarity}
+Learning time of the system as compared to known changes in normality.
+
+I.e., in the DDoS case: how long does an agent take to respond to the onset of an attack?
+A change in attack strategy?
+The conclusion of an attack?
+There are no citations on \emph{how} DDoS attacks evolve, just that they do, and that this can occur on various timescales.
+
+\subsection{Testbed metrics}
+Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
+
+\textbf{Traffic throughput (bytes, packets)}, \textbf{packet processing delay}, \textbf{action execution time}, \textbf{learning time}, from-scratch learning accuracy, \textbf{rule installation delay/cost}, host and NIC memory costs, policy installation time, ``accuracy'' in the DDoS case.
+
+\subsubsection{Traffic throughput}
+Main research question: does moving RL logic onto the NIC reduce maximum throughput of the NIC, even if calculation is on a different functional unit?
+This is relevant in both \si{\byte\per\second} and packets per second.
+
+This is application independent, and would assess whether the RL units (acting independently on the netronome) affect throughput compared with a basic P4 program at different work intensities.
+Ideally, this would show no effect on forwarding performance.
+
+\subsubsection{Packet processing delay}
+Main research question: does the presence of off-path (but on-chip) RL execution meaningfully increase packet processing delay? How does this compare to a P4 program with an equivalent number of tables? What about to OvS?
+
+\subsubsection{Action execution \& learning time}
+Main research question: does moving RL logic from the host to the NIC substantially reduce delays from state measurement, to state receipt, to action computation and installation?
+These constitute $t_{1...3}$ discussed above.
+Primarily, these need to be looked at using varying policy sizes and distribution across memory regions.
+
+We ideally want these both with and without any acceleration from extra cores on the netronome: the point of this being that we can demonstrate that the system (or a similar NetFPGA system) can scale upwards according to available system resources or demands.
+
+\subsubsection{Rule installation delay/cost.}
+Main research question: how long does it take to install rules in the above testbed setups? What is the downtime of so doing?
+
+This is application-dependent: see earlier discussions on rule batching and local extern/hash-table use.
 
 \section{Related Work}
 
-\begin{itemize}
-	\item A switch/NIC architecture like \textcite{DBLP:conf/hotnets/StephensAS18} would remove the need for hard-coded island-island relationships.
-\end{itemize}
+?? A switch/NIC architecture like \textcite{DBLP:conf/hotnets/StephensAS18} would remove the need for hard-coded island-island relationships.
+
+?? Taurus. They can't train online though!~\parencite{DBLP:journals/corr/abs-2002-08987}
+
+?? Do switches~\parencite{DBLP:conf/hotnets/XiongZ19}.
+?? Train offline, classical methods targetting all match-action P4 systems (no externs etc).
+
+?? N3IC run NNs on NIC~\parencite{DBLP:journals/corr/abs-2009-02353}, allow packet tagging to occur based on pre-trained BNN~\parencite{DBLP:conf/nips/HubaraCSEB16}.
+?? both NFP and NetFPGA.
+?? Or as an offload mechanism~\parencite{DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
+?? Binary NNs ``more suitable for network hardware''~\parencite{DBLP:journals/corr/MiyashitaLM16}?
+
+?? Can we collect some papers on per-packet ML/RL? Per-packet classification using NNs to build decision trees~\parencite{DBLP:conf/sigcomm/LiangZJS19}
+
+?? RL for congestion control. ~\parencite{DBLP:journals/corr/abs-1910-04054}
+
+?? Arbitrary training enhanced by in-network? General NNs~\parencite{DBLP:conf/micro/LiPAYQPWSEK18}, RL-specfic~\parencite{DBLP:conf/isca/LiLYCSH19}.
 
 \section{Conclusion}
 	

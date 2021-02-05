@@ -54,7 +54,8 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 
 // Need to use this due to size limits on struct in CAMHT def, even
 // if key is different.
-#define SA_ENTRIES 0x20000
+// #define SA_ENTRIES 0x20000
+#define SA_ENTRIES 0x10
 CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 
 __declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
@@ -627,6 +628,9 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 			changed_key = 1;
 		}
 
+
+		nani = (((uint64_t) reward_found) << 32) | state_added;
+		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found];
 			struct state_action_pair lsap = state_action_pairs[state_found];
