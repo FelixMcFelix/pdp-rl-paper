@@ -26,6 +26,8 @@ __declspec(visible) SIGNAL foreign_sig;
 
 #define READ_REG_TYPE 0
 
+// This run on 12.1
+
 // details of thread who sends to us
 #define PRODUCER_ME 4 // 0 + 4;
 #define PRODUCER_ISLAND 12
@@ -67,7 +69,12 @@ main() {
 		__implicit_write(&foreign_x);
 		__implicit_write((void*)&foreign_sig);
 
-		__wait_for_all(&foreign_sig);
+		if (!signal_test(&foreign_sig)) {
+			__implicit_write(&foreign_x);
+			__implicit_write((void*)&foreign_sig);
+			__wait_for_all(&foreign_sig);	
+		}
+		
 		new_i = foreign_x;
 
 		me0_x = new_i;

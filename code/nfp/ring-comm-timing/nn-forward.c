@@ -31,9 +31,6 @@ main() {
 	uint32_t i = 0;
 	uint32_t new_i = 0;
 
-	// temp to allow debugging other ctxs.
-	return 0;
-
 	if (__ctx() != 0) {
 		return 0;
 	}
@@ -54,12 +51,12 @@ main() {
 
 			client_sig |= CONSUMER_CTX << 4;
 
+			remote_sig = (client_sig << 9);
+
 			base_address = CONSUMER_ISLAND << 24;
 			base_address |= READ_REG_TYPE << 16;
 			base_address |= CONSUMER_ME << 10;
 			base_address |= register_no << 2;
-
-			remote_sig = (1 << 13) | (client_sig << 9);
 
 			__asm {
 				local_csr_wr[cmd_indirect_ref_0, remote_sig]

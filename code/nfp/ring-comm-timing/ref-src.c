@@ -17,6 +17,8 @@ __declspec(write_reg) uint32_t me0_x;
 __declspec(remote read_reg) uint32_t foreign_x;
 __declspec(remote) SIGNAL foreign_sig;
 
+// This run on 12.0
+
 // details of thread who sends to us
 #define READ_REG_TYPE 0 // 0 = transfer registers, 1 = csr registers. 	Bit 16
 #define PRODUCER_ME 5 // 1 + 4; FPC + 4 == "Master number"				Bits 13:10
@@ -65,8 +67,6 @@ main() {
 		t0 = (((uint64_t)t0_part) << 32) + local_csr_read(local_csr_timestamp_low);
 
 		// write i into the remote register.
-		//in_val = i;
-
 		me0_x = i;
 
 		__asm {
@@ -75,10 +75,14 @@ main() {
 			ct[reflect_write_sig_remote, me0_x, base_address, 0, 1], indirect_ref
 		}
 
-		__implicit_write(&receiver_x);
 		__implicit_write((void*)&receiver_sig);
+		__implicit_write(&receiver_x);
 
-		__wait_for_all(&receiver_sig);
+		if (!signal_test(&receiver_sig)) {
+			__implicit_write(&receiver_x);
+			__implicit_write((void*)&receiver_sig);
+			__wait_for_all(&receiver_sig);
+		}
 		new_val = receiver_x;
 
 		t1_part = local_csr_read(local_csr_timestamp_high);
@@ -86,6 +90,9 @@ main() {
 
 		time_taken = (uint32_t)(t1 - t0);
 
-		mem_write32(&time_taken, &ref_times[i], sizeof(uint32_t));
+		// Try to stall to see if this is an early signal issue...
+		for (i=1; i < 100000; i++) {
+			mem_write32(&time_taken, &ref_times[i-1], sizeof(uint32_t));
+		}
 	}
 }

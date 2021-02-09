@@ -29,9 +29,6 @@ main() {
 	int i = 0;
 	uint32_t new_val = 0;
 
-	// temp to allow debugging other ctxs.
-	return 0;
-
 	if (__ctx() != 0) {
 		return 0;
 	}
@@ -56,6 +53,6 @@ main() {
 
 		time_taken = (uint32_t)(t1 - t0);
 
-		mem_write32(&time_taken, &nn_times[i], sizeof(uint32_t));
+		mem_write32(&time_taken, &nn_times[i-1], sizeof(uint32_t));
 	}
 }

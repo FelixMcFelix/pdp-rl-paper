@@ -6,7 +6,7 @@
 #define ISL_ISL_RING_NUMBER 131
 #define ISL_REPLY_RING_NUMBER 132
 
-#define NUM_MEASUREMENTS 2048
+#define NUM_MEASUREMENTS 65536
 
 struct dummy_work_item {
 	uint32_t test;
