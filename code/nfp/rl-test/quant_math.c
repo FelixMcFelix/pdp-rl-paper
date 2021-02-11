@@ -1,16 +1,16 @@
 #include "quant_math.h"
 
-int32_t quant_mul(int32_t lhs, int32_t rhs, uint32_t base) {
-	int64_t intermediate = (int64_t)lhs;
-	intermediate *= (int64_t)rhs;
+tile_t quant_mul(tile_t lhs, tile_t rhs, utile_t base) {
+	double_tile_t intermediate = (double_tile_t)lhs;
+	intermediate *= (double_tile_t)rhs;
 	// rounding step.
 	intermediate += (1 << (base - 1));
 
-	return (int32_t)(intermediate >> base);
+	return (tile_t)(intermediate >> base);
 }
 
-int32_t quant_div(int32_t lhs, int32_t rhs, uint32_t base) {
-	int64_t intermediate = ((int64_t)lhs) << base;
+tile_t quant_div(tile_t lhs, tile_t rhs, utile_t base) {
+	double_tile_t intermediate = ((double_tile_t)lhs) << base;
 	// ignore rounding behaviour for now.
-	return (int32_t)(intermediate / base);	
+	return (tile_t)(intermediate / base);	
 }

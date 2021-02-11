@@ -33,7 +33,7 @@ pub fn list() {
 	println!("{:#?}", datalink::interfaces());
 }
 
-pub fn setup(cfg: &mut SetupConfig) {
+pub fn setup<T: Tile>(cfg: &mut SetupConfig<T>) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
 
 	cfg.setup.validate();
@@ -61,7 +61,7 @@ pub fn tilings(cfg: &mut TilingsConfig) {
 	}
 }
 
-pub fn insert_policy(cfg: &mut PolicyConfig) {
+pub fn insert_policy<T: Tile>(cfg: &mut PolicyConfig<T>) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
 
 	// cfg.policy.validate();
@@ -78,13 +78,13 @@ pub fn insert_policy(cfg: &mut PolicyConfig) {
 					data: entry
 						.data
 						.iter()
-						.map(|val| (quantiser * val) as i32)
+						.map(|val| T::from_float(quantiser * val))
 						.collect(),
 				});
 				write_and_send_sparse_policy(cfg, &mut buffer, base, ps, &offsets);
 			},
 			PolicyFormat::Dense(d) => {
-				let ps = d.iter().map(|val| (quantiser * val) as i32);
+				let ps = d.iter().map(|val| T::from_float(quantiser * val));
 				write_and_send_policy(cfg, &mut buffer, base, ps, &offsets);
 			},
 		},
@@ -101,7 +101,7 @@ pub fn insert_policy(cfg: &mut PolicyConfig) {
 	}
 }
 
-pub fn send_state(cfg: &mut SendStateConfig, state: Vec<Tile>) {
+pub fn send_state<T: Tile>(cfg: &mut SendStateConfig, state: Vec<T>) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
 
 	let sz = build_state_packet(cfg, &mut buffer[..], state).expect("Packet building failed...");
@@ -114,7 +114,7 @@ pub fn send_state(cfg: &mut SendStateConfig, state: Vec<Tile>) {
 	// write_and_send_state
 }
 
-pub fn generate_policy(cfg: &FakePolicyGeneratorConfig) {
+pub fn generate_policy<T: Tile + Serialize>(cfg: &FakePolicyGeneratorConfig<T>) {
 	let mut tiles: usize = 0 as usize;
 
 	let a = cfg.setup.n_actions as usize;
@@ -135,11 +135,11 @@ pub fn generate_policy(cfg: &FakePolicyGeneratorConfig) {
 
 	let cap = (a * s * tiles) + if bias { a } else { 0 };
 
-	let mut policy_data = vec![0; cap];
+	// let mut policy_data = vec![0; cap];
 
-	for (i, val) in policy_data[0..].iter_mut().enumerate() {
-		*val = ((i as Tile) % 20) - 10;
-	}
+	let policy_data: Vec<T> = (0..cap)
+		.map(|i| T::from_int(((i % 20) as i32) - 10))
+		.collect();
 
 	let policy = Policy::Quantised {
 		data: PolicyFormat::Dense(policy_data),
@@ -148,25 +148,27 @@ pub fn generate_policy(cfg: &FakePolicyGeneratorConfig) {
 	println!("{}", serde_json::to_string_pretty(&policy).unwrap());
 }
 
-pub fn generate_state(cfg: &FakeStateGeneratorConfig) {
+pub fn generate_state<T: Tile + Serialize>(cfg: &FakeStateGeneratorConfig<T>) {
 	let mut out = Vec::with_capacity(cfg.n_dims as usize);
 
 	let mut r = rand::thread_rng();
 
 	for (min, max) in cfg.mins.iter().zip(cfg.maxes.iter()) {
+		let w_min = min.wideint();
+		let w_max = max.wideint();
 		// You never know...
-		let true_min = min.min(max);
-		let true_max = max.max(min);
-		out.push(r.gen_range(true_min, true_max));
+		let true_min = w_min.min(w_max);
+		let true_max = w_max.max(w_min);
+		out.push(T::from_int(r.gen_range(true_min, true_max)));
 	}
 
 	println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
 
-pub fn send_reward(cfg: &mut SendRewardConfig, value_loc: i32, reward: f32, shift: usize) {
+pub fn send_reward<T: Tile>(cfg: &mut SendRewardConfig, value_loc: i32, reward: f32, shift: usize) {
 	let mut buffer = [0u8; MAX_PKT_SIZE];
 
-	let quant_reward = (reward * ((1 << shift) as f32)) as i32;
+	let quant_reward = T::from_float(reward * ((1 << shift) as f32));
 
 	let sz = build_reward_packet(cfg, &mut buffer[..], quant_reward, value_loc)
 		.expect("Packet building failed...");

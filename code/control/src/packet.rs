@@ -120,7 +120,7 @@ fn finalize(buf: &mut [u8], off: &TransportOffsets, t_cfg: &TransportConfig) {
 	}
 }
 
-pub fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize> {
+pub fn build_setup_packet<T: Tile>(setup: &SetupConfig<T>, buf: &mut [u8]) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(setup.global, &setup.transport, buf);
 	cursor += build_type(&mut buf[cursor..], RlType::Config);
 	cursor += build_config_type(&mut buf[cursor..], RlConfigType::Setup);
@@ -139,11 +139,11 @@ pub fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize
 
 		//serialise do_updates, quantiser_shift, gamma, reward_key, state_key
 
-		body.write_i32::<BigEndian>(setup.setup.epsilon)?;
-		body.write_i32::<BigEndian>(setup.setup.alpha)?;
-		body.write_i32::<BigEndian>(setup.setup.gamma)?;
+		setup.setup.epsilon.write_bytes(&mut body)?;
+		setup.setup.alpha.write_bytes(&mut body)?;
+		setup.setup.gamma.write_bytes(&mut body)?;
 
-		body.write_i32::<BigEndian>(setup.setup.epsilon_decay_amt)?;
+		setup.setup.epsilon_decay_amt.write_bytes(&mut body)?;
 		body.write_u32::<BigEndian>(setup.setup.epsilon_decay_freq)?;
 
 		body.write_u8(setup.setup.state_key.id())?;
@@ -153,7 +153,7 @@ pub fn build_setup_packet(setup: &SetupConfig, buf: &mut [u8]) -> IoResult<usize
 		body.write_i32::<BigEndian>(setup.setup.reward_key.body())?;
 
 		for el in setup.setup.maxes.iter().chain(setup.setup.mins.iter()) {
-			body.write_i32::<BigEndian>(*el)?;
+			el.write_bytes(&mut body)?;
 		}
 
 		let space_end = body.len();
@@ -195,8 +195,8 @@ pub fn build_tilings_packet(tile_cfg: &TilingsConfig, buf: &mut [u8]) -> IoResul
 	Ok(cursor)
 }
 
-pub fn build_policy_packet_base(
-	tile_cfg: &PolicyConfig,
+pub fn build_policy_packet_base<T: Tile>(
+	tile_cfg: &PolicyConfig<T>,
 	buf: &mut [u8],
 ) -> IoResult<(usize, TransportOffsets)> {
 	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
@@ -207,19 +207,18 @@ pub fn build_policy_packet_base(
 	Ok((cursor, offsets))
 }
 
-pub fn write_and_send_policy(
-	cfg: &mut PolicyConfig,
+pub fn write_and_send_policy<T: Tile>(
+	cfg: &mut PolicyConfig<T>,
 	buf: &mut [u8],
 	base_offset: usize,
-	policy: impl Iterator<Item = i32>,
+	policy: impl Iterator<Item = T>,
 	offsets: &TransportOffsets,
 ) {
 	let boundaries = PolicyBoundaries::compute(&cfg.setup, &cfg.tiling);
 	let mut active_bound = 0;
 
 	let max_send_bytes = buf.len() - base_offset;
-	let max_send_tiles =
-		(max_send_bytes - std::mem::size_of::<u32>()) / std::mem::size_of::<Tile>();
+	let max_send_tiles = (max_send_bytes - std::mem::size_of::<u32>()) / T::size_of();
 
 	let mut packet_offset = None;
 
@@ -240,7 +239,7 @@ pub fn write_and_send_policy(
 			active_bound += 1;
 		}
 
-		(&mut buf[cursor..]).write_i32::<BigEndian>(tile).unwrap();
+		tile.write_bytes(&mut (&mut buf[cursor..])).unwrap();
 		cursor += std::mem::size_of::<i32>();
 		curr_send_tiles += 1;
 
@@ -270,11 +269,11 @@ pub fn write_and_send_policy(
 	}
 }
 
-pub fn write_and_send_sparse_policy(
-	cfg: &mut PolicyConfig,
+pub fn write_and_send_sparse_policy<T: Tile>(
+	cfg: &mut PolicyConfig<T>,
 	buf: &mut [u8],
 	base_offset: usize,
-	policy: impl Iterator<Item = SparsePolicyEntry<i32>>,
+	policy: impl Iterator<Item = SparsePolicyEntry<T>>,
 	offsets: &TransportOffsets,
 ) {
 	for part in policy {
@@ -285,7 +284,7 @@ pub fn write_and_send_sparse_policy(
 			body.write_u32::<BigEndian>(part.offset);
 
 			for tile in part.data.iter() {
-				body.write_i32::<BigEndian>(*tile).unwrap();
+				tile.write_bytes(&mut body).unwrap();
 			}
 
 			base_offset + space_start - body.len()
@@ -301,10 +300,10 @@ pub fn write_and_send_sparse_policy(
 	}
 }
 
-pub fn build_state_packet(
+pub fn build_state_packet<T: Tile>(
 	tile_cfg: &SendStateConfig,
 	buf: &mut [u8],
-	state: Vec<Tile>,
+	state: Vec<T>,
 ) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
 	cursor += build_type(&mut buf[cursor..], RlType::State);
@@ -316,7 +315,7 @@ pub fn build_state_packet(
 		body.write_u16::<BigEndian>(state.len() as u16)?;
 
 		for el in state.iter() {
-			body.write_i32::<BigEndian>(*el)?;
+			el.write_bytes(&mut body)?;
 		}
 
 		let space_end = body.len();
@@ -328,10 +327,10 @@ pub fn build_state_packet(
 	Ok(cursor)
 }
 
-pub fn build_reward_packet(
+pub fn build_reward_packet<T: Tile>(
 	tile_cfg: &SendRewardConfig,
 	buf: &mut [u8],
-	quant_reward: i32,
+	quant_reward: T,
 	value_loc: i32,
 ) -> IoResult<usize> {
 	let (mut cursor, offsets) = build_transport(tile_cfg.global, &tile_cfg.transport, buf);
@@ -341,7 +340,7 @@ pub fn build_reward_packet(
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		body.write_i32::<BigEndian>(quant_reward)?;
+		quant_reward.write_bytes(&mut body)?;
 		body.write_i32::<BigEndian>(value_loc)?;
 
 		let space_end = body.len();

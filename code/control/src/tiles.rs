@@ -1,10 +1,103 @@
 use super::*;
+use std::{io::Write, mem};
 
-pub type Tile = i32;
+// pub type Tile = i32;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TilingSet {
 	pub tilings: Vec<Tiling>,
+}
+
+pub trait Tile {
+	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize>;
+	fn float(&self) -> f32;
+	fn wideint(&self) -> i32;
+
+	fn from_float(val: f32) -> Self;
+	fn from_int(val: i32) -> Self;
+	fn size_of() -> usize;
+}
+
+impl Tile for i8 {
+	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize> {
+		buf.write(&[*self as u8])?;
+
+		Ok(mem::size_of::<Self>())
+	}
+
+	fn float(&self) -> f32 {
+		*self as f32
+	}
+
+	fn wideint(&self) -> i32 {
+		*self as i32
+	}
+
+	fn from_float(val: f32) -> Self {
+		val as i8
+	}
+
+	fn from_int(val: i32) -> Self {
+		val as i8
+	}
+
+	fn size_of() -> usize {
+		mem::size_of::<Self>()
+	}
+}
+
+impl Tile for i16 {
+	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize> {
+		buf.write_i16::<BigEndian>(*self)?;
+		Ok(mem::size_of::<Self>())
+	}
+
+	fn float(&self) -> f32 {
+		*self as f32
+	}
+
+	fn wideint(&self) -> i32 {
+		*self as i32
+	}
+
+	fn from_float(val: f32) -> Self {
+		val as i16
+	}
+
+	fn from_int(val: i32) -> Self {
+		val as i16
+	}
+
+	fn size_of() -> usize {
+		mem::size_of::<Self>()
+	}
+}
+
+impl Tile for i32 {
+	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize> {
+		buf.write_i32::<BigEndian>(*self)?;
+		Ok(mem::size_of::<Self>())
+	}
+
+	fn float(&self) -> f32 {
+		*self as f32
+	}
+
+	fn wideint(&self) -> i32 {
+		*self
+	}
+
+	fn from_float(val: f32) -> Self {
+		val as i32
+	}
+
+	fn from_int(val: i32) -> Self {
+		val as i32
+	}
+
+	fn size_of() -> usize {
+		mem::size_of::<Self>()
+	}
 }
 
 impl Default for TilingSet {

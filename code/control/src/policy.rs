@@ -19,17 +19,17 @@ pub struct SparsePolicyEntry<T> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum Policy {
+pub enum Policy<T: Tile> {
 	Float {
 		data: PolicyFormat<f32>,
 		quantiser: f32,
 	},
 	Quantised {
-		data: PolicyFormat<i32>,
+		data: PolicyFormat<T>,
 	},
 }
 
-impl Default for Policy {
+impl<T: Tile + Default> Default for Policy<T> {
 	fn default() -> Self {
 		Self::Quantised {
 			data: Default::default(),
@@ -41,7 +41,7 @@ impl Default for Policy {
 pub struct PolicyBoundaries(pub [usize; LOCATION_MAX as usize]);
 
 impl PolicyBoundaries {
-	pub fn compute(setup: &Setup, tiling: &TilingSet) -> Self {
+	pub fn compute<T: Tile>(setup: &Setup<T>, tiling: &TilingSet) -> Self {
 		let mut out = [0; LOCATION_MAX as usize];
 		let mut right_edge = 0;
 		let mut last_loc = 0;

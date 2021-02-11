@@ -61,7 +61,7 @@ CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 __declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
 
 #define REWARD_ENTRIES 0x10
-CAMHT_DECLARE(reward_map, REWARD_ENTRIES, tile_t)
+CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -632,7 +632,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		nani = (((uint64_t) reward_found) << 32) | state_added;
 		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
-			tile_t matched_reward = reward_map_key_tbl[reward_found];
+			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 			struct state_action_pair lsap = state_action_pairs[state_found];
 
 			tile_t value_of_chosen_action = prefs[chosen_action];
@@ -702,7 +702,7 @@ void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, tile_t value,
 	}
 
 	if (added >= 0) {
-		reward_map_key_tbl[loc] = value;
+		reward_map_key_tbl[loc].data = value;
 	}
 }
 

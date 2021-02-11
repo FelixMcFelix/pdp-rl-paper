@@ -43,13 +43,13 @@ impl Default for TransportConfig {
 	}
 }
 
-pub struct SetupConfig<'a> {
+pub struct SetupConfig<'a, T: Tile> {
 	pub global: &'a mut GlobalConfig,
-	pub setup: Setup,
+	pub setup: Setup<T>,
 	pub transport: TransportConfig,
 }
 
-impl<'a> SetupConfig<'a> {
+impl<'a, T: Tile> SetupConfig<'a, T> {
 	pub fn new(global: &'a mut GlobalConfig) -> Self {
 		Self {
 			global,
@@ -103,16 +103,16 @@ impl<'a> TilingsConfig<'a> {
 	}
 }
 
-pub struct PolicyConfig<'a> {
+pub struct PolicyConfig<'a, T: Tile> {
 	pub global: &'a mut GlobalConfig,
 	pub transport: TransportConfig,
 
-	pub policy: Option<Policy>,
+	pub policy: Option<Policy<T>>,
 	pub tiling: TilingSet,
-	pub setup: Setup,
+	pub setup: Setup<T>,
 }
 
-impl<'a> PolicyConfig<'a> {
+impl<'a, T: Tile + Default> PolicyConfig<'a, T> {
 	pub fn new(global: &'a mut GlobalConfig) -> Self {
 		Self {
 			global,
@@ -124,9 +124,9 @@ impl<'a> PolicyConfig<'a> {
 	}
 }
 
-pub struct FakePolicyGeneratorConfig {
+pub struct FakePolicyGeneratorConfig<T: Tile> {
 	pub tiling: TilingSet,
-	pub setup: Setup,
+	pub setup: Setup<T>,
 }
 
-pub type FakeStateGeneratorConfig = Setup;
+pub type FakeStateGeneratorConfig<T> = Setup<T>;

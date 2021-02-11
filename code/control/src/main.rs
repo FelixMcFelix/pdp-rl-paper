@@ -1,5 +1,7 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use control::*;
+use core::fmt::Debug;
+use serde::{de::DeserializeOwned, Serialize};
 use std::{fs::File, io::BufReader, net::IpAddr};
 
 fn main() {
@@ -15,6 +17,16 @@ fn main() {
 				"Interface to send packets over.\
 				If none is named, the first available interface will be used.")
 			.takes_value(true))
+		.arg(Arg::with_name("datatype")
+			.short("q")
+			.long("datatype")
+			.value_name("TYPE")
+			.help(
+				"Datatype to fit quantised policy values into.\
+				Can be `i8`, `i16`, or `i32.\
+				Must match the compile-time width of the target switch.")
+			.takes_value(true)
+			.default_value("i32"))
 		.subcommand(SubCommand::with_name("list")
 			.about("List all bindable interfaces."))
 		.subcommand(SubCommand::with_name("setup")
@@ -219,6 +231,22 @@ fn main() {
 				.required(true)))
 		.get_matches();
 
+	let dt = matches
+		.value_of("datatype")
+		.map(|s| s.to_string())
+		.expect("There must always be a datatype!");
+
+	match &dt[..] {
+		"i8" => run_inner_with_tile_type::<i8>(matches),
+		"i16" => run_inner_with_tile_type::<i16>(matches),
+		"i32" => run_inner_with_tile_type::<i32>(matches),
+		_ => println!("Invalid datatype: I support [`i8`, `i16`, `i32`]"),
+	}
+}
+
+fn run_inner_with_tile_type<T: Tile + DeserializeOwned + Serialize + Debug + Default>(
+	matches: ArgMatches,
+) {
 	match matches.subcommand() {
 		("list", Some(_sub_m)) => {
 			control::list();
@@ -269,7 +297,7 @@ fn main() {
 
 			println!("{}", serde_json::to_string_pretty(&cfg.setup).unwrap());
 
-			control::setup(&mut cfg);
+			control::setup::<T>(&mut cfg);
 		},
 		("tiling", Some(sub_m)) => {
 			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
@@ -381,7 +409,7 @@ fn main() {
 			println!("{}", serde_json::to_string_pretty(&cfg.policy).unwrap());
 			println!("{:#?}", cfg.policy);
 
-			control::insert_policy(&mut cfg);
+			control::insert_policy::<T>(&mut cfg);
 		},
 		("state", Some(sub_m)) => {
 			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
@@ -426,13 +454,13 @@ fn main() {
 
 			//
 
-			let state: Vec<Tile> = serde_json::from_reader(BufReader::new(state_file))
+			let state: Vec<T> = serde_json::from_reader(BufReader::new(state_file))
 				.expect("Invalid policy config file!");
 
 			// println!("{}", serde_json::to_string_pretty(&cfg.policy).unwrap());
 			// println!("{:#?}", cfg.policy);
 
-			control::send_state(&mut cfg, state);
+			control::send_state::<T>(&mut cfg, state);
 		},
 		("fake-policy", Some(sub_m)) => {
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
@@ -448,16 +476,17 @@ fn main() {
 					.expect("Invalid setup packet config file!"),
 			};
 
-			control::generate_policy(&cfg);
+			control::generate_policy::<T>(&cfg);
 		},
 		("fake-state", Some(sub_m)) => {
 			let setup_file = File::open(sub_m.value_of("SETUP").unwrap())
 				.expect("Setup file could not be opened.");
 
-			let cfg: FakeStateGeneratorConfig = serde_json::from_reader(BufReader::new(setup_file))
-				.expect("Invalid tiling packet config file!");
+			let cfg: FakeStateGeneratorConfig<T> =
+				serde_json::from_reader(BufReader::new(setup_file))
+					.expect("Invalid tiling packet config file!");
 
-			control::generate_state(&cfg);
+			control::generate_state::<T>(&cfg);
 		},
 		("reward", Some(sub_m)) => {
 			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
@@ -497,24 +526,27 @@ fn main() {
 					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
-			let value_loc = sub_m.value_of("value-location")
+			let value_loc = sub_m
+				.value_of("value-location")
 				.unwrap()
 				.parse::<i32>()
 				.expect("Must be a valid i32.");
 
-			let reward = sub_m.value_of("REWARD")
+			let reward = sub_m
+				.value_of("REWARD")
 				.unwrap()
 				.parse::<f32>()
 				.expect("Must be a valid f32.");
 
 			assert!(reward.is_finite());
 
-			let shift = sub_m.value_of("SHIFT")
+			let shift = sub_m
+				.value_of("SHIFT")
 				.unwrap()
 				.parse::<usize>()
 				.expect("Must be a valid usize.");
 
-			control::send_reward(&mut cfg, value_loc, reward, shift);
+			control::send_reward::<T>(&mut cfg, value_loc, reward, shift);
 		},
 		_ => {
 			println!("{}", matches.usage());

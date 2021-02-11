@@ -8,7 +8,7 @@
 #include "callbackapi/pif_plugin_rct.h"
 #include "callbackapi/pif_plugin_in_state.h"
 
-typedef int32_t tile_t;
+#include "tile.h"
 
 #define MAX_ACTIONS 10
 #define TILE_SIZE sizeof(tile_t)
