@@ -1,4 +1,5 @@
 use super::*;
+use std::mem;
 
 enum_from_primitive! {
 pub enum RlType {
@@ -340,7 +341,12 @@ pub fn build_reward_packet<T: Tile>(
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		quant_reward.write_bytes(&mut body)?;
+		// Pad to 4 bytes.
+		let bytes_spent_on_reward = quant_reward.write_bytes(&mut body)?;
+		for _ in bytes_spent_on_reward..mem::size_of::<u32>() {
+			body.write_u8(0)?;
+		}
+
 		body.write_i32::<BigEndian>(value_loc)?;
 
 		let space_end = body.len();

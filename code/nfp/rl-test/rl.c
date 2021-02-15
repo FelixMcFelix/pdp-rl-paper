@@ -681,7 +681,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	}
 }
 
-void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, tile_t value, uint32_t reward_insert_loc) {
+void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
 	// Switch on self->reward_key
 	// if shared, place into key 0 I guess?
 	uint32_t loc = 0;
@@ -702,7 +702,7 @@ void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, tile_t value,
 	}
 
 	if (added >= 0) {
-		reward_map_key_tbl[loc].data = value;
+		reward_map_key_tbl[loc].data = value.data;
 	}
 }
 
@@ -728,6 +728,7 @@ main() {
 
 	// Now wait for RL packets from any P4 PIF MEs.
 	while (1) {
+		union pad_tile pt = {0};
 		__declspec(read_reg) struct rl_work_item workq_read_register;
 
 		mem_workq_add_thread(
@@ -762,10 +763,11 @@ main() {
 				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
 				break;
 			case PIF_PARREP_TYPE_in_reward:
+				pt._pad = workq_read_register.parsed_fields.reward.measured_value;
 				//reward
 				reward_packet(
 					&cfg,
-					(tile_t) workq_read_register.parsed_fields.reward.measured_value,
+					pt,
 					workq_read_register.parsed_fields.reward.lookup_key
 				);
 				break;
