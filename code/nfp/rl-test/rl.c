@@ -19,6 +19,7 @@ __declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
 __declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 
 // Maybe keep one of these locally, too?
+// probably should do this holy shit.
 __declspec(export, emem) struct rl_config cfg = {0};
 
 // ring head and tail on i25 or emem1
