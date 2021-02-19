@@ -12,7 +12,10 @@
 #include "rl-pkt-store.h"
 #include "pif_parrep.h"
 
+#include "subtask/ack.h"
+#include "subtask/work.h"
 #include "quant_math.h"
+#include "worker_config.h"
 
 __declspec(i5.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
 __declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
@@ -63,6 +66,17 @@ __declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
 
 #define REWARD_ENTRIES 0x10
 CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
+
+#ifndef _RL_WORKER_DISABLED
+__declspec(nn_remote_reg) struct work in_type_a = {0};
+#endif /* !_RL_WORKER_DISABLED */
+
+#ifndef _RL_CORE_OLD_POLICY_WORK
+// __declspec(visible read_reg) struct worker_ack reflector_writeback[RL_WORKER_WRITEBACK_SLOTS];
+__declspec(visible xfer_read_reg) struct worker_ack reflector_writeback;
+__declspec(visible) SIGNAL reflector_writeback_sig;
+__declspec(export, emem) uint32_t reflector_writeback_locks[RL_WORKER_WRITEBACK_SLOTS] = {0};
+#endif /* _RL_CORE_OLD_POLICY_WORK */
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -630,8 +644,8 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		}
 
 
-		nani = (((uint64_t) reward_found) << 32) | state_added;
-		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+		//nani = (((uint64_t) reward_found) << 32) | state_added;
+		//mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 			struct state_action_pair lsap = state_action_pairs[state_found];
@@ -708,8 +722,9 @@ void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, union pad_til
 }
 
 main() {
+	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
-	SIGNAL sig;
+	uint32_t quack = 0xdeadbeef;
 
 	if (__ctx() == 0) {
 		// init above huge blocks.
@@ -726,6 +741,40 @@ main() {
 	
 	// After that, we want NN registers established between co-located MEs.
 	// TODO
+
+	
+
+	#ifdef _RL_CORE_SLAVE_CTXES
+	in_type_a.body.worker_count = __n_ctx() - 1;
+	#else
+	in_type_a.body.worker_count = 0;
+	#endif /* _RL_CORE_SLAVE_CTXES */
+	in_type_a.type = WORK_REQUEST_WORKER_COUNT;
+
+	// TODO: await the ACK.
+	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (14 << 3));
+	quack = local_csr_read(local_csr_next_neighbor_signal);
+
+	nani = quack;
+
+	mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+
+	__implicit_write(&reflector_writeback_sig);
+	__implicit_write(&reflector_writeback);
+
+	if (__ctx() == 0) {
+		uint64_t workspace = 0;
+		__wait_for_all(&reflector_writeback_sig);
+
+		__implicit_write(&reflector_writeback.type);
+
+		workspace = reflector_writeback.type;
+		//workspace |= reflector_writeback.type << 32;
+
+		nani = workspace;
+
+		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+	}
 
 	// Now wait for RL packets from any P4 PIF MEs.
 	while (1) {
@@ -773,6 +822,8 @@ main() {
 				);
 				break;
 			case 999:
+				nani = reflector_writeback.body.worker_count;
+				mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 				//fixme: not got a code for this yet
 			default:
 				break;
@@ -780,4 +831,9 @@ main() {
 
 		rl_pkt_return_slot(&rl_pkts, workq_read_register.packet_payload);
 	}
+
+	__implicit_write(&reflector_writeback_sig);
+	__implicit_write(&reflector_writeback);
+	__implicit_read(&reflector_writeback_sig);
+	__implicit_read(&reflector_writeback);
 }

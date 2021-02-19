@@ -1,6 +1,7 @@
 #ifndef _WORK_H
 #define _WORK_H
 
+#include <stdint.h>
 #include "../rl.h"
 
 enum work_type {
@@ -13,11 +14,12 @@ enum work_type {
 union work_body {
 	uint32_t worker_count;
 	__addr40 _declspec(emem) struct rl_config *cfg;
-	tile_t state[RL_DIMENSION_MAX];
+	__addr40 _declspec(emem) tile_t *state; // len not needed: derived from config.
 };
 
 struct work {
 	enum work_type type;
+	uint8_t req_ctx_num;
 	union work_body body;
 };
 
