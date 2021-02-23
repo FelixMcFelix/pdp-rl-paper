@@ -25,4 +25,6 @@ struct worker_ack {
 	union ack_body body;
 };
 
+#define ACK_U32S ((sizeof(struct worker_ack) + 3) / 4)
+
 #endif /* !_ACK_H_ */

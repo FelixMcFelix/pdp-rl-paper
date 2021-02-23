@@ -15,6 +15,14 @@
 __nnr struct work in_type_b;
 __declspec(nn_remote_reg) struct work in_type_a = {0};
 
+#define IN_PORT in_type_b
+#define OUT_PORT in_type_a
+
+// C INCLUDE
+// WARNING
+#include "worker_body.c"
+// WARNING
+
 main() {
 	int i = 0;
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -24,31 +32,8 @@ main() {
 	#endif /* _RL_WORKER_DISABLED */
 
 	#ifdef _RL_WORKER_SLAVE_CTXES
-
-	if (__ctx() == 0) {
-		// DO something: main prog.
-		while (1) {
-			__implicit_write(&in_type_b);
-			__implicit_write(&worker_in_sig);
-
-			wait_for_all(&worker_in_sig);
-
-			in_type_a.type = in_type_b.type;
-			in_type_a.body.worker_count = in_type_b.body.worker_count + __n_ctx();
-
-			local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (WORKER_SIGNUM << 3));
-		}
-	} else {
-		// Slave time.
-	}
-
+	work(__ctx() == 0);
 	#else /* if !_RL_WORKER_SLAVE_CTXES */
-
-	// DO something: main prog.
-
-	while (1) {
-		in_type_a = in_type_b;
-	}
-
+	work(1);
 	#endif /* _RL_WORKER_SLAVE_CTXES */
 }

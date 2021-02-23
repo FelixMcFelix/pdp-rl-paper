@@ -9,6 +9,7 @@
 #include "callbackapi/pif_plugin_in_state.h"
 
 #include "tile.h"
+#include "rl_interface.h"
 
 #define MAX_ACTIONS 10
 #define TILE_SIZE sizeof(tile_t)

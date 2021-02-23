@@ -17,16 +17,10 @@
 #include "quant_math.h"
 #include "worker_config.h"
 
-__declspec(i5.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
-__declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
-__declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
-
-// Maybe keep one of these locally, too?
-// probably should do this holy shit.
-__declspec(export, emem) struct rl_config cfg = {0};
+#include "policy/policy_mem_define.h"
+#include "util.h"
 
 // ring head and tail on i25 or emem1
-#define RL_RING_NUMBER 129
 volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_mem_workq[512*1024] = {0};
 _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER global 1)
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
@@ -36,12 +30,7 @@ volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
-volatile __declspec(export, emem) uint32_t cycle_estimate = 0;
-
-__declspec(export, emem) uint32_t global_tc_indices[RL_MAX_TILE_HITS] = {0};
-__declspec(export, emem) uint16_t global_tc_count;
-
-__declspec(export, emem) tile_t global_prefs[MAX_ACTIONS] = {0};
+__declspec(export, emem) struct worker_ack xd_lmao = 0;
 
 __declspec(export, emem) struct rl_work_item test_work;
 
@@ -51,10 +40,6 @@ __declspec(export, emem) struct rl_work_item test_work;
 #define SA_TABLE_SZ (SA_CAM_BUCKETS * 16)
 
 __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entry lkup_table[SA_CAM_BUCKETS];*/
-
-#define CAMHT_LOOKUP_IDX_ADD(_name, _key, added)                            \
-    camht_lookup_idx_add(CAMHT_HASH_TBL(_name), CAMHT_NB_ENTRIES(_name),    \
-                     (void *)_key, sizeof(*_key), added)
 
 // Need to use this due to size limits on struct in CAMHT def, even
 // if key is different.
@@ -71,12 +56,9 @@ CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
 __declspec(nn_remote_reg) struct work in_type_a = {0};
 #endif /* !_RL_WORKER_DISABLED */
 
-#ifndef _RL_CORE_OLD_POLICY_WORK
-// __declspec(visible read_reg) struct worker_ack reflector_writeback[RL_WORKER_WRITEBACK_SLOTS];
-__declspec(visible xfer_read_reg) struct worker_ack reflector_writeback;
-__declspec(visible) SIGNAL reflector_writeback_sig;
-__declspec(export, emem) uint32_t reflector_writeback_locks[RL_WORKER_WRITEBACK_SLOTS] = {0};
-#endif /* _RL_CORE_OLD_POLICY_WORK */
+volatile __declspec(shared) struct work local_ctx_work = {0};
+
+#include "subtask/internal_writeback.h"
 
 /** Convert a state vector into a list of tile indices.
 *
@@ -222,318 +204,6 @@ void update_action_preferences(uint32_t *tile_indices, uint16_t tile_hit_count, 
 	}
 }
 
-union two_u16s {
-	uint32_t raw;
-	uint16_t ints[2];
-	uint8_t bytes[4];
-};
-
-union four_u16s {
-	uint64_t raw;
-	uint32_t words[2];
-	uint16_t shorts[4];
-	uint8_t bytes[8];
-};
-
-void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
-	int dim;
-	int cursor = 0;
-	__declspec(xfer_read_reg) union two_u16s word;
-	__declspec(xfer_read_reg) union four_u16s bigword;
-
-	// setup information.
-	// rest of packet body is:
-	// do_updates (u8)
-	// quantiser_shift (u8)
-	// n_dims in all state vectors (u16)
-	// tiles_per_dim (u16)
-	// tilings_per_set (u16)
-	// n_actions (u16)
-	// epsilon (tile_t)
-	// alpha (tile_t)
-	// gamma (tile_t)
-	// epsilon_d (tile_t)
-	// epsilon_f (uint32_t)
-	// * state_key (u8 + i32)
-	// * reward_key (u8 + i32)
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(uint16_t);
-
-	cfg->do_updates = word.bytes[0];
-	cfg->quantiser_shift = word.bytes[1];
-
-	mem_read64(
-		&(bigword.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union four_u16s)
-	);
-	cursor += sizeof(union four_u16s);
-
-	cfg->num_dims = bigword.shorts[0];
-	cfg->tiles_per_dim = bigword.shorts[1];
-	cfg->tilings_per_set = bigword.shorts[2];
-	cfg->num_actions = bigword.shorts[3];
-
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-
-	cfg->epsilon = (tile_t) word.raw;
-
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-
-	cfg->alpha = (tile_t) word.raw;
-
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-
-	cfg->gamma = (tile_t) word.raw;
-
-	mem_read64(
-		&(bigword.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union four_u16s)
-	);
-	cursor += sizeof(union four_u16s);
-
-	cfg->epsilon_decay_amt = (tile_t) bigword.words[0];
-	cfg->epsilon_decay_freq = bigword.words[1];
-
-	cfg->state_key.kind = pkt->packet_payload[cursor];
-	cursor += 1;
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-	switch(cfg->state_key.kind) {
-		case KEY_SRC_FIELD:
-			cfg->state_key.body.field_id = word.ints[1];
-			break;
-		case KEY_SRC_VALUE:
-			cfg->state_key.body.value = (int32_t) word.raw;
-			break;
-		default:
-			break;
-	}
-
-	cfg->reward_key.kind = pkt->packet_payload[cursor];
-	cursor += 1;
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-	switch(cfg->reward_key.kind) {
-		case KEY_SRC_FIELD:
-			cfg->reward_key.body.field_id = word.ints[1];
-			break;
-		case KEY_SRC_VALUE:
-			cfg->reward_key.body.value = (int32_t) word.raw;
-			break;
-		default:
-			break;
-	}
-
-	// n x tile_t maxes
-	// n x tile_t mins
-	ua_memcpy_mem40_mem40(
-		&(cfg->maxes), 0,
-		pkt->packet_payload + cursor, 0,
-		cfg->num_dims * sizeof(tile_t)
-	);
-
-	cursor += cfg->num_dims * sizeof(tile_t);
-
-	ua_memcpy_mem40_mem40(
-		&(cfg->mins), 0,
-		pkt->packet_payload + cursor, 0,
-		cfg->num_dims * sizeof(tile_t)
-	);
-
-	cfg->epsilon_decay_freq_cnt = 0;
-
-	// Fill in width, shift_amt, adjusted_max...
-	if (cfg->tilings_per_set == 1) {
-		// SPECIAL CASE:
-		// do no cool shift/offset stuff.
-		// map ONLY to the subtended space.
-		// min max casing is already handled within.
-		for (dim = 0; dim < cfg->num_dims; ++dim) {
-			cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (cfg->tiles_per_dim);
-			cfg->shift_amt[dim] = 0;
-			cfg->adjusted_maxes[dim] = cfg->maxes[dim];
-		}
-	} else {
-		// Adds on an "extra tile" to the right of each dimension,
-		// later tilings reach deeped
-		for (dim = 0; dim < cfg->num_dims; ++dim) {
-			cfg->width[dim] = (cfg->maxes[dim] - cfg->mins[dim]) / (cfg->tiles_per_dim - 1);
-			cfg->shift_amt[dim] = cfg->width[dim] / cfg->tilings_per_set;
-			cfg->adjusted_maxes[dim] = cfg->maxes[dim] + cfg->width[dim];
-		}
-	}
-}
-
-void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
-	// tiling information.
-	// rest of packet body is, repeated till end:
-	//  n_dims (u16)
-	// then if n_dims != 0:
-	//  tile_location
-	//  n x u16 (dimensions in tiling)
-	__declspec(xfer_read_reg) union two_u16s word;
-
-	int cursor = 0;
-	int num_tilings = 0;
-	enum tile_location loc = TILE_LOCATION_T1;
-	uint32_t inner_offset = 0;
-	uint32_t current_start_tile = 0;
-
-	while(cursor < pkt->packet_size) {
-		uint32_t tiles_in_tiling = cfg->num_actions;
-		uint16_t pow_helper;
-
-		mem_read32(
-			&(word.raw),
-			pkt->packet_payload + cursor,
-			sizeof(union two_u16s)
-		);
-		cursor += sizeof(uint16_t);
-
-		// need to switch on num_dims
-		cfg->tiling_sets[num_tilings].num_dims = word.ints[0];
-
-		switch (word.ints[0]) {
-			case 0:
-				// bias tile
-				// in a clean packet, this ALWAYS comes first if it does appear.
-				cfg->tiling_sets[num_tilings].location = TILE_LOCATION_T1;
-				cfg->tiling_sets[num_tilings].offset = 0;
-				cfg->tiling_sets[num_tilings].start_tile = 0;
-
-				cfg->tiling_sets[num_tilings].end_tile = tiles_in_tiling;
-				break;
-			default:
-				// normal tile
-				// location (u8)
-				cfg->tiling_sets[num_tilings].location = word.bytes[2];
-				cursor += sizeof(uint8_t);
-
-				// dims (num_dims * uint16_t)
-				ua_memcpy_mem40_mem40(
-					&(cfg->tiling_sets[num_tilings].dims), 0,
-					pkt->packet_payload + cursor, 0,
-					word.ints[0] * sizeof(uint16_t)
-				);
-				cursor += word.ints[0] * sizeof(uint16_t);
-
-				tiles_in_tiling *= cfg->tilings_per_set;
-				pow_helper = word.ints[0];
-				while (pow_helper != 0) {
-					tiles_in_tiling *= cfg->tiles_per_dim;
-					pow_helper--;
-				}
-
-				// need to handle offset reset to 0 on tier change
-				// Assumes that locs are specified in-order in the tiling packet.
-				// also, skipping over previous locs should copy the right-edge.
-				while (loc != cfg->tiling_sets[num_tilings].location) {
-					inner_offset = 0;
-					cfg->last_tier_tile[loc] = current_start_tile;
-					loc++;
-				}
-
-				cfg->tiling_sets[num_tilings].offset = inner_offset;
-				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
-		}
-
-		// loc transition? write current start tile to cfg->last_tier_tile;
-
-		current_start_tile += tiles_in_tiling;
-		inner_offset += tiles_in_tiling;
-
-		cfg->last_tier_tile[loc] = current_start_tile;
-
-		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling;
-		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
-
-		num_tilings++;
-	}
-
-	// fill out remaining right-edges.
-	while (loc <= TILE_LOCATION_T3) {
-		cfg->last_tier_tile[loc] = current_start_tile;
-		loc++;
-	}
-
-	cfg->num_tilings = num_tilings;
-}
-
-void policy_block_copy(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint32_t tile) {
-	__declspec(xfer_write_reg) uint64_t nani;
-	uint8_t loc;
-	uint32_t offset;
-
-	for (loc = 0; loc < 3; ++loc) {
-		uint32_t loc_start = cfg->last_tier_tile[loc];
-		if (tile < loc_start) {
-			break;
-		}
-	}
-
-	// gives us the "inner offset" in the active policy tier.
-	offset = tile - ((loc == 0)
-		? 0
-		: cfg->last_tier_tile[loc-1]);
-
-	switch (loc) {
-		case TILE_LOCATION_T1:
-			ua_memcpy_cls40_mem40(
-				&(t1_tiles[offset]), 0,
-				pkt->packet_payload, 0,
-				pkt->packet_size
-			);
-			break;
-		case TILE_LOCATION_T2:
-			ua_memcpy_mem40_mem40(
-				&(t2_tiles[offset]), 0,
-				pkt->packet_payload, 0,
-				pkt->packet_size
-			);
-			break;
-		case TILE_LOCATION_T3:
-			ua_memcpy_mem40_mem40(
-				&(t3_tiles[offset]), 0,
-				pkt->packet_payload, 0,
-				pkt->packet_size
-			);
-			break;
-		default:
-			nani = loc;
-			mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
-			break;
-	}
-}
-
 // Selects the state-action / reward key from a given state vector.
 tile_t select_key(struct key_source key_src, tile_t *state_vec) {
 	switch(key_src.kind) {
@@ -549,182 +219,153 @@ tile_t select_key(struct key_source key_src, tile_t *state_vec) {
 	return 0;
 }
 
-void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
-	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
-	uint16_t tc_count;
-	uint16_t chosen_action;
-	uint32_t rng_draw;
+// C FILE INCLUDES
+// NEEDED DUE TO EXPORT DIRECTIVES OF TILING ON SAME CORE
 
-	tile_t state[RL_DIMENSION_MAX];
+// WARNING
+#include "packet/packet.c"
+#include "subtask/internal_writeback.c"
+// WARNING
 
-	tile_t prefs[MAX_ACTIONS] = {0};
-
-	uint32_t t0;
-	uint32_t t1;
-
-	__declspec(xfer_write_reg) uint32_t time_taken;
-	__declspec(xfer_write_reg) uint64_t nani;
-
-	__declspec(xfer_read_reg) union two_u16s word;
-	int i = 0;
-
-	//tile_t state_key = select_key(cfg->state_key, state);
-	//tile_t reward_key = select_key(cfg->reward_key, state);
-
-	t0 = local_csr_read(local_csr_timestamp_low);
-
-	if (dim_count != cfg->num_dims) {
-		nani = (dim_count << 16) | cfg->num_dims;
-		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
-		return;
+/* Assumes that lock over Ack[i] is held, and returns the number of acks that this packet contained.
+*/
+uint32_t aggregate_acks(struct worker_ack *aggregate, uint32_t new_i) {
+	uint32_t j = 0;
+	__asm{
+		ctx_arb[bpt]
 	}
-
-	while (i != dim_count) {
-		mem_read32(
-			&(word.raw),
-			pkt->packet_payload + (i * sizeof(union two_u16s)),
-			sizeof(union two_u16s)
-		);
-		state[i] = (tile_t)word.raw;
-		i++;
+	switch (aggregate->type) {
+		case ACK_NO_BODY:
+			return 1;
+		case ACK_WORKER_COUNT:
+			aggregate->body.worker_count += reflector_writeback[new_i].body.worker_count;
+			return 1;
+		case ACK_VALUE_SET:
+			// TODO: impl.
+			return reflector_writeback[new_i].body.value_set->num_items;
+		default:
+			return 1;
 	}
+}
 
-	tc_count = tile_code(state, cfg, tc_indices);
-	global_tc_count = tc_count;
+/* Returns the number of acknowledgements received in this call.
+*/
+uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks) {
+	uint32_t handled = 0;
 
-	for (i=0; i<tc_count; i++) {
-		global_tc_indices[i] = tc_indices[i];
-	}
+	// TODO: update these for pipeline mode?
+	uint32_t min = 0;
+	uint32_t max = RL_WORKER_WRITEBACK_SLOTS;
+	uint32_t i;
 
-	action_preferences(tc_indices, tc_count, cfg, prefs);
-	
-	// choose action
-	rng_draw = local_csr_read(local_csr_pseudo_random_number);
-	if ((rng_draw % (1 << cfg->quantiser_shift)) <= cfg->epsilon) {
-		// Choose random
-		// This is probably subtly biased... whatever
-		chosen_action = local_csr_read(local_csr_pseudo_random_number) % cfg->num_actions;
-	} else {
-		// Choose maximum.
-		chosen_action = 0;
-		for (i=0; i<cfg->num_actions; i++) {
-			if (prefs[i] > prefs[chosen_action]) {
-				chosen_action = i;
+	while (handled < needed_acks) {
+		__asm{
+			ctx_arb[bpt]
+		}
+
+		__wait_for_all(&reflector_writeback_sig);
+
+		// at least one was modified.
+		// check all.
+		// TODO: do this multiple times. Skip over lock failures.
+		for (i=min; i<max; i++) {
+			uint32_t observed_lock = WB_FLAG_LOCK;
+			__declspec(xfer_read_write_reg) uint32_t locking = WB_FLAG_LOCK;
+			uint32_t lock_addr = (uint32_t) &(reflector_writeback_locks[i]);
+			__declspec(xfer_read_write_reg) uint64_t nani = 0;
+
+			// Acquire.
+			// need to rely on "observed_lock" since the read direction is undef.
+			while (observed_lock & WB_FLAG_LOCK) {
+				__asm {
+					cls[test_and_set, locking, lock_addr, 0, 1]
+				}
+				observed_lock = locking;
+				sleep(100);
+				//nani += 1;
+				//mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+			}
+
+			if (locking & WB_FLAG_OCCUPIED) {
+				// Fold this ack into last ack.
+				handled += aggregate_acks(aggregate, i);
+			}
+
+			// Release.
+			locking = (WB_FLAG_LOCK | WB_FLAG_OCCUPIED);
+			__asm {
+				cls[clr, locking, lock_addr, 0, 1]
 			}
 		}
 	}
 
-	// reduce epsilon as required.
-	// realisation: can reinduce training without needing policy re-insertion!
-	if (cfg->epsilon > 0) {
-		cfg->epsilon_decay_freq_cnt += 1;
-		if (cfg->epsilon_decay_freq_cnt >= cfg->epsilon_decay_freq) {
-			cfg->epsilon_decay_freq_cnt = 0;
-			cfg->epsilon -= cfg->epsilon_decay_amt;
-		}
+	return handled;
+}
+
+void slave_loop(unsigned int parent_sig) {
+	uint32_t worker_ct = 0;
+	uint32_t my_id = __ctx() - 1;
+	uint8_t my_slot = my_id % RL_WORKER_WRITEBACK_SLOTS;
+
+	uint8_t iter = 0;
+	struct worker_ack ack = {0};
+
+	//really_really_bad = 0;
+
+	if (my_id >= 0) {
+		return;
 	}
 
-	if (cfg->do_updates) {
-		// This dummies the access cost.
-		// For some reason, it bugs out if struct size is lte 32bit?
-		uint64_t reward_key = select_key(cfg->reward_key, state);
-		uint64_t state_key = select_key(cfg->state_key, state);
+	while (1) {
+		enum writeback_result wb = WB_FULL;
 
-		int32_t state_added = 0;
+		__wait_for_all(&reflector_writeback_sig);
 
-		int32_t reward_found = CAMHT_LOOKUP(reward_map, &reward_key);
+		switch (local_ctx_work.type) {
+			case WORK_REQUEST_WORKER_COUNT:
+				// Should never ever be received...
+				break;
+			case WORK_SET_WORKER_COUNT:
+				worker_ct = local_ctx_work.body.worker_count;
 
-		// This is dummied until I figure out the mechanism better.
-		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
-		uint32_t changed_key = 0;
+				ack.type = ACK_NO_BODY;
 
-		if (state_action_map_key_tbl[state_found] != state_key) {
-			state_action_map_key_tbl[state_found] = state_key;
-			changed_key = 1;
+				while (wb != WB_SUCCESS) {
+				iter += 1;
+					wb = internal_writeback_ack(my_slot, ack, parent_sig);
+
+					// TEMOP AS FUCK
+					really_really_bad |= wb;
+					break;
+
+					if (wb != WB_SUCCESS) {
+						sleep(1000);
+					}
+				}
+				break;
+			default:
+				break;
 		}
-
-
-		//nani = (((uint64_t) reward_found) << 32) | state_added;
-		//mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
-		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
-			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
-			struct state_action_pair lsap = state_action_pairs[state_found];
-
-			tile_t value_of_chosen_action = prefs[chosen_action];
-
-			tile_t adjustment = cfg->alpha;
-			tile_t dt;
-
-			lsap.action = chosen_action;
-			lsap.val = value_of_chosen_action;
-			// don't copy the tile list, that's probably TOO heavy.
-		
-			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
-
-			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
-
-			// tc_indices, tc_count, cfg, prefs
-			update_action_preferences(tc_indices, tc_count, cfg, chosen_action, adjustment);
-		}
-
-		// TODO: figure out "broken-math" version of this (indiv tile shifts)
-
-		// store the tile list, chosen action, and its value.
-		state_action_pairs[state_found].action = chosen_action;
-		state_action_pairs[state_found].val = prefs[chosen_action];
-		state_action_pairs[state_found].len = tc_count;
-
-		// dst, src, size
-		ua_memcpy_mem40_mem40(
-			&(state_action_pairs[state_found].tiles), 0,
-			(void*)tc_indices, 0,
-			tc_count * sizeof(tile_t)
-		);
-	}
-
-	// NOTE: alpha, gamma, policy must all have same base!
-
-	t1 = local_csr_read(local_csr_timestamp_low);
-
-	time_taken = t1 - t0;
-
-	mem_write32(&time_taken, &cycle_estimate, sizeof(uint32_t));
-
-	i=0;
-	for (i=0; i < cfg->num_actions; i++) {
-		global_prefs[i] = prefs[i];
 	}
 }
 
-void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
-	// Switch on self->reward_key
-	// if shared, place into key 0 I guess?
-	uint32_t loc = 0;
-	uint64_t long_key = reward_insert_loc;
-	int32_t added = 0;
+__intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
+	int i = 1;
+	//remote
+	in_type_a = to_do;
+	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (14 << 3));
 
-	switch (cfg->reward_key.kind) {
-		case KEY_SRC_SHARED:
-			break;
-		case KEY_SRC_FIELD:
-			// need to hash reward_insert_loc
-			loc = CAMHT_LOOKUP_IDX_ADD(reward_map, &long_key, &added);
-			break;
-		case KEY_SRC_VALUE:
-			// need to use reward_insert_loc
-			loc = reward_insert_loc;
-			break;
-	}
-
-	if (added >= 0) {
-		reward_map_key_tbl[loc].data = value.data;
-	}
+	//same ctx
+	/*local_ctx_work = to_do;
+	for (i=1; i<8; i++) {
+		signal_ctx(i, sig_no);
+	}*/
 }
 
 main() {
 	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
-	uint32_t quack = 0xdeadbeef;
+	uint32_t total_num_workers = 0;
 
 	if (__ctx() == 0) {
 		// init above huge blocks.
@@ -740,10 +381,6 @@ main() {
 	// FIXME: Might want to make other contexts wait till queue init'd
 	
 	// After that, we want NN registers established between co-located MEs.
-	// TODO
-
-	
-
 	#ifdef _RL_CORE_SLAVE_CTXES
 	in_type_a.body.worker_count = __n_ctx() - 1;
 	#else
@@ -751,29 +388,35 @@ main() {
 	#endif /* _RL_CORE_SLAVE_CTXES */
 	in_type_a.type = WORK_REQUEST_WORKER_COUNT;
 
-	// TODO: await the ACK.
 	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (14 << 3));
-	quack = local_csr_read(local_csr_next_neighbor_signal);
-
-	nani = quack;
-
-	mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 
 	__implicit_write(&reflector_writeback_sig);
 	__implicit_write(&reflector_writeback);
 
 	if (__ctx() == 0) {
-		uint64_t workspace = 0;
-		__wait_for_all(&reflector_writeback_sig);
+		// SET THIS NO MATTER WHAT.
+		struct worker_ack aggregate = {0};
+		struct work to_do = {0};
 
-		__implicit_write(&reflector_writeback.type);
+		aggregate.type = ACK_WORKER_COUNT;
+		receive_worker_acks(&aggregate, 1);
 
-		workspace = reflector_writeback.type;
-		//workspace |= reflector_writeback.type << 32;
+		total_num_workers = aggregate.body.worker_count;
 
-		nani = workspace;
+		to_do.type = WORK_SET_WORKER_COUNT;
+		to_do.body.worker_count = total_num_workers;
+
+		really_really_bad = total_num_workers;
+
+		pass_work_on(to_do, __signal_number(&reflector_writeback_sig));
+		nani = receive_worker_acks(&aggregate, total_num_workers);;
 
 		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+
+		// fall into main evt loop.
+	} else {
+		unsigned int client_sig = __signal_number(&reflector_writeback_sig);
+		slave_loop(client_sig);
 	}
 
 	// Now wait for RL packets from any P4 PIF MEs.
@@ -822,8 +465,6 @@ main() {
 				);
 				break;
 			case 999:
-				nani = reflector_writeback.body.worker_count;
-				mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 				//fixme: not got a code for this yet
 			default:
 				break;

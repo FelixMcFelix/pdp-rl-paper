@@ -1185,6 +1185,7 @@
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
                             ".\\quant_math.c", 
+                            ".\\subtask\\external_writeback.c", 
                             ".\\worker\\worker.c"
                         ], 
                         "ext_obj_files": [], 
@@ -1253,6 +1254,7 @@
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
                             ".\\quant_math.c", 
+                            ".\\subtask\\external_writeback.c", 
                             ".\\worker\\worker_alt.c"
                         ], 
                         "ext_obj_files": [], 
@@ -1321,6 +1323,7 @@
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
                             ".\\quant_math.c", 
+                            ".\\subtask\\external_writeback.c", 
                             ".\\worker\\worker_cap.c"
                         ], 
                         "ext_obj_files": [], 
@@ -2111,6 +2114,9 @@
                 ".\\out\\pif_tables.c": {
                     "update": "YES"
                 }, 
+                ".\\packet\\packet.c": {
+                    "update": "YES"
+                }, 
                 ".\\quant_math.c": {
                     "update": "YES"
                 }, 
@@ -2133,6 +2139,9 @@
                     "update": "YES"
                 }, 
                 ".\\rl.h": {
+                    "update": "YES"
+                }, 
+                ".\\subtask\\external_writeback.c": {
                     "update": "YES"
                 }, 
                 ".\\worker\\worker.c": {
