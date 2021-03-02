@@ -32,8 +32,8 @@ main() {
 	#endif /* _RL_WORKER_DISABLED */
 
 	#ifdef _RL_WORKER_SLAVE_CTXES
-	work(__ctx() == 0);
+	work(__ctx() == 0, 0);
 	#else /* if !_RL_WORKER_SLAVE_CTXES */
-	work(1);
+	work(1, 0);
 	#endif /* _RL_WORKER_SLAVE_CTXES */
 }

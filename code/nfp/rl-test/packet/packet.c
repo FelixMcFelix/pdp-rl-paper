@@ -222,6 +222,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint32_t inner_offset = 0;
 	uint32_t current_start_tile = 0;
+	uint16_t total_work_items = 0;
 
 	while(cursor < pkt->packet_size) {
 		uint32_t tiles_in_tiling = cfg->num_actions;
@@ -246,6 +247,8 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 				cfg->tiling_sets[num_tilings].start_tile = 0;
 
 				cfg->tiling_sets[num_tilings].end_tile = tiles_in_tiling;
+
+				total_work_items += 1;
 				break;
 			default:
 				// normal tile
@@ -279,6 +282,8 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 
 				cfg->tiling_sets[num_tilings].offset = inner_offset;
 				cfg->tiling_sets[num_tilings].start_tile = current_start_tile;
+
+				total_work_items += cfg->tilings_per_set;
 		}
 
 		// loc transition? write current start tile to cfg->last_tier_tile;
@@ -301,6 +306,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 	}
 
 	cfg->num_tilings = num_tilings;
+	cfg->num_work_items = total_work_items;
 }
 
 void policy_block_copy(

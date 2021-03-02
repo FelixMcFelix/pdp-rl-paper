@@ -7,6 +7,7 @@
 #include <nfp/mem_ring.h> // should add the flowenv workq functions...
 #include <rtl.h>
 //#include <nfp_mem_workq.h>
+#include <nfp/mem_atomic.h>
 #include "rl-proto.h"
 #include "rl.h"
 #include "rl-pkt-store.h"

@@ -30,7 +30,7 @@ volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
-__declspec(export, emem) struct worker_ack xd_lmao = 0;
+__declspec(export, emem) struct worker_ack xd_lmao = {0};
 
 __declspec(export, emem) struct rl_work_item test_work;
 
@@ -57,6 +57,8 @@ __declspec(nn_remote_reg) struct work in_type_a = {0};
 #endif /* !_RL_WORKER_DISABLED */
 
 volatile __declspec(shared) struct work local_ctx_work = {0};
+
+#include "worker/worker_signums.h"
 
 #include "subtask/internal_writeback.h"
 
@@ -222,23 +224,27 @@ tile_t select_key(struct key_source key_src, tile_t *state_vec) {
 // C FILE INCLUDES
 // NEEDED DUE TO EXPORT DIRECTIVES OF TILING ON SAME CORE
 
+#define NO_FORWARD
+
 // WARNING
 #include "packet/packet.c"
 #include "subtask/internal_writeback.c"
+#include "worker/worker_body.c"
 // WARNING
 
 /* Assumes that lock over Ack[i] is held, and returns the number of acks that this packet contained.
 */
 uint32_t aggregate_acks(struct worker_ack *aggregate, uint32_t new_i) {
 	uint32_t j = 0;
-	__asm{
+	/*__asm{
 		ctx_arb[bpt]
-	}
+	}*/
 	switch (aggregate->type) {
 		case ACK_NO_BODY:
 			return 1;
 		case ACK_WORKER_COUNT:
-			aggregate->body.worker_count += reflector_writeback[new_i].body.worker_count;
+			aggregate->body.worker_count = reflector_writeback[new_i].body.worker_count;
+			really_really_bad = aggregate->body.worker_count;
 			return 1;
 		case ACK_VALUE_SET:
 			// TODO: impl.
@@ -259,16 +265,16 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 	uint32_t i;
 
 	while (handled < needed_acks) {
-		__asm{
-			ctx_arb[bpt]
-		}
+		set_alarm(15000, &reflector_writeback_sig);
 
 		__wait_for_all(&reflector_writeback_sig);
+
+		clear_alarm();
 
 		// at least one was modified.
 		// check all.
 		// TODO: do this multiple times. Skip over lock failures.
-		for (i=min; i<max; i++) {
+		for (i=min; i<max && (handled < needed_acks); i++) {
 			uint32_t observed_lock = WB_FLAG_LOCK;
 			__declspec(xfer_read_write_reg) uint32_t locking = WB_FLAG_LOCK;
 			uint32_t lock_addr = (uint32_t) &(reflector_writeback_locks[i]);
@@ -276,14 +282,18 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 
 			// Acquire.
 			// need to rely on "observed_lock" since the read direction is undef.
-			while (observed_lock & WB_FLAG_LOCK) {
-				__asm {
-					cls[test_and_set, locking, lock_addr, 0, 1]
-				}
+			while (1) {
+				// __asm {
+				// 	cls[test_and_set, locking, lock_addr, 0, 1]
+				// }
+				mem_test_set((void*)&locking, (__addr40 void*)&(emem_writeback_locks[i]), sizeof(uint32_t));
+
 				observed_lock = locking;
-				sleep(100);
-				//nani += 1;
-				//mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
+
+				if (!(observed_lock & WB_FLAG_LOCK)) {
+					break;
+				}
+				sleep(500);
 			}
 
 			if (locking & WB_FLAG_OCCUPIED) {
@@ -293,85 +303,52 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 
 			// Release.
 			locking = (WB_FLAG_LOCK | WB_FLAG_OCCUPIED);
-			__asm {
-				cls[clr, locking, lock_addr, 0, 1]
-			}
+			// __asm {
+			// 	cls[clr, locking, lock_addr, 0, 1]
+			// }
+
+			mem_test_clr((void*)&locking, (__addr40 void*)&(emem_writeback_locks[i]), sizeof(uint32_t));
 		}
 	}
 
 	return handled;
 }
 
-void slave_loop(unsigned int parent_sig) {
-	uint32_t worker_ct = 0;
-	uint32_t my_id = __ctx() - 1;
-	uint8_t my_slot = my_id % RL_WORKER_WRITEBACK_SLOTS;
-
-	uint8_t iter = 0;
-	struct worker_ack ack = {0};
-
-	//really_really_bad = 0;
-
-	if (my_id >= 0) {
-		return;
-	}
-
-	while (1) {
-		enum writeback_result wb = WB_FULL;
-
-		__wait_for_all(&reflector_writeback_sig);
-
-		switch (local_ctx_work.type) {
-			case WORK_REQUEST_WORKER_COUNT:
-				// Should never ever be received...
-				break;
-			case WORK_SET_WORKER_COUNT:
-				worker_ct = local_ctx_work.body.worker_count;
-
-				ack.type = ACK_NO_BODY;
-
-				while (wb != WB_SUCCESS) {
-				iter += 1;
-					wb = internal_writeback_ack(my_slot, ack, parent_sig);
-
-					// TEMOP AS FUCK
-					really_really_bad |= wb;
-					break;
-
-					if (wb != WB_SUCCESS) {
-						sleep(1000);
-					}
-				}
-				break;
-			default:
-				break;
-		}
-	}
-}
-
 __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 	int i = 1;
 	//remote
 	in_type_a = to_do;
-	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (14 << 3));
+	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (WORKER_SIGNUM << 3));
 
 	//same ctx
-	/*local_ctx_work = to_do;
+	local_ctx_work = to_do;
 	for (i=1; i<8; i++) {
 		signal_ctx(i, sig_no);
-	}*/
+	}
 }
 
 main() {
 	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
 	uint32_t total_num_workers = 0;
+	uint8_t has_setup = 0;
+	uint8_t has_tiling = 0;
+	uint8_t i = 0;
+	uint32_t random_sample = 0;
+	uint32_t temp_idx = 0;
+	__declspec(emem) volatile uint32_t indices[RL_MAX_TILE_HITS] = {0};
+
+	__assign_relative_register(&reflector_writeback_sig, WRITEBACK_SIGNUM);
+	__assign_relative_register(&internal_handout_sig, WORKER_SIGNUM);
 
 	if (__ctx() == 0) {
 		// init above huge blocks.
 		// compiler complaining about pointer types. Consider fixing this...
 		init_rl_pkt_store(&rl_pkts, inpkt_buffer);
 		r_addr = mem_workq_setup(RL_RING_NUMBER, rl_mem_workq, 512 * 1024);
+
+		// init RNG
+		local_csr_write(local_csr_pseudo_random_number, 0xcafed00d);
 	} else {
 		r_addr = mem_ring_get_addr(rl_mem_workq);
 	}
@@ -388,7 +365,7 @@ main() {
 	#endif /* _RL_CORE_SLAVE_CTXES */
 	in_type_a.type = WORK_REQUEST_WORKER_COUNT;
 
-	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (14 << 3));
+	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (WORKER_SIGNUM << 3));
 
 	__implicit_write(&reflector_writeback_sig);
 	__implicit_write(&reflector_writeback);
@@ -408,7 +385,7 @@ main() {
 
 		really_really_bad = total_num_workers;
 
-		pass_work_on(to_do, __signal_number(&reflector_writeback_sig));
+		pass_work_on(to_do, __signal_number(&internal_handout_sig));
 		nani = receive_worker_acks(&aggregate, total_num_workers);;
 
 		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
@@ -416,13 +393,22 @@ main() {
 		// fall into main evt loop.
 	} else {
 		unsigned int client_sig = __signal_number(&reflector_writeback_sig);
-		slave_loop(client_sig);
+		work(0, client_sig);
+	}
+
+	// init index list.
+	for (i=0; i<RL_MAX_TILE_HITS; ++i) {
+		indices[i] = i;
 	}
 
 	// Now wait for RL packets from any P4 PIF MEs.
 	while (1) {
 		union pad_tile pt = {0};
 		__declspec(read_reg) struct rl_work_item workq_read_register;
+
+		struct worker_ack aggregate = {0};
+		struct work to_do = {0};
+		uint8_t new_cfg = 0;
 
 		mem_workq_add_thread(
 			RL_RING_NUMBER,
@@ -439,9 +425,25 @@ main() {
 					case 0:
 						test_work = workq_read_register;
 						setup_packet(&cfg, &workq_read_register);
+
+						really_really_bad = (uint64_t) &cfg;
+
+						new_cfg = 1;
+						has_setup = 1;
 						break;
 					case 1:
 						tilings_packet(&cfg, &workq_read_register);
+
+						really_really_bad = (uint64_t) &cfg;
+
+						to_do.type = WORK_NEW_CONFIG;
+						to_do.body.cfg = &cfg;
+						pass_work_on(to_do, __signal_number(&internal_handout_sig));
+						aggregate.type = ACK_NO_BODY;
+						receive_worker_acks(&aggregate, total_num_workers);
+
+						new_cfg = 1;
+						has_tiling = 1;
 						break;
 					default:
 						break;
@@ -471,6 +473,54 @@ main() {
 		}
 
 		rl_pkt_return_slot(&rl_pkts, workq_read_register.packet_payload);
+
+		if (new_cfg) {
+			to_do.type = WORK_NEW_CONFIG;
+			to_do.body.cfg = &cfg;
+			pass_work_on(to_do, __signal_number(&internal_handout_sig));
+			aggregate.type = ACK_NO_BODY;
+			receive_worker_acks(&aggregate, total_num_workers);
+
+			if (has_tiling && has_setup) {
+				#ifdef WORK_ALLOC_RANDOMISE
+				// init index list.
+				for (i=0; i<RL_MAX_TILE_HITS; ++i) {
+					indices[i] = i;
+				}
+
+				// Knuth shuffle.
+				for (i=((cfg.num_work_items) - 1); i>0; i--) {
+					random_sample = 0;
+					while (1) {
+						random_sample = local_csr_read(local_csr_pseudo_random_number);
+						/* __asm{
+							ctx_arb[bpt]
+						} */
+						if (random_sample > (0xffffffff % (i + 1))) {
+							break;
+						}
+
+						sleep(500);
+					}
+
+					random_sample %= (i + 1);
+
+					// swap indices[i], w/ indices[random_sample]
+					temp_idx = indices[i];
+					indices[i] = indices[random_sample];
+					indices[random_sample] = temp_idx;
+				}
+
+				#endif /* WORK_ALLOC_RANDOMISE */
+
+				to_do.type = WORK_ALLOCATE;
+				to_do.body.alloc.strat = WORK_ALLOC_STRAT;
+				to_do.body.alloc.work_indices = &indices;
+				pass_work_on(to_do, __signal_number(&internal_handout_sig));
+				aggregate.type = ACK_NO_BODY;
+				receive_worker_acks(&aggregate, total_num_workers);
+			}
+		}
 	}
 
 	__implicit_write(&reflector_writeback_sig);

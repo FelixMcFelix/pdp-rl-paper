@@ -7,10 +7,12 @@
 #include "common_writeback.h"
 
 #ifndef _RL_CORE_OLD_POLICY_WORK
-__declspec(remote read_reg) volatile struct worker_ack reflector_writeback[RL_WORKER_WRITEBACK_SLOTS];
-__declspec(remote) volatile SIGNAL reflector_writeback_sig;
-__declspec(import, cls) volatile uint32_t reflector_writeback_locks[RL_WORKER_WRITEBACK_SLOTS];
-__declspec(import, cls) volatile uint32_t spare_lock;
+__declspec(remote read_reg) struct worker_ack reflector_writeback[RL_WORKER_WRITEBACK_SLOTS];
+__declspec(remote) SIGNAL reflector_writeback_sig;
+__declspec(import, cls) uint32_t reflector_writeback_locks[RL_WORKER_WRITEBACK_SLOTS];
+__declspec(import, cls) uint32_t spare_lock;
+
+__declspec(import, emem) uint32_t emem_writeback_locks[RL_WORKER_WRITEBACK_SLOTS];
 #endif /* _RL_CORE_OLD_POLICY_WORK */
 
 enum writeback_result external_writeback_ack(

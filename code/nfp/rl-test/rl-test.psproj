@@ -2144,6 +2144,9 @@
                 ".\\subtask\\external_writeback.c": {
                     "update": "YES"
                 }, 
+                ".\\subtask\\internal_writeback.c": {
+                    "update": "YES"
+                }, 
                 ".\\worker\\worker.c": {
                     "update": "YES"
                 }, 

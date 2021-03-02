@@ -1,5 +1,6 @@
 #include <nfp/cls.h>
 #include <nfp/me.h>
+#include <nfp/mem_atomic.h>
 #include "external_writeback.h"
 
 #define READ_REG_TYPE 0
@@ -9,6 +10,8 @@
 #define CONSUMER_ME (0 + 4)
 #define CONSUMER_ISLAND (5) // Ideally, this would be a "current island" intrinsic
 #define CONSUMER_LOC ((CONSUMER_ISLAND << 4) + CONSUMER_ME)
+
+#include "../worker/worker_signums.h"
 
 // TODO: integrate locking.
 
@@ -20,6 +23,7 @@ enum writeback_result external_writeback_ack(
 ) {
 	uint64_t nani = 0;
 	__declspec(xfer_write_reg) uint64_t nanier = 0;
+	SIGNAL local_comms;
 
 	// Most of these are CT const.
 	// Target slot *may* be CT const relative to callsite...
@@ -32,19 +36,24 @@ enum writeback_result external_writeback_ack(
 		(__xfer_reg_number(reflector_writeback, CONSUMER_LOC) & 4095)
 		+ (target_slot * ACK_U32S);
 
-	uint32_t lock_addr = (uint32_t) &(reflector_writeback_locks[target_slot]);
+	// uint32_t lock_addr = (uint32_t) &(reflector_writeback_locks[target_slot]);
+	__addr40 void* em_addr = (__addr40 void*) &(emem_writeback_locks[target_slot]);
+
+	__assign_relative_register(&local_comms, WRITEBACK_SIGNUM);
 
 	if (target_slot >= RL_WORKER_WRITEBACK_SLOTS) {
 		return WB_BAD_SLOT;
 	}
 
-	__asm{
+	/*__asm{
 		ctx_arb[bpt]
-	}
+	}*/
 
-	__asm {
-		cls[test_and_set, locking, lock_addr, 0, 1]
-	}
+	// __asm {
+	// 	cls[test_and_set, locking, lock_addr, 0, 1], ctx_swap[local_comms]
+	// }
+
+	mem_test_set((void*)&locking, em_addr, sizeof(uint32_t));
 
 	nani = locking;
 
@@ -58,9 +67,10 @@ enum writeback_result external_writeback_ack(
 		// }
 		locking = WB_FLAG_LOCK;
 
-		__asm {
-			cls[clr, locking, lock_addr, 0, 1]
-		}
+		// __asm {
+		// 	cls[clr, locking, lock_addr, 0, 1], ctx_swap[local_comms]
+		// }
+		mem_test_clr((void*)&locking, em_addr, sizeof(uint32_t));
 		return WB_FULL;
 	}
 
@@ -75,35 +85,50 @@ enum writeback_result external_writeback_ack(
 
 	tx_reg = ack;
 
+	//sleep(500);
+
 	__asm {
 		local_csr_wr[cmd_indirect_ref_0, remote_sig]
 		// alu[remote_sig, --, B, 3, <<13] // override ctx
 		alu[remote_sig, --, B, 1, <<13] //use current ctx
-		ct[reflect_write_sig_remote, tx_reg, base_address, 0, ACK_U32S], indirect_ref
+		ct[reflect_write_sig_both, tx_reg, base_address, 0, ACK_U32S], indirect_ref
 
 		// Unset lock and set occupied status simultaneously.
 		// cls[add_imm, --, lock_addr, 0, WB_FLAG_LOCK]
+		ctx_arb[local_comms]
 	}
 
 	locking = WB_FLAG_OCCUPIED;
 
-	__asm {
-		cls[test_set, locking, lock_addr, 0, 1]
-	}
+	//sleep(1500);
 
-	nani = (locking << 8);
+	mem_write_atomic((void*)&locking, em_addr, sizeof(uint32_t));
 
-	locking = WB_FLAG_LOCK;
+	// sleep(1500);
 
-	__asm {
-		cls[test_clr, locking, lock_addr, 0, 1]
-	}
+	// __asm {
+	// 	cls[test_set, locking, lock_addr, 0, 1], ctx_swap[local_comms]
+	// }
 
-	nani = (locking << 16);
+	// mem_test_set((void*)&locking, em_addr, sizeof(uint32_t));
 
-	nanier = nani;
+	// nani = (locking << 8);
 
-	mem_write64(&nanier, &really_really_bad, sizeof(uint64_t));
+	// locking = WB_FLAG_LOCK;
+
+	// sleep(1500);
+
+	// // __asm {
+	// // 	cls[test_clr, locking, lock_addr, 0, 1], ctx_swap[local_comms]
+	// // }
+
+	// mem_test_clr((void*)&locking, em_addr, sizeof(uint32_t));
+
+	// nani = (locking << 16);
+
+	//nanier = nani;
+
+	//mem_write64(&nanier, &really_really_bad, sizeof(uint64_t));
 
 	return WB_SUCCESS;
 }

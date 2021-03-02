@@ -1,4 +1,5 @@
 #include <nfp.h>
+#include <nfp/me.h>
 #include <nfp/mem_atomic.h>
 #include "rl-pkt-store.h"
 
@@ -27,9 +28,13 @@ __declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 str
 	__xrw uint32_t xfer = 1;
 	__declspec(emem) __addr40 uint8_t *out;
 
-	// lock mutex
-	while (xfer == 1) {
+	while (1) {
 		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
+		if (xfer == 1) {
+			break;
+		} else {
+			sleep(100);
+		}
 	}
 
 	if (store->slots_available) {
@@ -52,8 +57,13 @@ void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __
 	__xrw uint32_t xfer = 1;
 
 	// lock mutex
-	while (xfer == 1) {
+	while (1) {
 		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
+		if (xfer == 1) {
+			break;
+		} else {
+			sleep(100);
+		}
 	}
 
 	// put slot into top entry

@@ -39,6 +39,7 @@ enum tile_location {
 // maximum number of tiles that can be returned as active
 // calls to `tile_code` must have at least this size.
 #define RL_MAX_TILE_HITS MAX_TILINGS_PER_SET*RL_MAX_SETS
+#define RL_MAX_PRECACHE 5
 
 // I don't think there's a conveneient way to macro this
 #define T1_MAX_TILES_PER_TILING MAX_TILES_PER_DIM
@@ -139,6 +140,8 @@ struct rl_config {
 	struct key_source reward_key;
 
 	uint8_t do_updates;
+
+	uint8_t num_work_items;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
