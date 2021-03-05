@@ -221,6 +221,20 @@ tile_t select_key(struct key_source key_src, tile_t *state_vec) {
 	return 0;
 }
 
+tile_t fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_t *state_vec) {
+	switch(key_src.kind) {
+		case KEY_SRC_SHARED:
+			break;
+		case KEY_SRC_FIELD:
+			return state_vec[key_src.body.field_id];
+		case KEY_SRC_VALUE:
+			return key_src.body.value;
+	}
+
+	// Assumes shared in usual case.
+	return 0;
+}
+
 // C FILE INCLUDES
 // NEEDED DUE TO EXPORT DIRECTIVES OF TILING ON SAME CORE
 
@@ -247,7 +261,9 @@ uint32_t aggregate_acks(struct worker_ack *aggregate, uint32_t new_i) {
 			really_really_bad = aggregate->body.worker_count;
 			return 1;
 		case ACK_VALUE_SET:
-			// TODO: impl.
+			for (j=0; j< MAX_ACTIONS; j++) {
+				aggregate->body.value_set->prefs[j] += reflector_writeback[new_i].body.value_set->prefs[j];
+			}
 			return reflector_writeback[new_i].body.value_set->num_items;
 		default:
 			return 1;
@@ -298,7 +314,11 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 
 			if (locking & WB_FLAG_OCCUPIED) {
 				// Fold this ack into last ack.
-				handled += aggregate_acks(aggregate, i);
+				int acks = aggregate_acks(aggregate, i);
+				handled += acks;
+				if (acks != 1) {
+					really_really_bad = (0xDEADDEAD << 32) | acks;
+				}
 			}
 
 			// Release.
@@ -324,6 +344,167 @@ __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 	local_ctx_work = to_do;
 	for (i=1; i<8; i++) {
 		signal_ctx(i, sig_no);
+	}
+}
+
+void state_packet_delegate(
+	__addr40 _declspec(emem) struct rl_config *cfg,
+	__declspec(xfer_read_reg) struct rl_work_item *pkt,
+	uint16_t dim_count,
+	uint8_t worker_ct
+) {
+	_declspec(emem) volatile struct value_set vals = {0};
+	uint16_t tc_count;
+	uint16_t chosen_action;
+	uint32_t rng_draw;
+
+	struct worker_ack aggregate = {0};
+	struct work to_do = {0};
+
+	_declspec(emem) volatile tile_t state[RL_DIMENSION_MAX];
+
+	_declspec(emem) volatile tile_t prefs[MAX_ACTIONS] = {0};
+
+	uint32_t t0;
+	uint32_t t1;
+
+	__declspec(xfer_write_reg) uint32_t time_taken;
+	__declspec(xfer_write_reg) uint64_t nani;
+
+	__declspec(xfer_read_reg) union two_u16s word;
+	int i = 0;
+
+	//tile_t state_key = select_key(cfg->state_key, state);
+	//tile_t reward_key = select_key(cfg->reward_key, state);
+
+	t0 = local_csr_read(local_csr_timestamp_low);
+
+	// ---- Fix this copy in the base one: not correct for most state! ---- //
+	// while (i != dim_count) {
+	// 	mem_read32(
+	// 		&(word.raw),
+	// 		pkt->packet_payload + (i * sizeof(union two_u16s)),
+	// 		sizeof(union two_u16s)
+	// 	);
+	// 	state[i] = (tile_t)word.raw;
+	// 	i++;
+	// }
+
+	//
+
+	to_do.type = WORK_STATE_VECTOR;
+	to_do.body.state = (__declspec(emem) __addr40 tile_t *)pkt->packet_payload;
+
+	pass_work_on(to_do, __signal_number(&internal_handout_sig));
+	aggregate.type = ACK_VALUE_SET;
+	aggregate.body.value_set = &vals;
+
+	receive_worker_acks(&aggregate, cfg->num_work_items);
+	
+	// choose action
+	rng_draw = local_csr_read(local_csr_pseudo_random_number);
+	if ((rng_draw % (1 << cfg->quantiser_shift)) <= cfg->epsilon) {
+		// Choose random
+		// This is probably subtly biased... whatever
+		chosen_action = local_csr_read(local_csr_pseudo_random_number) % cfg->num_actions;
+	} else {
+		// Choose maximum.
+		chosen_action = 0;
+		for (i=0; i<cfg->num_actions; i++) {
+			if (vals.prefs[i] > vals.prefs[chosen_action]) {
+				chosen_action = i;
+			}
+		}
+	}
+
+	// reduce epsilon as required.
+	// realisation: can reinduce training without needing policy re-insertion!
+	if (cfg->epsilon > 0) {
+		cfg->epsilon_decay_freq_cnt += 1;
+		if (cfg->epsilon_decay_freq_cnt >= cfg->epsilon_decay_freq) {
+			cfg->epsilon_decay_freq_cnt = 0;
+			cfg->epsilon -= cfg->epsilon_decay_amt;
+		}
+	}
+
+	if (cfg->do_updates) {
+		// This dummies the access cost.
+		// For some reason, it bugs out if struct size is lte 32bit?
+		uint64_t reward_key = fat_select_key(cfg->reward_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+		uint64_t state_key = fat_select_key(cfg->state_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+
+		int32_t state_added = 0;
+
+		int32_t reward_found = CAMHT_LOOKUP(reward_map, &reward_key);
+
+		// This is dummied until I figure out the mechanism better.
+		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
+		uint32_t changed_key = 0;
+
+		if (state_action_map_key_tbl[state_found] != state_key) {
+			state_action_map_key_tbl[state_found] = state_key;
+			changed_key = 1;
+		}
+
+
+		//nani = (((uint64_t) reward_found) << 32) | state_added;
+		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
+		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
+			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
+			struct state_action_pair lsap = state_action_pairs[state_found];
+
+			tile_t value_of_chosen_action = prefs[chosen_action];
+
+			tile_t adjustment = cfg->alpha;
+			tile_t dt;
+
+			lsap.action = chosen_action;
+			lsap.val = value_of_chosen_action;
+			// don't copy the tile list, that's probably TOO heavy.
+		
+			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
+
+			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
+
+			to_do.type = WORK_UPDATE_POLICY;
+			to_do.body.update.action = chosen_action;
+			to_do.body.update.delta = adjustment;
+
+			// currently both versions are impl'd wrong!
+			// should be using the stored tiles, NOT the new ones...
+
+			pass_work_on(to_do, __signal_number(&internal_handout_sig));
+			aggregate.type = ACK_NO_BODY;
+
+			receive_worker_acks(&aggregate, worker_ct);
+		}
+
+		// TODO: figure out "broken-math" version of this (indiv tile shifts)
+
+		// store the tile list, chosen action, and its value.
+		state_action_pairs[state_found].action = chosen_action;
+		state_action_pairs[state_found].val = prefs[chosen_action];
+		state_action_pairs[state_found].len = tc_count;
+
+		// dst, src, size
+		// ua_memcpy_mem40_mem40(
+		// 	&(state_action_pairs[state_found].tiles), 0,
+		// 	(void*)tc_indices, 0,
+		// 	tc_count * sizeof(tile_t)
+		// );
+	}
+
+	// NOTE: alpha, gamma, policy must all have same base!
+
+	t1 = local_csr_read(local_csr_timestamp_low);
+
+	time_taken = t1 - t0;
+
+	mem_write32(&time_taken, &cycle_estimate, sizeof(uint32_t));
+
+	i=0;
+	for (i=0; i < cfg->num_actions; i++) {
+		global_prefs[i] = prefs[i];
 	}
 }
 
@@ -455,7 +636,11 @@ main() {
 				break;
 			case PIF_PARREP_TYPE_in_state:
 				//state
+				#ifdef _RL_CORE_OLD_POLICY_WORK
 				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
+				#else
+				state_packet_delegate(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
+				#endif /* _RL_CORE_OLD_POLICY_WORK */
 				break;
 			case PIF_PARREP_TYPE_in_reward:
 				pt._pad = workq_read_register.parsed_fields.reward.measured_value;
@@ -475,13 +660,14 @@ main() {
 		rl_pkt_return_slot(&rl_pkts, workq_read_register.packet_payload);
 
 		if (new_cfg) {
-			to_do.type = WORK_NEW_CONFIG;
-			to_do.body.cfg = &cfg;
-			pass_work_on(to_do, __signal_number(&internal_handout_sig));
-			aggregate.type = ACK_NO_BODY;
-			receive_worker_acks(&aggregate, total_num_workers);
-
 			if (has_tiling && has_setup) {
+				to_do.type = WORK_NEW_CONFIG;
+				to_do.body.cfg = &cfg;
+				// to_do.body.cfg = (__addr40 _declspec(emem) struct rl_config *) (((uint64_t)&cfg) << 32 | ((uint64_t)&cfg) >> 32);
+				pass_work_on(to_do, __signal_number(&internal_handout_sig));
+				aggregate.type = ACK_NO_BODY;
+				receive_worker_acks(&aggregate, total_num_workers);
+
 				#ifdef WORK_ALLOC_RANDOMISE
 				// init index list.
 				for (i=0; i<RL_MAX_TILE_HITS; ++i) {

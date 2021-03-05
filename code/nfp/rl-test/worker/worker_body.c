@@ -6,14 +6,198 @@
 
 #ifndef NO_FORWARD
 #include "../subtask/external_writeback.h"
+#include "../policy/policy_mem.h"
 #endif
 
 #if defined(NO_FORWARD) || (defined(IN_PORT) && defined(OUT_PORT))
 
+uint32_t tile_code_with_cfg_single(
+	__addr40 _declspec(emem) tile_t *state,
+	__addr40 _declspec(emem) struct rl_config *cfg,
+	uint8_t bias_tile_exists,
+	uint8_t work_idx
+) {
+	uint16_t dim_idx;
+	uint16_t tiling_set_idx;
+	uint32_t local_tile;
+	uint16_t tiling_idx;
+	uint32_t width_product = cfg->num_actions;
+
+	// check if there's a bias tile.
+	// => yes? set 0 has size 1, others have size cfg->tilings_per_set
+	// => no? all have size cfg->tilings_per_set
+	if (bias_tile_exists && work_idx == 0) {
+		return 0;
+	}
+
+	tiling_set_idx = bias_tile_exists
+		? (((work_idx - 1) / cfg->tilings_per_set) + 1)
+		: (work_idx / cfg->tilings_per_set);
+
+	// can also get by remul'ing
+	local_tile = cfg->tiling_sets[tiling_set_idx].start_tile;
+	tiling_idx = work_idx - local_tile;
+
+	// These goes over each dimension in the top-level loop
+	for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_set_idx].num_dims; ++dim_idx) {
+		uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
+		uint8_t reduce_tile;
+		tile_t val = state[active_dim];
+
+		// This is what varies per tiling in a set.
+		tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
+
+		tile_t max = cfg->adjusted_maxes[active_dim] - shift;
+		tile_t min = cfg->mins[active_dim] - shift;
+
+		// to get tile in dim... rescale dimension, divide by window.
+		val = (val < max) ? val : max;
+		reduce_tile = val == max;
+
+		val = (val > min) ? val - min : 0;
+
+		val /= cfg->width[active_dim];
+
+		local_tile += width_product * ((uint32_t)val - (reduce_tile ? 1 : 0));
+		width_product *= cfg->tiles_per_dim;
+	}
+
+	return local_tile;
+}
+
+void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 _declspec(emem) struct value_set *act_list) {
+	enum tile_location loc = TILE_LOCATION_T1;
+	uint16_t j = 0;
+	uint16_t act_count = cfg->num_actions;
+	uint32_t loc_base = cfg->last_tier_tile[loc];
+	uint32_t base;
+
+	while (tile_index >= loc_base) {
+		loc++;
+		loc_base = cfg->last_tier_tile[loc];
+	}
+
+	// find location of tier in memory.
+	switch (loc) {
+		case TILE_LOCATION_T1:
+			base = tile_index;
+			for (j = 0; j < act_count; j++) {
+				act_list->prefs[j] += t1_tiles[base + j];
+			}
+			break;
+		case TILE_LOCATION_T2:
+			base = tile_index - cfg->last_tier_tile[loc-1];
+			for (j = 0; j < act_count; j++) {
+				act_list->prefs[j] += t2_tiles[base + j];
+			}
+			break;
+		case TILE_LOCATION_T3:
+			base = tile_index - cfg->last_tier_tile[loc-1];
+			for (j = 0; j < act_count; j++) {
+				act_list->prefs[j] += t3_tiles[base + j];
+			}
+			break;
+	}
+}
+
+void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+	enum tile_location loc = TILE_LOCATION_T1;
+	uint16_t i = 0;
+	uint16_t j = 0;
+	uint16_t act_count = cfg->num_actions;
+
+	for (i = 0; i < tile_hit_count; i++) {
+		uint32_t target = tile_indices[i];
+		uint32_t loc_base = cfg->last_tier_tile[loc];
+		uint32_t base;
+
+		while (target >= loc_base) {
+			loc++;
+			loc_base = cfg->last_tier_tile[loc];
+		}
+
+		// find location of tier in memory.
+		switch (loc) {
+			case TILE_LOCATION_T1:
+				base = target;
+				t1_tiles[base + action] += delta;
+				break;
+			case TILE_LOCATION_T2:
+				base = target - cfg->last_tier_tile[loc-1];
+				t2_tiles[base + action] += delta;
+				break;
+			case TILE_LOCATION_T3:
+				base = target - cfg->last_tier_tile[loc-1];
+				t3_tiles[base + action] += delta;
+				break;
+		}
+	}
+}
+
 volatile __declspec(shared) struct work local_ctx_work = {0};
 
+void compute_my_work_alloc(
+	uint8_t my_id,
+	uint8_t allocs_with_spill,
+	uint8_t num_work_items,
+	uint8_t worker_ct,
+	uint8_t my_work_alloc_size,
+	uint16_t *work_idxes
+) {
+	uint8_t iter = 0;
+	uint32_t scratch = 0;
+	switch (local_ctx_work.body.alloc.strat) {
+		case ALLOC_CHUNK:
+			// not too expensive to be dumb here.
+			// i.e., not in a hot compute loop
+
+			if (my_id >= allocs_with_spill) {
+				scratch = allocs_with_spill * ((num_work_items / worker_ct) + 1);
+				scratch += (my_id - allocs_with_spill) * (num_work_items / worker_ct);
+			} else {
+				scratch = my_id * ((num_work_items / worker_ct) + 1);
+			}
+
+			// scratch is the base of our block.
+			for (iter = 0; iter < my_work_alloc_size; iter++) {
+				work_idxes[iter] = local_ctx_work.body.alloc.work_indices[scratch + iter];
+			}
+			break;
+		case ALLOC_STRIDE_OFFSET:
+			// might have *some* saturation...
+			// think about revisiting me, or finding a proof/counterexample.
+			scratch = my_id % (num_work_items / worker_ct);
+		case ALLOC_STRIDE:
+			// scratch is the number to add to alloc.
+			iter = 0;
+			scratch *= worker_ct;
+			scratch += my_id;
+
+			// equal to (id + i * worker_cnt), using own id as an offset into this sequence.
+			while (iter < my_work_alloc_size) {
+				if (scratch > num_work_items) {
+					scratch = my_id;
+				}
+
+				work_idxes[iter] = local_ctx_work.body.alloc.work_indices[scratch];
+
+				scratch += worker_ct;
+
+				iter++;
+			}
+
+			break;
+	}
+}
+
+__declspec(shared imem) uint64_t iter_ct = 0;
+
 void work(uint8_t is_master, unsigned int parent_sig) {
+
 	__addr40 _declspec(emem) struct rl_config *cfg;
+
+	__declspec(emem) volatile struct value_set local_prefs[WORKER_LOCAL_PREF_SLOTS] = {0};
+	uint8_t active_pref_space = 0;
 
 	uint32_t worker_ct = 0;
 	uint32_t base_worker_ct = 0;
@@ -28,8 +212,10 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	// Must be at least 2 workers for this to be not-dumb.
 	uint8_t my_work_alloc_size = 0;
 	uint8_t allocs_with_spill = 0;
+	uint8_t has_bias = 0;
 	uint8_t iter = 0;
 	uint16_t work_idxes[RL_MAX_TILE_HITS/2] = {0};
+	uint32_t tile_hits[RL_MAX_TILE_HITS/2] = {0};
 
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -37,6 +223,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 	while (1) {
 		int should_writeback = 0;
+		int should_clear_prefs = 0;
 
 		#ifdef NO_FORWARD
 		wait_for_all(&internal_handout_sig);
@@ -75,7 +262,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 					#endif /* !CAP */
 
-					local_ctx_work.type = WORK_SET_BASE_WORKER_COUNT;
+					// local_ctx_work.type = WORK_SET_BASE_WORKER_COUNT;
 					local_ctx_work.body.worker_count = base_worker_ct;
 
 					break;
@@ -98,12 +285,12 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 		}
 		#endif /* !NO_FORWARD */
 
-		wb = WB_LOCKED;
-
 		// Standard processing.
 		switch (local_ctx_work.type) {
-			case WORK_SET_BASE_WORKER_COUNT:
-				base_worker_ct = local_ctx_work.body.worker_count;
+			case WORK_REQUEST_WORKER_COUNT:
+				if (!is_master) {
+					base_worker_ct = local_ctx_work.body.worker_count;
+				}
 				break;
 			case WORK_SET_WORKER_COUNT:
 				worker_ct = local_ctx_work.body.worker_count;
@@ -122,6 +309,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 
 				break;
+			// case WORK_SET_BASE_WORKER_COUNT:
+			// 	base_worker_ct = local_ctx_work.body.worker_count;
+			// 	break;
 			case WORK_NEW_CONFIG:
 				cfg = local_ctx_work.body.cfg;
 
@@ -137,62 +327,87 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					my_work_alloc_size += 1;
 				}
 
+				has_bias = cfg->tiling_sets[0].num_dims == 0;
+
 				break;
-			case WORK_ALLOCATE:
-				scratch = 0;
+			case WORK_STATE_VECTOR:
+				// "active_pref_space"
+				//
+				// for each id in work list:
+				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
+				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
+					// place tile into slot governed by active_pref_space
+					action_preferences_with_cfg_single(hit_tile, cfg, &(local_prefs[active_pref_space]));
 
-				switch (local_ctx_work.body.alloc.strat) {
-					case ALLOC_CHUNK:
-						// not too expensive to be dumb here.
-						// i.e., not in a hot compute loop
+					tile_hits[iter] = hit_tile;
 
-						if (my_id >= allocs_with_spill) {
-							scratch = allocs_with_spill * ((cfg->num_work_items / worker_ct) + 1);
-							scratch += (my_id - allocs_with_spill) * (cfg->num_work_items / worker_ct);
-						} else {
-							scratch = my_id * ((cfg->num_work_items / worker_ct) + 1);
+					ack.type = ACK_VALUE_SET;
+					ack.body.value_set = &(local_prefs[active_pref_space]);
+					local_prefs[active_pref_space].num_items = 1;
+
+					// consider changing this to skip if lock missed.
+					// note that we MUST use this behaviour if NO_FORWARD.
+					wb = WB_LOCKED;
+					while (1) {
+						#ifndef NO_FORWARD
+						wb = external_writeback_ack(my_slot, ack);
+						#else
+						wb = internal_writeback_ack(my_slot, ack, parent_sig);
+						#endif /* !NO_FORWARD */
+
+						if (wb == WB_SUCCESS) {
+							break;
 						}
 
-						// scratch is the base of our block.
-						for (iter = 0; iter < my_work_alloc_size; iter++) {
-							work_idxes[iter] = local_ctx_work.body.alloc.work_indices[scratch + iter];
-						}
-						break;
-					case ALLOC_STRIDE_OFFSET:
-						// might have *some* saturation...
-						// think about revisiting me, or finding a proof/counterexample.
-						scratch = my_id % (cfg->num_work_items / worker_ct);
-					case ALLOC_STRIDE:
-						// scratch is the number to add to alloc.
-						iter = 0;
-						scratch *= worker_ct;
-						scratch += my_id;
+						sleep(100);
+					}
 
-						// equal to (id + i * worker_cnt), using own id as an offset into this sequence.
-						while (iter < my_work_alloc_size) {
-							if (scratch > cfg->num_work_items) {
-								scratch = my_id;
-							}
-
-							work_idxes[iter] = local_ctx_work.body.alloc.work_indices[scratch];
-
-							scratch += worker_ct;
-
-							iter++;
-						}
-
-						break;
+					// This is extendable, but we only need two slots.
+					// Slot is guaranteed to be safe to write into because we only
+					// target one writeback slot.
+					active_pref_space++;
+					active_pref_space %= WORKER_LOCAL_PREF_SLOTS;
 				}
 
+				if (__ctx() == 1) {
+					iter_ct = iter;
+				}
+
+				should_clear_prefs = 1;
+				break;
+			case WORK_ALLOCATE:
+				compute_my_work_alloc(
+					my_id,
+					allocs_with_spill,
+					cfg->num_work_items,
+					worker_ct,
+					my_work_alloc_size,
+					work_idxes
+				);
+
+				ack.type = ACK_NO_BODY;
+				should_writeback = 1;
+				should_clear_prefs = 1;
+				break;
+			case WORK_UPDATE_POLICY:
+				update_action_preferences_with_cfg(
+					tile_hits,
+					my_work_alloc_size,
+					cfg,
+					local_ctx_work.body.update.action,
+					local_ctx_work.body.update.delta
+				);
 				ack.type = ACK_NO_BODY;
 				should_writeback = 1;
 				break;
 			default:
-				__implicit_read(&cfg);
-				break;
+				__impossible_path();
 		}
 
 		if (should_writeback) {
+			wb = WB_LOCKED;
+
 			while (1) {
 				#ifndef NO_FORWARD
 				wb = external_writeback_ack(my_slot, ack);
@@ -205,6 +420,15 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				}
 
 				sleep(100);
+			}
+		}
+
+		if (should_clear_prefs) {
+			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS; iter++) {
+				local_prefs[iter].num_items = 1;
+			}
+			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS * MAX_ACTIONS; iter++) {
+				local_prefs[iter / MAX_ACTIONS].prefs[iter % MAX_ACTIONS] = 0;
 			}
 		}
 	}

@@ -7,10 +7,11 @@
 enum work_type {
 	WORK_REQUEST_WORKER_COUNT,
 	WORK_SET_WORKER_COUNT,
-	WORK_SET_BASE_WORKER_COUNT,
+	// WORK_SET_BASE_WORKER_COUNT,
 	WORK_NEW_CONFIG,
 	WORK_STATE_VECTOR,
-	WORK_ALLOCATE
+	WORK_ALLOCATE,
+	WORK_UPDATE_POLICY
 };
 
 enum alloc_strategy {
@@ -24,11 +25,17 @@ struct work_alloc {
 	enum alloc_strategy strat;
 };
 
+struct action_update {
+	tile_t delta;
+	uint16_t action;
+};
+
 union work_body {
 	uint32_t worker_count;
 	__addr40 _declspec(emem) struct rl_config *cfg;
 	__addr40 _declspec(emem) tile_t *state; // len not needed: derived from config.
 	struct work_alloc alloc;
+	struct action_update update;
 };
 
 struct work {
