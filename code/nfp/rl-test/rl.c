@@ -280,62 +280,30 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 	uint32_t max = RL_WORKER_WRITEBACK_SLOTS;
 	uint32_t i;
 
-	while (handled < needed_acks) {
-		set_alarm(15000, &reflector_writeback_sig);
-
-		__wait_for_all(&reflector_writeback_sig);
-
-		clear_alarm();
-
-		// at least one was modified.
-		// check all.
-		// TODO: do this multiple times. Skip over lock failures.
-		for (i=min; i<max && (handled < needed_acks); i++) {
-			uint32_t observed_lock = WB_FLAG_LOCK;
-			__declspec(xfer_read_write_reg) uint32_t locking = WB_FLAG_LOCK;
-			uint32_t lock_addr = (uint32_t) &(reflector_writeback_locks[i]);
-			__declspec(xfer_read_write_reg) uint64_t nani = 0;
-
-			// Acquire.
-			// need to rely on "observed_lock" since the read direction is undef.
-			while (1) {
-				// __asm {
-				// 	cls[test_and_set, locking, lock_addr, 0, 1]
-				// }
-				mem_test_set((void*)&locking, (__addr40 void*)&(emem_writeback_locks[i]), sizeof(uint32_t));
-
-				observed_lock = locking;
-
-				if (!(observed_lock & WB_FLAG_LOCK)) {
-					break;
-				}
-				sleep(500);
-			}
-
-			if (locking & WB_FLAG_OCCUPIED) {
-				// Fold this ack into last ack.
-				int acks = aggregate_acks(aggregate, i);
-				handled += acks;
-				if (acks != 1) {
-					really_really_bad = (0xDEADDEAD << 32) | acks;
-				}
-			}
-
-			// Release.
-			locking = (WB_FLAG_LOCK | WB_FLAG_OCCUPIED);
-			// __asm {
-			// 	cls[clr, locking, lock_addr, 0, 1]
-			// }
-
-			mem_test_clr((void*)&locking, (__addr40 void*)&(emem_writeback_locks[i]), sizeof(uint32_t));
+	while (1) {
+		if (atomic_writeback_acks >= needed_acks) {
+			break;
 		}
+
+		sleep(250);
 	}
 
 	return handled;
 }
 
 __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
-	int i = 1;
+	int i = 0;
+	atomic_writeback_acks = 0;
+	atomic_writeback_hit_count = 0;
+
+	for (i=0; i<MAX_ACTIONS; i++) {
+		atomic_writeback_prefs[i] = 0;
+	}
+
+	for (i=0; i<RL_MAX_TILE_HITS; i++) {
+		atomic_writeback_hits[i] = 0;
+	}
+
 	//remote
 	in_type_a = to_do;
 	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (WORKER_SIGNUM << 3));
@@ -399,7 +367,7 @@ void state_packet_delegate(
 	aggregate.type = ACK_VALUE_SET;
 	aggregate.body.value_set = &vals;
 
-	receive_worker_acks(&aggregate, cfg->num_work_items);
+	receive_worker_acks(&aggregate, worker_ct);
 	
 	// choose action
 	rng_draw = local_csr_read(local_csr_pseudo_random_number);
@@ -559,7 +527,7 @@ main() {
 		aggregate.type = ACK_WORKER_COUNT;
 		receive_worker_acks(&aggregate, 1);
 
-		total_num_workers = aggregate.body.worker_count;
+		total_num_workers = atomic_writeback_prefs[0];
 
 		to_do.type = WORK_SET_WORKER_COUNT;
 		to_do.body.worker_count = total_num_workers;

@@ -65,7 +65,8 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	return local_tile;
 }
 
-__intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 _declspec(emem) struct value_set *act_list) {
+__intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
+	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
 	uint16_t act_count = cfg->num_actions;
@@ -77,24 +78,29 @@ __intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr4
 		loc_base = cfg->last_tier_tile[loc];
 	}
 
+	// atomic_writeback_prefs
+
 	// find location of tier in memory.
 	switch (loc) {
 		case TILE_LOCATION_T1:
 			base = tile_index;
 			for (j = 0; j < act_count; j++) {
-				act_list->prefs[j] += t1_tiles[base + j];
+				xfer_pref = t1_tiles[base + j];
+				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
 			}
 			break;
 		case TILE_LOCATION_T2:
 			base = tile_index - cfg->last_tier_tile[loc-1];
 			for (j = 0; j < act_count; j++) {
-				act_list->prefs[j] += t2_tiles[base + j];
+				xfer_pref = t2_tiles[base + j];
+				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
 			}
 			break;
 		case TILE_LOCATION_T3:
 			base = tile_index - cfg->last_tier_tile[loc-1];
 			for (j = 0; j < act_count; j++) {
-				act_list->prefs[j] += t3_tiles[base + j];
+				xfer_pref = t3_tiles[base + j];
+				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
 			}
 			break;
 	}
@@ -206,7 +212,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint8_t my_slot = 0;
 
 	uint32_t scratch = 0;
-	struct worker_ack ack = {0};
 	enum writeback_result wb = WB_LOCKED;
 
 	// Must be at least 2 workers for this to be not-dumb.
@@ -255,14 +260,12 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					cap_work.type = IN_PORT.type;
 					cap_work.body.worker_count = base_worker_ct + __n_ctx();
 
-					ack.type = ACK_WORKER_COUNT;
-					ack.body.worker_count = base_worker_ct + __n_ctx();
+					atomic_writeback_prefs[0] = base_worker_ct + __n_ctx();
 
 					should_writeback = 1;
 
 					#endif /* !CAP */
 
-					// local_ctx_work.type = WORK_SET_BASE_WORKER_COUNT;
 					local_ctx_work.body.worker_count = base_worker_ct;
 
 					break;
@@ -305,7 +308,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				my_slot = my_id % RL_WORKER_WRITEBACK_SLOTS;
 
-				ack.type = ACK_NO_BODY;
 				should_writeback = 1;
 
 				break;
@@ -315,7 +317,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 			case WORK_NEW_CONFIG:
 				cfg = local_ctx_work.body.cfg;
 
-				ack.type = ACK_NO_BODY;
 				should_writeback = 1;
 
 				// spill.
@@ -336,47 +337,14 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					uint32_t place_tile_onto = atomic_writeback_slot();
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
 					action_preferences_with_cfg_single(hit_tile, cfg, &(local_prefs[active_pref_space]));
 
-					tile_hits[iter] = hit_tile;
-
-					ack.type = ACK_VALUE_SET;
-					ack.body.value_set = &(local_prefs[active_pref_space]);
-					local_prefs[active_pref_space].num_items = my_work_alloc_size;
-					local_prefs[active_pref_space + 1].num_items = my_work_alloc_size;
-					// local_prefs[active_pref_space].num_items = 1;
-
-					// consider changing this to skip if lock missed.
-					// note that we MUST use this behaviour if NO_FORWARD.
-					// wb = WB_LOCKED;
-					// while (1) {
-					// 	#ifndef NO_FORWARD
-					// 	wb = external_writeback_ack(my_slot, ack);
-					// 	#else
-					// 	wb = internal_writeback_ack(my_slot, ack, parent_sig);
-					// 	#endif /* !NO_FORWARD */
-
-					// 	if (wb == WB_SUCCESS) {
-					// 		break;
-					// 	}
-
-					// 	sleep(100);
-					// }
-
-					// This is extendable, but we only need two slots.
-					// Slot is guaranteed to be safe to write into because we only
-					// target one writeback slot.
-					// active_pref_space++;
-					// active_pref_space %= WORKER_LOCAL_PREF_SLOTS;
+					atomic_writeback_hits[place_tile_onto] = hit_tile;
 				}
 
-				// if (__ctx() == 1) {
-				// 	iter_ct = iter;
-				// }
-
-				should_clear_prefs = 1;
 				should_writeback = 1;
 				break;
 			case WORK_ALLOCATE:
@@ -388,12 +356,12 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					my_work_alloc_size,
 					work_idxes
 				);
-
-				ack.type = ACK_NO_BODY;
 				should_writeback = 1;
-				should_clear_prefs = 1;
 				break;
 			case WORK_UPDATE_POLICY:
+				// FIXME: this must now take a pref list from the work alloc.
+				// Why? To be *algorithmically correct*.
+				// This given list IS NOT going to be sorted.
 				update_action_preferences_with_cfg(
 					tile_hits,
 					my_work_alloc_size,
@@ -401,7 +369,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					local_ctx_work.body.update.action,
 					local_ctx_work.body.update.delta
 				);
-				ack.type = ACK_NO_BODY;
 				should_writeback = 1;
 				break;
 			default:
@@ -409,31 +376,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 		}
 
 		if (should_writeback) {
-			wb = WB_LOCKED;
-
-			while (1) {
-				#ifndef NO_FORWARD
-				wb = external_writeback_ack(my_slot, ack);
-				#else
-				wb = internal_writeback_ack(my_slot, ack, parent_sig);
-				#endif /* !NO_FORWARD */
-
-				if (wb == WB_SUCCESS) {
-					break;
-				}
-
-				sleep(100);
-			}
-		}
-
-		if (should_clear_prefs) {
-			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS; iter++) {
-				local_prefs[iter].num_items = my_work_alloc_size;
-				// local_prefs[iter].num_items = 1;
-			}
-			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS * MAX_ACTIONS; iter++) {
-				local_prefs[iter / MAX_ACTIONS].prefs[iter % MAX_ACTIONS] = 0;
-			}
+			atomic_ack();
 		}
 	}
 }

@@ -13,6 +13,11 @@ __declspec(import, cls) uint32_t reflector_writeback_locks[RL_WORKER_WRITEBACK_S
 __declspec(import, cls) uint32_t spare_lock;
 
 __declspec(import, emem) uint32_t emem_writeback_locks[RL_WORKER_WRITEBACK_SLOTS];
+
+__declspec(import, cls) uint32_t atomic_writeback_acks;
+__declspec(import, cls) uint32_t atomic_writeback_prefs[MAX_ACTIONS];
+__declspec(import, cls) uint32_t atomic_writeback_hit_count;
+__declspec(import, cls) uint32_t atomic_writeback_hits[RL_MAX_TILE_HITS];
 #endif /* _RL_CORE_OLD_POLICY_WORK */
 
 enum writeback_result external_writeback_ack(
@@ -25,5 +30,9 @@ enum writeback_result external_writeback_ack_ctx(
 	struct worker_ack ack,
 	uint8_t consumer_ctx
 );
+
+__intrinsic void atomic_ack();
+
+__intrinsic uint32_t atomic_writeback_slot();
 
 #endif /* !_EXTERNAL_WRITEBACK_H_ */

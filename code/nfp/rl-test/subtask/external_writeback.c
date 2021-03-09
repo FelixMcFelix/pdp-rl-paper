@@ -191,3 +191,17 @@ enum writeback_result external_writeback_ack_ctx(
 
 	return WB_SUCCESS;
 }
+
+__intrinsic void atomic_ack() {
+	__declspec(xfer_read_write_reg) uint32_t my_slot = 1;
+	cls_test_add(&my_slot, &atomic_writeback_acks, sizeof(uint32_t));
+
+	return my_slot;
+}
+
+__intrinsic uint32_t atomic_writeback_slot() {
+	__declspec(xfer_read_write_reg) uint32_t my_slot = 1;
+	cls_test_add(&my_slot, &atomic_writeback_hit_count, sizeof(uint32_t));
+
+	return my_slot;
+}
