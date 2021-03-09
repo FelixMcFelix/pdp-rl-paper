@@ -11,7 +11,7 @@
 
 #if defined(NO_FORWARD) || (defined(IN_PORT) && defined(OUT_PORT))
 
-uint32_t tile_code_with_cfg_single(
+__intrinsic uint32_t tile_code_with_cfg_single(
 	__addr40 _declspec(emem) tile_t *state,
 	__addr40 _declspec(emem) struct rl_config *cfg,
 	uint8_t bias_tile_exists,
@@ -65,7 +65,7 @@ uint32_t tile_code_with_cfg_single(
 	return local_tile;
 }
 
-void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 _declspec(emem) struct value_set *act_list) {
+__intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 _declspec(emem) struct value_set *act_list) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
 	uint16_t act_count = cfg->num_actions;
@@ -100,7 +100,7 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 	}
 }
 
-void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+__intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
 	uint16_t j = 0;
@@ -136,7 +136,7 @@ void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hi
 
 volatile __declspec(shared) struct work local_ctx_work = {0};
 
-void compute_my_work_alloc(
+__intrinsic void compute_my_work_alloc(
 	uint8_t my_id,
 	uint8_t allocs_with_spill,
 	uint8_t num_work_items,
@@ -344,37 +344,40 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 					ack.type = ACK_VALUE_SET;
 					ack.body.value_set = &(local_prefs[active_pref_space]);
-					local_prefs[active_pref_space].num_items = 1;
+					local_prefs[active_pref_space].num_items = my_work_alloc_size;
+					local_prefs[active_pref_space + 1].num_items = my_work_alloc_size;
+					// local_prefs[active_pref_space].num_items = 1;
 
 					// consider changing this to skip if lock missed.
 					// note that we MUST use this behaviour if NO_FORWARD.
-					wb = WB_LOCKED;
-					while (1) {
-						#ifndef NO_FORWARD
-						wb = external_writeback_ack(my_slot, ack);
-						#else
-						wb = internal_writeback_ack(my_slot, ack, parent_sig);
-						#endif /* !NO_FORWARD */
+					// wb = WB_LOCKED;
+					// while (1) {
+					// 	#ifndef NO_FORWARD
+					// 	wb = external_writeback_ack(my_slot, ack);
+					// 	#else
+					// 	wb = internal_writeback_ack(my_slot, ack, parent_sig);
+					// 	#endif /* !NO_FORWARD */
 
-						if (wb == WB_SUCCESS) {
-							break;
-						}
+					// 	if (wb == WB_SUCCESS) {
+					// 		break;
+					// 	}
 
-						sleep(100);
-					}
+					// 	sleep(100);
+					// }
 
 					// This is extendable, but we only need two slots.
 					// Slot is guaranteed to be safe to write into because we only
 					// target one writeback slot.
-					active_pref_space++;
-					active_pref_space %= WORKER_LOCAL_PREF_SLOTS;
+					// active_pref_space++;
+					// active_pref_space %= WORKER_LOCAL_PREF_SLOTS;
 				}
 
-				if (__ctx() == 1) {
-					iter_ct = iter;
-				}
+				// if (__ctx() == 1) {
+				// 	iter_ct = iter;
+				// }
 
 				should_clear_prefs = 1;
+				should_writeback = 1;
 				break;
 			case WORK_ALLOCATE:
 				compute_my_work_alloc(
@@ -425,7 +428,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 		if (should_clear_prefs) {
 			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS; iter++) {
-				local_prefs[iter].num_items = 1;
+				local_prefs[iter].num_items = my_work_alloc_size;
+				// local_prefs[iter].num_items = 1;
 			}
 			for (iter = 0; iter < WORKER_LOCAL_PREF_SLOTS * MAX_ACTIONS; iter++) {
 				local_prefs[iter / MAX_ACTIONS].prefs[iter % MAX_ACTIONS] = 0;
