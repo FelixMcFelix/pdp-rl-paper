@@ -172,7 +172,8 @@ void action_preferences(uint32_t *tile_indices, uint16_t tile_hit_count, __addr4
 	}
 }
 
-void update_action_preferences(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+// This is guaranteed to be sorted!
+void update_action_preferences(__addr40 _declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
 	uint16_t j = 0;
@@ -246,6 +247,8 @@ tile_t fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_
 #include "worker/worker_body.c"
 // WARNING
 
+#ifndef _RL_WORKER_DISABLED
+
 /* Assumes that lock over Ack[i] is held, and returns the number of acks that this packet contained.
 */
 uint32_t aggregate_acks(struct worker_ack *aggregate, uint32_t new_i) {
@@ -285,7 +288,7 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 			break;
 		}
 
-		sleep(250);
+		sleep(50);
 	}
 
 	return handled;
@@ -322,7 +325,6 @@ void state_packet_delegate(
 	uint8_t worker_ct
 ) {
 	_declspec(emem) volatile struct value_set vals = {0};
-	uint16_t tc_count;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 
@@ -347,18 +349,6 @@ void state_packet_delegate(
 
 	t0 = local_csr_read(local_csr_timestamp_low);
 
-	// ---- Fix this copy in the base one: not correct for most state! ---- //
-	// while (i != dim_count) {
-	// 	mem_read32(
-	// 		&(word.raw),
-	// 		pkt->packet_payload + (i * sizeof(union two_u16s)),
-	// 		sizeof(union two_u16s)
-	// 	);
-	// 	state[i] = (tile_t)word.raw;
-	// 	i++;
-	// }
-
-	//
 
 	to_do.type = WORK_STATE_VECTOR;
 	to_do.body.state = (__declspec(emem) __addr40 tile_t *)pkt->packet_payload;
@@ -419,24 +409,22 @@ void state_packet_delegate(
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
 		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
-			struct state_action_pair lsap = state_action_pairs[state_found];
 
 			tile_t value_of_chosen_action = prefs[chosen_action];
 
 			tile_t adjustment = cfg->alpha;
 			tile_t dt;
-
-			lsap.action = chosen_action;
-			lsap.val = value_of_chosen_action;
-			// don't copy the tile list, that's probably TOO heavy.
 		
-			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
+			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - state_action_pairs[state_found].val;
 
 			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
+
+			#ifndef WORKER_DO_UPDATES_LOCALLY
 
 			to_do.type = WORK_UPDATE_POLICY;
 			to_do.body.update.action = chosen_action;
 			to_do.body.update.delta = adjustment;
+			to_do.body.update.tile_indices = &(state_action_pairs[state_found].tiles[0]);
 
 			// currently both versions are impl'd wrong!
 			// should be using the stored tiles, NOT the new ones...
@@ -445,6 +433,18 @@ void state_packet_delegate(
 			aggregate.type = ACK_NO_BODY;
 
 			receive_worker_acks(&aggregate, worker_ct);
+
+			#else
+
+			update_action_preferences(
+				&(state_action_pairs[state_found].tiles[0]),
+				atomic_writeback_hit_count,
+				cfg,
+				chosen_action,
+				adjustment
+			);
+
+			#endif /* !WORKER_DO_UPDATES_LOCALLY */
 		}
 
 		// TODO: figure out "broken-math" version of this (indiv tile shifts)
@@ -452,14 +452,16 @@ void state_packet_delegate(
 		// store the tile list, chosen action, and its value.
 		state_action_pairs[state_found].action = chosen_action;
 		state_action_pairs[state_found].val = prefs[chosen_action];
-		state_action_pairs[state_found].len = tc_count;
+		state_action_pairs[state_found].len = atomic_writeback_hit_count;
 
+		// place the located tiles into
+		// FIXME: take this from the local writeback!
 		// dst, src, size
-		// ua_memcpy_mem40_mem40(
-		// 	&(state_action_pairs[state_found].tiles), 0,
-		// 	(void*)tc_indices, 0,
-		// 	tc_count * sizeof(tile_t)
-		// );
+		ua_memcpy_mem40_mem40(
+			&(state_action_pairs[state_found].tiles[0]), 0,
+			(void*)atomic_writeback_hits, 0,
+			atomic_writeback_hit_count * sizeof(tile_t)
+		);
 	}
 
 	// NOTE: alpha, gamma, policy must all have same base!
@@ -476,6 +478,8 @@ void state_packet_delegate(
 	}
 }
 
+#endif /* !_RL_WORKER_DISABLED */
+
 main() {
 	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
@@ -487,8 +491,10 @@ main() {
 	uint32_t temp_idx = 0;
 	__declspec(emem) volatile uint32_t indices[RL_MAX_TILE_HITS] = {0};
 
+	#ifndef _RL_WORKER_DISABLED
 	__assign_relative_register(&reflector_writeback_sig, WRITEBACK_SIGNUM);
 	__assign_relative_register(&internal_handout_sig, WORKER_SIGNUM);
+	#endif /* !_RL_WORKER_DISABLED */
 
 	if (__ctx() == 0) {
 		// init above huge blocks.
@@ -506,6 +512,9 @@ main() {
 
 	// FIXME: Might want to make other contexts wait till queue init'd
 	
+
+	#ifndef _RL_WORKER_DISABLED
+
 	// After that, we want NN registers established between co-located MEs.
 	#ifdef _RL_CORE_SLAVE_CTXES
 	in_type_a.body.worker_count = __n_ctx() - 1;
@@ -545,6 +554,8 @@ main() {
 		work(0, client_sig);
 	}
 
+	#endif /* !_RL_WORKER_DISABLED */
+
 	// init index list.
 	for (i=0; i<RL_MAX_TILE_HITS; ++i) {
 		indices[i] = i;
@@ -583,14 +594,6 @@ main() {
 					case 1:
 						tilings_packet(&cfg, &workq_read_register);
 
-						really_really_bad = (uint64_t) &cfg;
-
-						to_do.type = WORK_NEW_CONFIG;
-						to_do.body.cfg = &cfg;
-						pass_work_on(to_do, __signal_number(&internal_handout_sig));
-						aggregate.type = ACK_NO_BODY;
-						receive_worker_acks(&aggregate, total_num_workers);
-
 						new_cfg = 1;
 						has_tiling = 1;
 						break;
@@ -604,7 +607,7 @@ main() {
 				break;
 			case PIF_PARREP_TYPE_in_state:
 				//state
-				#ifdef _RL_CORE_OLD_POLICY_WORK
+				#ifdef _RL_WORKER_DISABLED
 				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
 				#else
 				state_packet_delegate(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
@@ -626,6 +629,8 @@ main() {
 		}
 
 		rl_pkt_return_slot(&rl_pkts, workq_read_register.packet_payload);
+
+		#ifndef _RL_WORKER_DISABLED
 
 		if (new_cfg) {
 			if (has_tiling && has_setup) {
@@ -675,10 +680,14 @@ main() {
 				receive_worker_acks(&aggregate, total_num_workers);
 			}
 		}
+
+		#endif /* !_RL_WORKER_DISABLED */
 	}
 
+	#ifndef _RL_WORKER_DISABLED
 	__implicit_write(&reflector_writeback_sig);
 	__implicit_write(&reflector_writeback);
 	__implicit_read(&reflector_writeback_sig);
 	__implicit_read(&reflector_writeback);
+	#endif /* !_RL_WORKER_DISABLED */
 }

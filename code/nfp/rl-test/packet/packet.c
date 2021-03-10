@@ -377,6 +377,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 	__declspec(xfer_read_reg) union two_u16s word;
 	int i = 0;
+	int j = 0;
 
 	//tile_t state_key = select_key(cfg->state_key, state);
 	//tile_t reward_key = select_key(cfg->reward_key, state);
@@ -389,22 +390,31 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		return;
 	}
 
-	while (i != dim_count) {
+	// What is this doing? Copies from packet to local state vector.
+	while (i < dim_count) {
+		// i is the index into the local state we're writing.
+		// j is the index of the u32 we're reading.
+		// inner is the index *into* the u32 we're reading.
+		int inner;
 		mem_read32(
 			&(word.raw),
-			pkt->packet_payload + (i * sizeof(union two_u16s)),
+			pkt->packet_payload + (j * sizeof(union two_u16s)),
 			sizeof(union two_u16s)
 		);
-		state[i] = (tile_t)word.raw;
-		i++;
+
+		for (inner = 0; (inner < sizeof(uint32_t) / sizeof(tile_t)) && (i < dim_count); inner++, i++) {
+			state[i] = word.tiles[inner];	
+		}
+
+		j += 1;
 	}
 
 	tc_count = tile_code(state, cfg, tc_indices);
 	global_tc_count = tc_count;
 
-	for (i=0; i<tc_count; i++) {
+	/*for (i=0; i<tc_count; i++) {
 		global_tc_indices[i] = tc_indices[i];
-	}
+	}*/
 
 	action_preferences(tc_indices, tc_count, cfg, prefs);
 	
@@ -453,28 +463,23 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 			changed_key = 1;
 		}
 
-
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
 		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
-			struct state_action_pair lsap = state_action_pairs[state_found];
 
 			tile_t value_of_chosen_action = prefs[chosen_action];
 
 			tile_t adjustment = cfg->alpha;
 			tile_t dt;
-
-			lsap.action = chosen_action;
-			lsap.val = value_of_chosen_action;
 			// don't copy the tile list, that's probably TOO heavy.
 		
-			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - lsap.val;
+			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - state_action_pairs[state_found].val;
 
 			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
 
 			// tc_indices, tc_count, cfg, prefs
-			update_action_preferences(tc_indices, tc_count, cfg, chosen_action, adjustment);
+			update_action_preferences(&(state_action_pairs[state_found].tiles[0]), tc_count, cfg, chosen_action, adjustment);
 		}
 
 		// TODO: figure out "broken-math" version of this (indiv tile shifts)
@@ -486,7 +491,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 
 		// dst, src, size
 		ua_memcpy_mem40_mem40(
-			&(state_action_pairs[state_found].tiles), 0,
+			&(state_action_pairs[state_found].tiles[0]), 0,
 			(void*)tc_indices, 0,
 			tc_count * sizeof(tile_t)
 		);

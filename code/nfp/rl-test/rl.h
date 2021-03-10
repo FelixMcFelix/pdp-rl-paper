@@ -181,7 +181,7 @@ struct state_action_pair {
 	uint16_t action;
 	uint16_t len;
 	tile_t val;
-	tile_t tiles[RL_MAX_TILE_HITS];
+	uint32_t tiles[RL_MAX_TILE_HITS];
 };
 
 #endif /* !_RL_H_ */

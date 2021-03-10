@@ -1,8 +1,15 @@
 #include <stdint.h>
+#include <nfp/cls.h>
 #include "../worker_config.h"
 #include "../subtask/work.h"
 #include "../subtask/ack.h"
 #include "../rl.h"
+
+#ifdef _RL_WORKER_DISABLED
+
+void work(uint8_t is_master, unsigned int parent_sig) {}
+
+#else
 
 #ifndef NO_FORWARD
 #include "../subtask/external_writeback.h"
@@ -109,8 +116,6 @@ __intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr4
 __intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
-	uint16_t j = 0;
-	uint16_t act_count = cfg->num_actions;
 
 	for (i = 0; i < tile_hit_count; i++) {
 		uint32_t target = tile_indices[i];
@@ -137,6 +142,35 @@ __intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint
 				t3_tiles[base + action] += delta;
 				break;
 		}
+	}
+}
+
+__intrinsic void update_action_preference_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+	enum tile_location loc = TILE_LOCATION_T1;
+
+	uint32_t target = tile_index;
+	uint32_t loc_base = cfg->last_tier_tile[loc];
+	uint32_t base;
+
+	while (target >= loc_base) {
+		loc++;
+		loc_base = cfg->last_tier_tile[loc];
+	}
+
+	// find location of tier in memory.
+	switch (loc) {
+		case TILE_LOCATION_T1:
+			base = target;
+			t1_tiles[base + action] += delta;
+			break;
+		case TILE_LOCATION_T2:
+			base = target - cfg->last_tier_tile[loc-1];
+			t2_tiles[base + action] += delta;
+			break;
+		case TILE_LOCATION_T3:
+			base = target - cfg->last_tier_tile[loc-1];
+			t3_tiles[base + action] += delta;
+			break;
 	}
 }
 
@@ -340,7 +374,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					uint32_t place_tile_onto = atomic_writeback_slot();
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
-					action_preferences_with_cfg_single(hit_tile, cfg, &(local_prefs[active_pref_space]));
+					action_preferences_with_cfg_single(hit_tile, cfg);
 
 					atomic_writeback_hits[place_tile_onto] = hit_tile;
 				}
@@ -359,16 +393,15 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 				break;
 			case WORK_UPDATE_POLICY:
-				// FIXME: this must now take a pref list from the work alloc.
-				// Why? To be *algorithmically correct*.
-				// This given list IS NOT going to be sorted.
-				update_action_preferences_with_cfg(
-					tile_hits,
-					my_work_alloc_size,
-					cfg,
-					local_ctx_work.body.update.action,
-					local_ctx_work.body.update.delta
-				);
+				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					update_action_preference_with_cfg_single(
+						local_ctx_work.body.update.tile_indices[work_idxes[iter]], 
+						cfg,
+						local_ctx_work.body.update.action,
+						local_ctx_work.body.update.delta
+					);
+				}
+
 				should_writeback = 1;
 				break;
 			default:
@@ -386,3 +419,5 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 #error "IN_PORT or OUT_PORT undefined!"
 
 #endif /* IN_PORT */
+
+#endif /* _RL_WORKER_DISABLED */

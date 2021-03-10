@@ -10,6 +10,8 @@
 #define CONSUMER_ISLAND (5) // Ideally, this would be a "current island" intrinsic
 #define CONSUMER_LOC ((CONSUMER_ISLAND << 4) + CONSUMER_ME)
 
+#ifndef _RL_WORKER_DISABLED
+
 enum writeback_result internal_writeback_ack(
 	uint8_t target_slot,
 	struct worker_ack ack,
@@ -86,8 +88,6 @@ enum writeback_result internal_writeback_ack(
 __intrinsic void atomic_ack() {
 	__declspec(xfer_read_write_reg) uint32_t my_slot = 1;
 	cls_test_add(&my_slot, &atomic_writeback_acks, sizeof(uint32_t));
-
-	return my_slot;
 }
 
 __intrinsic uint32_t atomic_writeback_slot() {
@@ -96,3 +96,5 @@ __intrinsic uint32_t atomic_writeback_slot() {
 
 	return my_slot;
 }
+
+#endif /* !_RL_WORKER_DISABLED */

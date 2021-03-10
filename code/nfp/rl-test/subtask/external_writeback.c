@@ -15,6 +15,8 @@
 
 // TODO: integrate locking.
 
+#ifndef _RL_WORKER_DISABLED
+
 volatile __declspec(import, emem) uint64_t really_really_bad;
 
 enum writeback_result external_writeback_ack(
@@ -205,3 +207,5 @@ __intrinsic uint32_t atomic_writeback_slot() {
 
 	return my_slot;
 }
+
+#endif /* !_RL_WORKER_DISABLED */
