@@ -21,6 +21,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {}
 __intrinsic uint32_t tile_code_with_cfg_single(
 	__addr40 _declspec(emem) tile_t *state,
 	__addr40 _declspec(emem) struct rl_config *cfg,
+	uint16_t tilings_per_set,
+	uint16_t num_dims,
+	uint16_t tiles_per_dim,
 	uint8_t bias_tile_exists,
 	uint8_t work_idx
 ) {
@@ -38,15 +41,15 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	}
 
 	tiling_set_idx = bias_tile_exists
-		? (((work_idx - 1) / cfg->tilings_per_set) + 1)
-		: (work_idx / cfg->tilings_per_set);
+		? (((work_idx - 1) / tilings_per_set) + 1)
+		: (work_idx / tilings_per_set);
 
 	// can also get by remul'ing
 	local_tile = cfg->tiling_sets[tiling_set_idx].start_tile;
 	tiling_idx = work_idx - local_tile;
 
 	// These goes over each dimension in the top-level loop
-	for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_set_idx].num_dims; ++dim_idx) {
+	for (dim_idx = 0; dim_idx < num_dims; ++dim_idx) {
 		uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
 		uint8_t reduce_tile;
 		tile_t val = state[active_dim];
@@ -66,23 +69,26 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 		val /= cfg->width[active_dim];
 
 		local_tile += width_product * ((uint32_t)val - (reduce_tile ? 1 : 0));
-		width_product *= cfg->tiles_per_dim;
+		width_product *= tiles_per_dim;
 	}
 
 	return local_tile;
 }
 
-__intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
+__intrinsic void action_preferences_with_cfg_single(
+	uint32_t tile_index,
+	uint16_t act_count,
+	uint32_t *last_tier_tiles
+) {
 	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
-	uint16_t act_count = cfg->num_actions;
-	uint32_t loc_base = cfg->last_tier_tile[loc];
+	uint32_t loc_base = last_tier_tiles[loc];
 	uint32_t base;
 
 	while (tile_index >= loc_base) {
 		loc++;
-		loc_base = cfg->last_tier_tile[loc];
+		loc_base = last_tier_tiles[loc];
 	}
 
 	// atomic_writeback_prefs
@@ -97,14 +103,14 @@ __intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr4
 			}
 			break;
 		case TILE_LOCATION_T2:
-			base = tile_index - cfg->last_tier_tile[loc-1];
+			base = tile_index - last_tier_tiles[loc-1];
 			for (j = 0; j < act_count; j++) {
 				xfer_pref = t2_tiles[base + j];
 				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
 			}
 			break;
 		case TILE_LOCATION_T3:
-			base = tile_index - cfg->last_tier_tile[loc-1];
+			base = tile_index - last_tier_tiles[loc-1];
 			for (j = 0; j < act_count; j++) {
 				xfer_pref = t3_tiles[base + j];
 				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
@@ -113,48 +119,21 @@ __intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr4
 	}
 }
 
-__intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
-	enum tile_location loc = TILE_LOCATION_T1;
-	uint16_t i = 0;
-
-	for (i = 0; i < tile_hit_count; i++) {
-		uint32_t target = tile_indices[i];
-		uint32_t loc_base = cfg->last_tier_tile[loc];
-		uint32_t base;
-
-		while (target >= loc_base) {
-			loc++;
-			loc_base = cfg->last_tier_tile[loc];
-		}
-
-		// find location of tier in memory.
-		switch (loc) {
-			case TILE_LOCATION_T1:
-				base = target;
-				t1_tiles[base + action] += delta;
-				break;
-			case TILE_LOCATION_T2:
-				base = target - cfg->last_tier_tile[loc-1];
-				t2_tiles[base + action] += delta;
-				break;
-			case TILE_LOCATION_T3:
-				base = target - cfg->last_tier_tile[loc-1];
-				t3_tiles[base + action] += delta;
-				break;
-		}
-	}
-}
-
-__intrinsic void update_action_preference_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+__intrinsic void update_action_preference_with_cfg_single(
+	uint32_t tile_index,
+	uint32_t *last_tier_tiles,
+	uint16_t action,
+	tile_t delta
+) {
 	enum tile_location loc = TILE_LOCATION_T1;
 
 	uint32_t target = tile_index;
-	uint32_t loc_base = cfg->last_tier_tile[loc];
+	uint32_t loc_base = last_tier_tiles[loc];
 	uint32_t base;
 
 	while (target >= loc_base) {
 		loc++;
-		loc_base = cfg->last_tier_tile[loc];
+		loc_base = last_tier_tiles[loc];
 	}
 
 	// find location of tier in memory.
@@ -164,11 +143,11 @@ __intrinsic void update_action_preference_with_cfg_single(uint32_t tile_index, _
 			t1_tiles[base + action] += delta;
 			break;
 		case TILE_LOCATION_T2:
-			base = target - cfg->last_tier_tile[loc-1];
+			base = target - last_tier_tiles[loc-1];
 			t2_tiles[base + action] += delta;
 			break;
 		case TILE_LOCATION_T3:
-			base = target - cfg->last_tier_tile[loc-1];
+			base = target - last_tier_tiles[loc-1];
 			t3_tiles[base + action] += delta;
 			break;
 	}
@@ -253,12 +232,23 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint8_t allocs_with_spill = 0;
 	uint8_t has_bias = 0;
 	uint8_t iter = 0;
+	uint8_t j = 0;
 	uint16_t work_idxes[RL_MAX_TILE_HITS/2] = {0};
 	uint32_t tile_hits[RL_MAX_TILE_HITS/2] = {0};
 
+	uint32_t last_tier_tile[3] = {0};
+	uint16_t tiles_per_dim;
+	uint16_t tilings_per_set;
+	uint16_t num_actions;
+	uint16_t num_dims;
+
+	#ifdef WORKER_DO_CACHED
+	struct work_item_cache cache[WORKER_LOCAL_CACHED_ENTRIES] = {0};
+	#endif /* WORKER_DO_CACHED */
+
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
-	#endif
+	#endif /* !NO_FORWARD */
 
 	while (1) {
 		int should_writeback = 0;
@@ -364,6 +354,35 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				has_bias = cfg->tiling_sets[0].num_dims == 0;
 
+				num_actions = cfg->num_actions;
+				num_dims = cfg->num_dims;
+				tiles_per_dim = cfg->tiles_per_dim;
+				tilings_per_set = cfg->tilings_per_set;
+				for (iter=0; iter<3; iter++) {
+					last_tier_tile[iter] = cfg->last_tier_tile[iter];
+				}
+
+				#ifdef WORKER_DO_CACHED
+				// struct work_item_cache cache[WORKER_LOCAL_CACHED_ENTRIES] = {0};
+				for (iter=0; iter<WORKER_LOCAL_CACHED_ENTRIES; iter++) {
+					scratch = work_idxes[iter];
+
+					cache[iter].loc = cfg->tiling_sets[scratch].location;
+					cache[iter].num_dims = cfg->tiling_sets[scratch].num_dims;
+					cache[iter].start_tile = cfg->tiling_sets[scratch].start_tile;
+					cache[iter].loc_base = cfg->last_tier_tile[cache[iter].loc];
+
+					for (j=0; j<cache[iter].num_dims; j++) {
+						cache[iter].per_dim[j].dim = cfg->tiling_sets[scratch].dims[j];
+
+						cache[iter].per_dim[j].min = cfg->mins[cache[iter].per_dim[j].dim];
+						cache[iter].per_dim[j].adjusted_max = cfg->adjusted_maxes[cache[iter].per_dim[j].dim];
+						cache[iter].per_dim[j].width = cfg->width[cache[iter].per_dim[j].dim];
+						cache[iter].per_dim[j].shift_amt = cfg->shift_amt[cache[iter].per_dim[j].dim];
+					}
+				}
+				#endif /* WORKER_DO_CACHED */
+
 				break;
 			case WORK_STATE_VECTOR:
 				// "active_pref_space"
@@ -372,9 +391,17 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t place_tile_onto = atomic_writeback_slot();
-					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
+					uint32_t hit_tile = tile_code_with_cfg_single(
+						local_ctx_work.body.state,
+						cfg,
+						tilings_per_set,
+						num_dims,
+						tiles_per_dim,
+						has_bias,
+						work_idxes[iter]
+					);
 					// place tile into slot governed by active_pref_space
-					action_preferences_with_cfg_single(hit_tile, cfg);
+					action_preferences_with_cfg_single(hit_tile, num_actions, last_tier_tile);
 
 					atomic_writeback_hits[place_tile_onto] = hit_tile;
 				}
@@ -396,7 +423,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					update_action_preference_with_cfg_single(
 						local_ctx_work.body.update.tile_indices[work_idxes[iter]], 
-						cfg,
+						last_tier_tile,
 						local_ctx_work.body.update.action,
 						local_ctx_work.body.update.delta
 					);
@@ -411,6 +438,11 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 		if (should_writeback) {
 			atomic_ack();
 		}
+
+		#ifdef WORKER_DO_CACHED
+		__implicit_read(cache);
+		__implicit_write(cache);
+		#endif /* WORKER_DO_CACHED */
 	}
 }
 
