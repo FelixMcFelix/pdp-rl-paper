@@ -30,4 +30,7 @@
 
 // #define WORKER_DO_UPDATES_LOCALLY
 
+// #define WORKER_DO_CACHED
+#define WORKER_LOCAL_CACHED_ENTRIES 5
+
 #endif /* !_WORK_CONFIG_MARKER_H_ */

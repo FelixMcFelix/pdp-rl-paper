@@ -45,4 +45,20 @@ struct work {
 	union work_body body;
 };
 
+struct dim_cache {
+	tile_t min;
+	tile_t adjusted_max;
+	tile_t width;
+	tile_t shift_amt;
+	uint8_t dim;
+};
+
+struct work_item_cache {
+	enum tile_location loc;
+	uint16_t num_dims;
+	uint32_t loc_base; // needed for prefs! this is "base"
+	uint32_t start_tile;
+	struct dim_cache per_dim[T3_MAX_DIMS];
+};
+
 #endif /* !_WORK_H_ */
