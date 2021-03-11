@@ -18,12 +18,13 @@ void work(uint8_t is_master, unsigned int parent_sig) {}
 
 #if defined(NO_FORWARD) || (defined(IN_PORT) && defined(OUT_PORT))
 
-__intrinsic uint32_t tile_code_with_cfg_single(
+uint32_t tile_code_with_cfg_single(
 	__addr40 _declspec(emem) tile_t *state,
 	__addr40 _declspec(emem) struct rl_config *cfg,
 	uint16_t tilings_per_set,
 	uint16_t num_dims,
 	uint16_t tiles_per_dim,
+	uint16_t num_actions,
 	uint8_t bias_tile_exists,
 	uint8_t work_idx
 ) {
@@ -31,7 +32,7 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	uint16_t tiling_set_idx;
 	uint32_t local_tile;
 	uint16_t tiling_idx;
-	uint32_t width_product = cfg->num_actions;
+	uint32_t width_product = num_actions;
 
 	// check if there's a bias tile.
 	// => yes? set 0 has size 1, others have size cfg->tilings_per_set
@@ -75,7 +76,7 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	return local_tile;
 }
 
-__intrinsic void action_preferences_with_cfg_single(
+void action_preferences_with_cfg_single(
 	uint32_t tile_index,
 	uint16_t act_count,
 	uint32_t *last_tier_tiles
@@ -385,6 +386,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				break;
 			case WORK_STATE_VECTOR:
+				__critical_path(100);
 				// "active_pref_space"
 				//
 				// for each id in work list:
@@ -397,11 +399,12 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 						tilings_per_set,
 						num_dims,
 						tiles_per_dim,
+						num_actions,
 						has_bias,
 						work_idxes[iter]
 					);
 					// place tile into slot governed by active_pref_space
-					action_preferences_with_cfg_single(hit_tile, num_actions, last_tier_tile);
+					action_preferences_with_cfg_single(hit_tile, num_actions, &(last_tier_tile[0]));
 
 					atomic_writeback_hits[place_tile_onto] = hit_tile;
 				}
@@ -420,10 +423,11 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 				break;
 			case WORK_UPDATE_POLICY:
+				__critical_path(75);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					update_action_preference_with_cfg_single(
 						local_ctx_work.body.update.tile_indices[work_idxes[iter]], 
-						last_tier_tile,
+						&(last_tier_tile[0]),
 						local_ctx_work.body.update.action,
 						local_ctx_work.body.update.delta
 					);
