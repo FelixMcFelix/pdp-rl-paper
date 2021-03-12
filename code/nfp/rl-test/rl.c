@@ -325,6 +325,7 @@ void state_packet_delegate(
 	uint8_t worker_ct
 ) {
 	_declspec(emem) volatile struct value_set vals = {0};
+	uint32_t seen_hits;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 
@@ -357,7 +358,12 @@ void state_packet_delegate(
 	aggregate.type = ACK_VALUE_SET;
 	aggregate.body.value_set = &vals;
 
+	__implicit_write(&atomic_writeback_hit_count);
+	__implicit_write(&atomic_writeback_hits);
+
 	receive_worker_acks(&aggregate, worker_ct);
+
+	seen_hits = atomic_writeback_hit_count;
 	
 	// choose action
 	rng_draw = local_csr_read(local_csr_pseudo_random_number);
@@ -399,15 +405,18 @@ void state_packet_delegate(
 		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
 		uint32_t changed_key = 0;
 
+		uint8_t updating_on_this_cycle;
+
 		if (state_action_map_key_tbl[state_found] != state_key) {
 			state_action_map_key_tbl[state_found] = state_key;
 			changed_key = 1;
 		}
 
+		updating_on_this_cycle = 1;//(!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
 
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
-		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
+		if (updating_on_this_cycle) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 
 			tile_t value_of_chosen_action = prefs[chosen_action];
@@ -430,15 +439,14 @@ void state_packet_delegate(
 			// should be using the stored tiles, NOT the new ones...
 
 			pass_work_on(to_do, __signal_number(&internal_handout_sig));
+
 			aggregate.type = ACK_NO_BODY;
-
 			receive_worker_acks(&aggregate, worker_ct);
-
 			#else
 
 			update_action_preferences(
 				&(state_action_pairs[state_found].tiles[0]),
-				atomic_writeback_hit_count,
+				seen_hits,
 				cfg,
 				chosen_action,
 				adjustment
@@ -460,7 +468,7 @@ void state_packet_delegate(
 		ua_memcpy_mem40_mem40(
 			&(state_action_pairs[state_found].tiles[0]), 0,
 			(void*)atomic_writeback_hits, 0,
-			atomic_writeback_hit_count * sizeof(tile_t)
+			seen_hits * sizeof(tile_t)
 		);
 	}
 
