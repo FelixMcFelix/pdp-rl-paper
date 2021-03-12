@@ -78,7 +78,9 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	);
 	cursor += sizeof(uint16_t);
 
-	cfg->do_updates = word.bytes[0];
+	cfg->do_updates = word.bytes[0] & & (1 << 0);
+	cfg->disable_action_writeout = word.bytes[0] & (1 << 1);
+	cfg->force_update_to_happen = word.bytes[0] >> 4;
 	cfg->quantiser_shift = word.bytes[1];
 
 	mem_read64(
@@ -445,6 +447,10 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		}
 	}
 
+	if (!cfg->disable_action_writeout) {
+		// FIXME: put in the writeout mechanism here!
+	}
+
 	if (cfg->do_updates) {
 		// This dummies the access cost.
 		// For some reason, it bugs out if struct size is lte 32bit?
@@ -459,14 +465,19 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
 		uint32_t changed_key = 0;
 
+		uint8_t updating_on_this_cycle;
+
 		if (state_action_map_key_tbl[state_found] != state_key) {
 			state_action_map_key_tbl[state_found] = state_key;
 			changed_key = 1;
 		}
 
+		updating_on_this_cycle = (!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
+		updating_on_this_cycle &= cfg->force_update_to_happen != BHAV_SKIP;
+
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
-		if ((!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0) {
+		if ((cfg->force_update_to_happen == BHAV_ALWAYS) || updating_on_this_cycle) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 
 			tile_t value_of_chosen_action = prefs[chosen_action];

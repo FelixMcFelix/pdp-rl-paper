@@ -1,6 +1,7 @@
 {
 	"quantiser_shift":8,
 	"do_updates":true,
+	"disable_action_writeout": false,
 	"n_dims":4,
 	"tiles_per_dim":3,
 	"tilings_per_set":1,

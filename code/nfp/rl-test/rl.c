@@ -381,6 +381,10 @@ void state_packet_delegate(
 		}
 	}
 
+	if (!cfg->disable_action_writeout) {
+		// FIXME: put in the writeout mechanism here!
+	}
+
 	// reduce epsilon as required.
 	// realisation: can reinduce training without needing policy re-insertion!
 	if (cfg->epsilon > 0) {
@@ -413,10 +417,11 @@ void state_packet_delegate(
 		}
 
 		updating_on_this_cycle = (!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
+		updating_on_this_cycle &= cfg->force_update_to_happen != BHAV_SKIP;
 
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
-		if (updating_on_this_cycle) {
+		if ((cfg->force_update_to_happen == BHAV_ALWAYS) || updating_on_this_cycle) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 
 			tile_t value_of_chosen_action = prefs[chosen_action];

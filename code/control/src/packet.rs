@@ -130,7 +130,18 @@ pub fn build_setup_packet<T: Tile>(setup: &SetupConfig<T>, buf: &mut [u8]) -> Io
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		body.write_u8(setup.setup.do_updates as u8)?;
+		// pack 
+		let force_update_coded = match &setup.setup.force_update_to_happen {
+			None => 0,
+			Some(false) => 1,
+			Some(true) => 2,
+		};
+
+		let packed = force_update_coded << 4
+			| ((setup.setup.disable_action_writeout as u8) << 1)
+			| (setup.setup.do_updates as u8);
+
+		body.write_u8(packed)?;
 		body.write_u8(setup.setup.quantiser_shift)?;
 
 		body.write_u16::<BigEndian>(setup.setup.n_dims)?;

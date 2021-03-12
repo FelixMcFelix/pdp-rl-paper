@@ -97,6 +97,12 @@ struct key_source {
 	union key_source_body body;
 };
 
+enum bhav_force {
+	BHAV_DEFAULT,
+	BHAV_SKIP,
+	BHAV_ALWAYS
+};
+
 struct rl_config {
 	//Need to store info for each active tiling.
 	struct tiling_options tiling_sets[T1_MAX_SETS+T2_MAX_SETS+T3_MAX_SETS];
@@ -141,8 +147,11 @@ struct rl_config {
 	struct key_source reward_key;
 
 	uint8_t do_updates;
+	uint8_t disable_action_writeout;
 
 	uint8_t num_work_items;
+
+	enum bhav_force force_update_to_happen;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...
