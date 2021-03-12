@@ -28,6 +28,14 @@ _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER g
 __declspec(export, emem) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
+// ring head and tail on i25 or emem1
+volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_out_workq[512*1024] = {0};
+_NFP_CHIPRES_ASM(.alloc_resource rl_out_workq_rnum emem0_queues+RL_OUT_RING_NUMBER global 1)
+//_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
+
+__declspec(export, emem) struct rl_pkt_store rl_actions;
+volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t rl_out_state_buffer[RL_DIMENSION_MAX * sizeof(tile_t) * RL_PKT_STORE_COUNT] = {0};
+
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
 __declspec(export, emem) struct worker_ack xd_lmao = {0};
@@ -321,10 +329,13 @@ __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 void state_packet_delegate(
 	__addr40 _declspec(emem) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
+	mem_ring_addr_t r_out_addr,
 	uint16_t dim_count,
 	uint8_t worker_ct
 ) {
-	_declspec(emem) volatile struct value_set vals = {0};
+	__declspec(write_reg) struct rl_answer_item workq_write_register;
+	struct rl_answer_item action_item;
+	__declspec(emem) volatile struct value_set vals = {0};
 	uint32_t seen_hits;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
@@ -332,9 +343,9 @@ void state_packet_delegate(
 	struct worker_ack aggregate = {0};
 	struct work to_do = {0};
 
-	_declspec(emem) volatile tile_t state[RL_DIMENSION_MAX];
+	__declspec(emem) volatile tile_t state[RL_DIMENSION_MAX];
 
-	_declspec(emem) volatile tile_t prefs[MAX_ACTIONS] = {0};
+	__declspec(emem) volatile tile_t prefs[MAX_ACTIONS] = {0};
 
 	uint32_t t0;
 	uint32_t t1;
@@ -361,6 +372,20 @@ void state_packet_delegate(
 	__implicit_write(&atomic_writeback_hit_count);
 	__implicit_write(&atomic_writeback_hits);
 
+	// copy state into writeback here?
+	if (!cfg->disable_action_writeout) {
+		action_item.len = dim_count;
+		action_item.action = chosen_action;
+		action_item.state = (__declspec(emem) __addr40 tile_t *)rl_pkt_get_slot(&rl_actions);
+
+		// do the memecopy
+		ua_memcpy_mem40_mem40(
+			(void*)action_item.state, 0,
+			(void*)pkt->packet_payload, 0,
+			dim_count * sizeof(tile_t)
+		);
+	}
+
 	receive_worker_acks(&aggregate, worker_ct);
 
 	seen_hits = atomic_writeback_hit_count;
@@ -382,7 +407,13 @@ void state_packet_delegate(
 	}
 
 	if (!cfg->disable_action_writeout) {
-		// FIXME: put in the writeout mechanism here!
+		workq_write_register = action_item;
+		mem_workq_add_work(
+			RL_OUT_RING_NUMBER,
+			r_out_addr,
+			&workq_write_register,
+			RL_ANSWER_LEN_ALIGN
+		);
 	}
 
 	// reduce epsilon as required.
@@ -494,6 +525,7 @@ void state_packet_delegate(
 main() {
 	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
+	mem_ring_addr_t r_out_addr;
 	uint32_t total_num_workers = 0;
 	uint8_t has_setup = 0;
 	uint8_t has_tiling = 0;
@@ -510,13 +542,17 @@ main() {
 	if (__ctx() == 0) {
 		// init above huge blocks.
 		// compiler complaining about pointer types. Consider fixing this...
-		init_rl_pkt_store(&rl_pkts, inpkt_buffer);
+		init_rl_pkt_store(&rl_pkts, inpkt_buffer, RL_PKT_MAX_SZ);
 		r_addr = mem_workq_setup(RL_RING_NUMBER, rl_mem_workq, 512 * 1024);
+
+		init_rl_pkt_store(&rl_actions, rl_out_state_buffer, RL_DIMENSION_MAX * sizeof(tile_t));
+		r_out_addr = mem_workq_setup(RL_OUT_RING_NUMBER, rl_out_workq, 512 * 1024);
 
 		// init RNG
 		local_csr_write(local_csr_pseudo_random_number, 0xcafed00d);
 	} else {
 		r_addr = mem_ring_get_addr(rl_mem_workq);
+		r_out_addr = mem_ring_get_addr(rl_out_workq);
 	}
 
 	t1_tiles[0] = __ctx();
@@ -619,9 +655,9 @@ main() {
 			case PIF_PARREP_TYPE_in_state:
 				//state
 				#ifdef _RL_CORE_OLD_POLICY_WORK
-				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
+				state_packet(&cfg, &workq_read_register, r_out_addr, workq_read_register.parsed_fields.state.dim_count);
 				#else
-				state_packet_delegate(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
+				state_packet_delegate(&cfg, &workq_read_register, r_out_addr, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
 				#endif /* _RL_CORE_OLD_POLICY_WORK */
 				break;
 			case PIF_PARREP_TYPE_in_reward:

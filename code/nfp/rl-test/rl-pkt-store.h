@@ -19,7 +19,7 @@ struct rl_pkt_store {
 	__declspec(emem) __addr40 uint8_t *packet_buffer_base;
 };
 
-void init_rl_pkt_store(__addr40 __declspec(emem) struct rl_pkt_store *store, __addr40 __declspec(emem) uint8_t *pkt_base);
+void init_rl_pkt_store(__addr40 __declspec(emem) struct rl_pkt_store *store, __addr40 __declspec(emem) uint8_t *pkt_base, uint32_t byte_ct);
 __declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 struct rl_pkt_store *store);
 void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __declspec(emem) __addr40 uint8_t *slot);
 

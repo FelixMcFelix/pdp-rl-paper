@@ -182,6 +182,15 @@ struct rl_work_item {
 #define RL_WORK_LWS ((sizeof(struct rl_work_item) + 3) >> 2)
 #define RL_WORK_LEN_ALIGN (RL_WORK_LWS << 2)
 
+struct rl_answer_item {
+	uint8_t action;
+	uint8_t len;
+	__declspec(emem) __addr40 tile_t *state;
+};
+
+#define RL_ANSWER_LWS ((sizeof(struct rl_answer_item) + 3) >> 2)
+#define RL_ANSWER_LEN_ALIGN (RL_ANSWER_LWS << 2)
+
 struct policy_install_data {
 	uint32_t tile;
 	uint16_t count;

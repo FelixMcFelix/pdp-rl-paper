@@ -78,7 +78,7 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	);
 	cursor += sizeof(uint16_t);
 
-	cfg->do_updates = word.bytes[0] & & (1 << 0);
+	cfg->do_updates = word.bytes[0] & (1 << 0);
 	cfg->disable_action_writeout = word.bytes[0] & (1 << 1);
 	cfg->force_update_to_happen = word.bytes[0] >> 4;
 	cfg->quantiser_shift = word.bytes[1];
@@ -362,7 +362,15 @@ void policy_block_copy(
 }
 
 #ifdef _RL_CORE_OLD_POLICY_WORK
-void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
+void state_packet(
+	__addr40 _declspec(emem) struct rl_config *cfg,
+	__declspec(xfer_read_reg) struct rl_work_item *pkt,
+	mem_ring_addr_t r_out_addr,
+	uint16_t dim_count
+) {
+	__declspec(write_reg) struct rl_answer_item workq_write_register;
+	struct rl_answer_item action_item;
+
 	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
 	uint16_t tc_count;
 	uint16_t chosen_action;
@@ -437,6 +445,26 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		}
 	}
 
+	if (!cfg->disable_action_writeout) {
+		action_item.len = dim_count;
+		action_item.action = chosen_action;
+		action_item.state = (__declspec(emem) __addr40 tile_t *)rl_pkt_get_slot(&rl_actions);
+
+		// do the memecopy
+		ua_memcpy_mem40_mem40(
+			(void*)action_item.state, 0,
+			(void*)pkt->packet_payload, 0,
+			dim_count * sizeof(tile_t)
+		);
+		workq_write_register = action_item;
+		mem_workq_add_work(
+			RL_OUT_RING_NUMBER,
+			r_out_addr,
+			&workq_write_register,
+			RL_ANSWER_LEN_ALIGN
+		);
+	}
+
 	// reduce epsilon as required.
 	// realisation: can reinduce training without needing policy re-insertion!
 	if (cfg->epsilon > 0) {
@@ -445,10 +473,6 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 			cfg->epsilon_decay_freq_cnt = 0;
 			cfg->epsilon -= cfg->epsilon_decay_amt;
 		}
-	}
-
-	if (!cfg->disable_action_writeout) {
-		// FIXME: put in the writeout mechanism here!
 	}
 
 	if (cfg->do_updates) {
