@@ -28,7 +28,7 @@ struct work_alloc {
 struct action_update {
 	tile_t delta;
 	uint16_t action;
-	__addr40 _declspec(emem) uint32_t *tile_indices;
+	__addr40 _declspec(emem) tile_t *state;
 };
 
 union work_body {

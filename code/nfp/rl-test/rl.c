@@ -412,7 +412,7 @@ void state_packet_delegate(
 			changed_key = 1;
 		}
 
-		updating_on_this_cycle = 1;//(!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
+		updating_on_this_cycle = (!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
 
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
@@ -433,7 +433,7 @@ void state_packet_delegate(
 			to_do.type = WORK_UPDATE_POLICY;
 			to_do.body.update.action = chosen_action;
 			to_do.body.update.delta = adjustment;
-			to_do.body.update.tile_indices = &(state_action_pairs[state_found].tiles[0]);
+			to_do.body.update.state = &(state_action_pairs[state_found].state[0]);
 
 			// currently both versions are impl'd wrong!
 			// should be using the stored tiles, NOT the new ones...
@@ -462,13 +462,11 @@ void state_packet_delegate(
 		state_action_pairs[state_found].val = prefs[chosen_action];
 		state_action_pairs[state_found].len = atomic_writeback_hit_count;
 
-		// place the located tiles into
-		// FIXME: take this from the local writeback!
 		// dst, src, size
 		ua_memcpy_mem40_mem40(
-			&(state_action_pairs[state_found].tiles[0]), 0,
-			(void*)atomic_writeback_hits, 0,
-			seen_hits * sizeof(tile_t)
+			&(state_action_pairs[state_found].state[0]), 0,
+			(void*)pkt->packet_payload, 0,
+			dim_count * sizeof(tile_t)
 		);
 	}
 
@@ -615,7 +613,7 @@ main() {
 				break;
 			case PIF_PARREP_TYPE_in_state:
 				//state
-				#ifdef _RL_WORKER_DISABLED
+				#ifdef _RL_CORE_OLD_POLICY_WORK
 				state_packet(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count);
 				#else
 				state_packet_delegate(&cfg, &workq_read_register, workq_read_register.parsed_fields.state.dim_count, total_num_workers);

@@ -10,6 +10,7 @@
 
 #include "tile.h"
 #include "rl_interface.h"
+#include "worker_config.h"
 
 #define MAX_ACTIONS 10
 #define TILE_SIZE sizeof(tile_t)
@@ -181,7 +182,12 @@ struct state_action_pair {
 	uint16_t action;
 	uint16_t len;
 	tile_t val;
+	
+	#ifdef _RL_CORE_OLD_POLICY_WORK
 	uint32_t tiles[RL_MAX_TILE_HITS];
+	#else
+	tile_t state[RL_DIMENSION_MAX];
+	#endif /* _RL_CORE_OLD_POLICY_WORK */
 };
 
 #endif /* !_RL_H_ */

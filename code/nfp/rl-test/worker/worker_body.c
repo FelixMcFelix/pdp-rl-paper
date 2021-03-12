@@ -366,17 +366,15 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				break;
 			case WORK_STATE_VECTOR:
+				__critical_path(100);
 				// "active_pref_space"
 				//
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
-					uint32_t place_tile_onto = atomic_writeback_slot();
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
 					action_preferences_with_cfg_single(hit_tile, cfg);
-
-					atomic_writeback_hits[place_tile_onto] = hit_tile;
 				}
 
 				should_writeback = 1;
@@ -393,9 +391,11 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 				break;
 			case WORK_UPDATE_POLICY:
+				__critical_path(90);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.update.state, cfg, has_bias, work_idxes[iter]);
 					update_action_preference_with_cfg_single(
-						local_ctx_work.body.update.tile_indices[work_idxes[iter]], 
+						hit_tile, 
 						cfg,
 						local_ctx_work.body.update.action,
 						local_ctx_work.body.update.delta

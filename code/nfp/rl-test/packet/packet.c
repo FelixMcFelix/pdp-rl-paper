@@ -359,6 +359,7 @@ void policy_block_copy(
 	}
 }
 
+#ifdef _RL_CORE_OLD_POLICY_WORK
 void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt, uint16_t dim_count) {
 	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
 	uint16_t tc_count;
@@ -510,6 +511,7 @@ void state_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		global_prefs[i] = prefs[i];
 	}
 }
+#endif /* _RL_CORE_OLD_POLICY_WORK */
 
 void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
 	// Switch on self->reward_key
