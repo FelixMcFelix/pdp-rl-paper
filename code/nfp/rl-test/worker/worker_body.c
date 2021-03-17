@@ -332,6 +332,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				true_worker_ct = local_ctx_work.body.worker_count;
 				worker_ct = true_worker_ct;
 
+				// worker_ct = local_ctx_work.body.worker_count;
+
 				#ifndef NO_FORWARD
 				my_id = base_worker_ct + __ctx();
 
@@ -353,23 +355,27 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				should_writeback = 1;
 
-				// spill.
-				scratch = cfg->num_work_items % worker_ct;
-
-				my_work_alloc_size = (cfg->num_work_items / worker_ct);
-				allocs_with_spill = scratch;
-				if (my_id < scratch) {
-					my_work_alloc_size += 1;
-				}
-
-				has_bias = cfg->tiling_sets[0].num_dims == 0;
-
 				if (cfg->worker_limit == 0) {
 					worker_ct = true_worker_ct;
 				} else {
 					worker_ct = (cfg->worker_limit < true_worker_ct)
 						? cfg->worker_limit
 						: true_worker_ct;
+				}
+
+				if (my_id >= worker_ct) {
+					my_work_alloc_size = 0;
+				} else {
+					// spill.
+					scratch = cfg->num_work_items % worker_ct;
+
+					my_work_alloc_size = (cfg->num_work_items / worker_ct);
+					allocs_with_spill = scratch;
+					if (my_id < scratch) {
+						my_work_alloc_size += 1;
+					}
+
+					has_bias = cfg->tiling_sets[0].num_dims == 0;
 				}
 
 				break;
@@ -379,9 +385,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
-				if (my_id >= worker_ct) {
-					continue;
-				}
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
@@ -391,9 +394,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 				break;
 			case WORK_ALLOCATE:
-				if (my_id >= worker_ct) {
-					continue;
-				}
 				compute_my_work_alloc(
 					my_id,
 					allocs_with_spill,
@@ -406,9 +406,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				break;
 			case WORK_UPDATE_POLICY:
 				__critical_path(90);
-				if (my_id >= worker_ct) {
-					continue;
-				}
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.update.state, cfg, has_bias, work_idxes[iter]);
 					update_action_preference_with_cfg_single(
