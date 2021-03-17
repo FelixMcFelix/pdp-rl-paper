@@ -152,6 +152,8 @@ struct rl_config {
 	uint8_t num_work_items;
 
 	enum bhav_force force_update_to_happen;
+
+	uint16_t worker_limit;
 };
 
 // FIXME: absolute guess, need to import the right headers to compute this on both app islands...

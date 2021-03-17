@@ -37,6 +37,8 @@ pub struct Setup<T: Tile> {
 	// serialize me as a u4!
 	pub disable_action_writeout: bool,
 
+	pub limit_workers: Option<u16>,
+
 	pub n_dims: u16,
 
 	pub tiles_per_dim: u16,
@@ -72,6 +74,7 @@ impl<T: Tile> Default for Setup<T> {
 			quantiser_shift: 8,
 			force_update_to_happen: None,
 			disable_action_writeout: false,
+			limit_workers: None,
 			do_updates: true,
 			n_dims: 0,
 			tiles_per_dim: 1,

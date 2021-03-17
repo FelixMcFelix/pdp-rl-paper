@@ -144,6 +144,8 @@ pub fn build_setup_packet<T: Tile>(setup: &SetupConfig<T>, buf: &mut [u8]) -> Io
 		body.write_u8(packed)?;
 		body.write_u8(setup.setup.quantiser_shift)?;
 
+		body.write_u16::<BigEndian>(setup.setup.limit_workers.unwrap_or(0))?;
+
 		body.write_u16::<BigEndian>(setup.setup.n_dims)?;
 		body.write_u16::<BigEndian>(setup.setup.tiles_per_dim)?;
 		body.write_u16::<BigEndian>(setup.setup.tilings_per_set)?;

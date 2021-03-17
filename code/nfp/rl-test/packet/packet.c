@@ -76,12 +76,14 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		pkt->packet_payload,
 		sizeof(union two_u16s)
 	);
-	cursor += sizeof(uint16_t);
+	cursor += sizeof(union two_u16s);
 
 	cfg->do_updates = word.bytes[0] & (1 << 0);
 	cfg->disable_action_writeout = word.bytes[0] & (1 << 1);
 	cfg->force_update_to_happen = word.bytes[0] >> 4;
 	cfg->quantiser_shift = word.bytes[1];
+
+	cfg->worker_limit = word.ints[1];
 
 	mem_read64(
 		&(bigword.raw),

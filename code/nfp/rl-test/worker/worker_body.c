@@ -237,6 +237,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 	uint8_t active_pref_space = 0;
 
+	uint32_t true_worker_ct = 0;
 	uint32_t worker_ct = 0;
 	uint32_t base_worker_ct = 0;
 
@@ -328,7 +329,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				}
 				break;
 			case WORK_SET_WORKER_COUNT:
-				worker_ct = local_ctx_work.body.worker_count;
+				true_worker_ct = local_ctx_work.body.worker_count;
+				worker_ct = true_worker_ct;
 
 				#ifndef NO_FORWARD
 				my_id = base_worker_ct + __ctx();
@@ -362,6 +364,14 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 				has_bias = cfg->tiling_sets[0].num_dims == 0;
 
+				if (cfg->worker_limit == 0) {
+					worker_ct = true_worker_ct;
+				} else {
+					worker_ct = (cfg->worker_limit < true_worker_ct)
+						? cfg->worker_limit
+						: true_worker_ct;
+				}
+
 				break;
 			case WORK_STATE_VECTOR:
 				__critical_path(100);
@@ -369,6 +379,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
+				if (my_id >= worker_ct) {
+					continue;
+				}
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
@@ -378,6 +391,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				should_writeback = 1;
 				break;
 			case WORK_ALLOCATE:
+				if (my_id >= worker_ct) {
+					continue;
+				}
 				compute_my_work_alloc(
 					my_id,
 					allocs_with_spill,
@@ -390,6 +406,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				break;
 			case WORK_UPDATE_POLICY:
 				__critical_path(90);
+				if (my_id >= worker_ct) {
+					continue;
+				}
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.update.state, cfg, has_bias, work_idxes[iter]);
 					update_action_preference_with_cfg_single(
