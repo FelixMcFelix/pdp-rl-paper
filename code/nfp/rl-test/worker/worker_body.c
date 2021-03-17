@@ -233,10 +233,8 @@ __intrinsic void compute_my_work_alloc(
 __declspec(shared imem) uint64_t iter_ct = 0;
 
 void work(uint8_t is_master, unsigned int parent_sig) {
-
 	__addr40 _declspec(emem) struct rl_config *cfg;
 
-	__declspec(emem) volatile struct value_set local_prefs[WORKER_LOCAL_PREF_SLOTS] = {0};
 	uint8_t active_pref_space = 0;
 
 	uint32_t worker_ct = 0;
