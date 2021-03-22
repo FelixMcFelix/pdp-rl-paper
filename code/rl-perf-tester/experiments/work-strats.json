@@ -1,0 +1,22 @@
+{
+	"bit_depths": ["8", "16", "32"],
+	"core_count": {
+		"Fixed": 31
+	},
+	"policy_dims": {
+		"Fixed": 28
+	},
+	"sample_count": 1000,
+	"elements_to_time": [
+		"Compute",
+		"ComputeAndWriteout",
+		"UpdateOnlyPrep",
+		"UpdateAll"
+	],
+	"fw_names": [
+		{"To": ["multi.chunk", "chunk"]},
+		{"To": ["multi.chunk_rand", "randomised"]},
+		{"To": ["multi.stride", "stride"]},
+		{"To": ["multi.stride_off", "offset_stride"]}
+	]
+}
