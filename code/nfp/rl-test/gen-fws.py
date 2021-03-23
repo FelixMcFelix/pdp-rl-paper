@@ -7,6 +7,7 @@ wc_header_file_to_write = "worker_config_marker.h"
 tile_header_file_to_write = "tile_marker.h"
 build_bat = "rl-test_rebuild.bat"
 fw_to_copy = "rl-test.nffw"
+design_to_copy = "out/pif_design.json"
 
 cwd = os.getcwd()
 
@@ -246,11 +247,11 @@ def gen_tag_sets():
 			tags = [bitname, "{}thread".format(threading)]
 			if use_work_alloc:
 				for scheme in work_alloc_schemes:
-					name = "{}/{}.{}.nffw".format(bitname, threading, scheme)
+					name = "{}/{}.{}".format(bitname, threading, scheme)
 					new_tags = tags + [scheme]
 					out.append((name, set(new_tags)))
 			else:
-				name = "{}/{}.nffw".format(bitname, threading)
+				name = "{}/{}".format(bitname, threading)
 				out.append((name, set(tags)))
 	return out
 
@@ -293,12 +294,13 @@ def main():
 		subprocess.run([build_bat])
 		subprocess.run(nffw_ld_cmd)
 
-		final_out_path = fw_path_base + name
+		final_out_path = fw_path_base + name + ".nffw"
 		(head, tail) = os.path.split(final_out_path)
 		os.makedirs(head, exist_ok=True)
 		shutil.copy(fw_to_copy, final_out_path)
 
-		pass
+		final_out_path = fw_path_base + name + ".json"
+		shutil.copy(design_to_copy, final_out_path)
 
 if __name__ == "__main__":
 	main()
