@@ -13,10 +13,10 @@
 		"UpdateOnlyPrep",
 		"UpdateAll"
 	],
-	"fw_names": [
-		{"To": ["multi.chunk", "chunk"]},
-		{"To": ["multi.chunk_rand", "randomised"]},
-		{"To": ["multi.stride", "stride"]},
-		{"To": ["multi.stride_off", "offset_stride"]}
+	"fws": [
+		"Chunk",
+		"Randomised",
+		"Stride",
+		"OffsetStride"
 	]
 }

@@ -1,9 +1,10 @@
 use super::*;
-use control::{GlobalConfig, TransportConfig};
+use control::TransportConfig;
 
 pub struct Config<'a> {
-	pub control_cfg: &'a mut GlobalConfig,
-	pub transport_cfg: &'a mut TransportConfig,
+	pub transport_cfg: TransportConfig,
 	pub experiment: Experiment,
 	pub name: &'a str,
+	pub rtecli_path: &'a str,
+	pub rtsym_path: &'a str,
 }

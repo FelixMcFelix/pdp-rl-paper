@@ -3,7 +3,7 @@ use std::{io::Write, mem};
 
 // pub type Tile = i32;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TilingSet {
 	pub tilings: Vec<Tiling>,
 }
@@ -16,6 +16,24 @@ pub trait Tile {
 	fn from_float(val: f32) -> Self;
 	fn from_int(val: i32) -> Self;
 	fn size_of() -> usize;
+
+	fn from_float_with_quantiser(val: f32, quantiser: u8) -> Self
+		where Self: Sized
+	{
+		Tile::from_float(val * ((1 << quantiser) as f32))
+	}
+
+	fn to_float_with_quantiser(&self, quantiser: u8) -> f32
+		where Self: Sized
+	{
+		self.float() / ((1 << quantiser) as f32)
+	}
+
+	fn smallest_unit_float(quantiser: u8) -> f32
+		where Self: Sized
+	{
+		Self::from_int(1).to_float_with_quantiser(quantiser)
+	}
 }
 
 impl Tile for i8 {
@@ -139,7 +157,7 @@ impl TilingSet {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tiling {
 	pub dims: Vec<u16>,
 	pub location: Option<u8>,

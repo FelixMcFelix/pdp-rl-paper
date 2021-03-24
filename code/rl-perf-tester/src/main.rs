@@ -1,8 +1,6 @@
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, SubCommand};
 use control::{GlobalConfig, TransportConfig};
-use core::fmt::Debug;
-use rl_perf_tester::Config;
-use serde::{de::DeserializeOwned, Serialize};
+use rl_perf_tester::{Config, ExperimentFile, RTE_PATH, RTSYM_PATH};
 use std::{fs::File, io::BufReader, net::IpAddr};
 
 fn main() {
@@ -22,17 +20,22 @@ fn main() {
 				.takes_value(true),
 		)
 		.arg(
-			Arg::with_name("datatype")
-				.short("q")
-				.long("datatype")
-				.value_name("TYPE")
-				.help(
-					"Datatype to fit quantised policy values into.\
-				Can be `i8`, `i16`, or `i32.\
-				Must match the compile-time width of the target switch.",
-				)
+			Arg::with_name("rtecli-path")
+				.short("c")
+				.long("rtecli-path")
+				.value_name("PATH")
+				.help("Path to the executable `rtecli`.")
 				.takes_value(true)
-				.default_value("i32"),
+				.default_value(RTE_PATH),
+		)
+		.arg(
+			Arg::with_name("rtsym-path")
+				.short("r")
+				.long("rtsym-path")
+				.value_name("PATH")
+				.help("Path to the executable `nfp-rtsym`.")
+				.takes_value(true)
+				.default_value(RTSYM_PATH),
 		)
 		.subcommand(SubCommand::with_name("list").about("List all bindable interfaces."))
 		.subcommand(SubCommand::with_name("expts").about("List all experiment names for `run`."))
@@ -136,17 +139,25 @@ fn main() {
 
 			let setup_file = File::open(&name).expect("Setup file could not be opened.");
 
-			let experiment = serde_json::from_reader(BufReader::new(setup_file))
-				.expect("Invalid experiment config file!");
+			let experiment_file: ExperimentFile =
+				serde_json::from_reader(BufReader::new(setup_file))
+					.expect("Invalid experiment config file!");
+
+			let experiment = experiment_file.into();
 
 			let mut cfg = Config {
-				control_cfg: &mut g_cfg,
-				transport_cfg: &mut t_cfg,
+				transport_cfg: t_cfg,
 				experiment,
 				name: &name,
+				rtecli_path: matches
+					.value_of("rtecli-path")
+					.expect("Always has a value by default."),
+				rtsym_path: matches
+					.value_of("rtsym-path")
+					.expect("Always has a value by default."),
 			};
 
-			rl_perf_tester::run_experiment(&mut cfg);
+			rl_perf_tester::run_experiment(&mut cfg, &mut g_cfg);
 		},
 		_ => {
 			println!("{}", matches.usage());

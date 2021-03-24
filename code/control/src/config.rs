@@ -28,6 +28,7 @@ impl GlobalConfig {
 	}
 }
 
+#[derive(Copy, Clone)]
 pub struct TransportConfig {
 	pub src_addr: SocketAddrV4,
 	pub dst_addr: SocketAddrV4,
