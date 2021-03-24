@@ -185,6 +185,7 @@ __intrinsic void compute_my_work_alloc(
 	uint16_t *work_idxes
 ) {
 	uint8_t iter = 0;
+	uint8_t offset = 0;
 	uint32_t scratch = 0;
 	switch (local_ctx_work.body.alloc.strat) {
 		case ALLOC_CHUNK:
@@ -204,22 +205,14 @@ __intrinsic void compute_my_work_alloc(
 			}
 			break;
 		case ALLOC_STRIDE_OFFSET:
-			// might have *some* saturation...
-			// think about revisiting me, or finding a proof/counterexample.
-			scratch = my_id % (num_work_items / worker_ct);
+			offset = my_id;
 		case ALLOC_STRIDE:
 			// scratch is the number to add to alloc.
-			iter = 0;
-			scratch *= worker_ct;
-			scratch += my_id;
+			scratch = my_id;
 
 			// equal to (id + i * worker_cnt), using own id as an offset into this sequence.
 			while (iter < my_work_alloc_size) {
-				if (scratch > num_work_items) {
-					scratch = my_id;
-				}
-
-				work_idxes[iter] = local_ctx_work.body.alloc.work_indices[scratch];
+				work_idxes[(iter + offset) % my_work_alloc_size] = local_ctx_work.body.alloc.work_indices[scratch];
 
 				scratch += worker_ct;
 
