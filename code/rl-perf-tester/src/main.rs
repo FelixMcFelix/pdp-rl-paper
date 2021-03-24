@@ -1,7 +1,7 @@
 use clap::{App, Arg, SubCommand};
-use control::{GlobalConfig, TransportConfig};
+use control::TransportConfig;
 use rl_perf_tester::{Config, ExperimentFile, RTE_PATH, RTSYM_PATH};
-use std::{fs::File, io::BufReader, net::IpAddr};
+use std::{fs::File, io::BufReader};
 
 fn main() {
 	let matches = App::new("PDP RL Core Execution Performance Evaluator")
@@ -93,23 +93,17 @@ fn main() {
 			rl_perf_tester::list();
 		},
 		("run", Some(sub_m)) => {
-			let mut g_cfg = GlobalConfig::new(matches.value_of("interface"));
+			let if_name = matches.value_of("interface")
+				.expect("Interface name is always set: you MUST know what it will be after fw installation.");
 			let mut t_cfg: TransportConfig = Default::default();
 
-			if let Some(ip) = sub_m.value_of("src-ip") {
-				t_cfg
-					.src_addr
-					.set_ip(ip.parse().expect("Invalid source IpV4Addr."));
-			} else {
-				let ip = (&g_cfg.iface.ips)
-					.iter()
-					.filter_map(|ip_n| match ip_n.ip() {
-						IpAddr::V4(i) => Some(i),
-						_ => None,
-					})
-					.next()
-					.expect("Interface did not have a default IPv4 address to bind to.");
-			}
+			t_cfg.src_addr.set_ip(
+				sub_m
+					.value_of("src-ip")
+					.expect("Assign a source IP: the test framework will not assign routing info.")
+					.parse()
+					.expect("Invalid source IpV4Addr."),
+			);
 
 			if let Some(port) = sub_m.value_of("src-port") {
 				t_cfg
@@ -155,7 +149,7 @@ fn main() {
 					.expect("Always has a value by default."),
 			};
 
-			rl_perf_tester::run_experiment(&mut cfg, &mut g_cfg);
+			rl_perf_tester::run_experiment(&mut cfg, if_name);
 		},
 		_ => {
 			println!("{}", matches.usage());

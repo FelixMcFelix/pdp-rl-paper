@@ -20,7 +20,7 @@ pub fn list() {
 	}
 }
 
-pub fn run_experiment(config: &Config, global: &mut GlobalConfig) {
+pub fn run_experiment(config: &Config, if_name: &str) {
 	let fws = config
 		.experiment
 		.bit_depths
@@ -52,12 +52,16 @@ pub fn run_experiment(config: &Config, global: &mut GlobalConfig) {
 			.output()
 			.expect("Failed to install firmware.");
 
+		// NOTE: we must do this here because firmware installation
+		// destroys and recreates the sending channel/virtual interfaces.
+		let mut global = GlobalConfig::new(Some(if_name));
+
 		(match bit_depth.as_str() {
 			"8" => run_experiment_with_datatype::<i8>,
 			"16" => run_experiment_with_datatype::<i16>,
 			"32" => run_experiment_with_datatype::<i32>,
 			_ => panic!("Invalid bit depth datatype: must be 8, 16, or 32."),
-		})(config, global, &bit_depth, &fw);
+		})(config, &mut global, &bit_depth, &fw);
 	}
 }
 
