@@ -1,4 +1,8 @@
 use control::{KeySource, Setup, Tile, Tiling, TilingSet};
+use rand::{
+	Rng,
+	RngCore,
+};
 use serde::{Deserialize, Serialize};
 use std::{
 	convert::TryInto,
@@ -346,4 +350,18 @@ pub fn prime_setup_with_timings<T: Tile>(setup: &mut Setup<T>, timed_el: &TimeBr
 			setup.force_update_to_happen = Some(true);
 		},
 	}
+}
+
+pub fn generate_state<T: Tile>(setup: &Setup<T>, rng: &mut impl RngCore) -> Vec<T> {
+	let mut out = Vec::new();
+
+	for i in 0..setup.n_dims as usize {
+		let min = setup.mins[i].wideint();
+		let max = setup.maxes[i].wideint();
+		let sample = rng.gen_range(min..=max);
+
+		out.push(T::from_int(sample))
+	}
+
+	out
 }

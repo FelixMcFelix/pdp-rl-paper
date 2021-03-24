@@ -27,7 +27,7 @@ where
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Setup<T: Tile> {
 	pub quantiser_shift: u8,
 
@@ -112,7 +112,7 @@ impl<T: Tile> Setup<T> {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum KeySource<T: Tile> {
 	Shared,
 	Field(i32),

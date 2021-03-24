@@ -7,6 +7,8 @@ pub use self::{config::*, constants::*, experiment::*};
 use control::{GlobalConfig, SendStateConfig, Setup, SetupConfig, Tile, TilingsConfig};
 use core::fmt::Debug;
 use itertools::Itertools;
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fs::File, io::Write, process::Command};
 
@@ -39,35 +41,18 @@ pub fn run_experiment(config: &Config, if_name: &str) {
 			},
 		}
 
-		Command::new(config.rtecli_path)
-			.args(&[
-				"design-load",
-				"-f",
-				&format!("{}/{}bit/{}.nffw", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
-				"-p",
-				&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
-				"-c",
-				P4CFG_PATH,
-			])
-			.output()
-			.expect("Failed to install firmware.");
-
-		// NOTE: we must do this here because firmware installation
-		// destroys and recreates the sending channel/virtual interfaces.
-		let mut global = GlobalConfig::new(Some(if_name));
-
 		(match bit_depth.as_str() {
 			"8" => run_experiment_with_datatype::<i8>,
 			"16" => run_experiment_with_datatype::<i16>,
 			"32" => run_experiment_with_datatype::<i32>,
 			_ => panic!("Invalid bit depth datatype: must be 8, 16, or 32."),
-		})(config, &mut global, &bit_depth, &fw);
+		})(config, if_name, &bit_depth, &fw);
 	}
 }
 
 fn run_experiment_with_datatype<T>(
 	config: &Config,
-	global: &mut GlobalConfig,
+	if_name: &str,
 	bit_depth: &str,
 	fw: &Firmware,
 ) where
@@ -83,7 +68,32 @@ fn run_experiment_with_datatype<T>(
 		.cartesian_product(config.experiment.elements_to_time.iter());
 
 	for ((dim_count, core_count), timed_el) in cfg_params {
+		let mut rng = ChaChaRng::seed_from_u64(0xcafe_f00d_dead_beef);
+
 		eprintln!("\t{:?} {:?} {:?}", dim_count, core_count, timed_el);
+
+		// NOTE: I do this here to try and mitigate any randomness between sets foe now.
+		// And/or strange bugs that lead to permanent early exit.
+		eprint!("\tInstalling firmware... ");
+		std::io::stderr().flush().unwrap();
+		Command::new(config.rtecli_path)
+			.args(&[
+				"design-load",
+				"-f",
+				&format!("{}/{}bit/{}.nffw", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
+				"-p",
+				&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
+				"-c",
+				P4CFG_PATH,
+			])
+			.output()
+			.expect("Failed to install firmware.");
+		eprintln!("Installed!");
+
+		// NOTE: we must do this here because firmware installation
+		// destroys and recreates the sending channel/virtual interfaces.
+		let mut global_base = GlobalConfig::new(Some(if_name));
+		let global = &mut global_base;
 
 		let transport = config.transport_cfg;
 
@@ -96,13 +106,13 @@ fn run_experiment_with_datatype<T>(
 		prime_setup_with_timings(&mut setup, timed_el);
 		setup.limit_workers = Some(core_count as u16);
 
-		let dims = setup.n_dims.into();
-
-		control::setup::<T>(&mut SetupConfig {
+		let mut setup_cfg = SetupConfig {
 			global,
 			transport,
-			setup,
-		});
+			setup: setup.clone(),
+		};
+
+		control::setup::<T>(&mut setup_cfg);
 		control::tilings(&mut TilingsConfig {
 			global,
 			tiling: tiling.clone(),
@@ -115,7 +125,7 @@ fn run_experiment_with_datatype<T>(
 		for i in 0..config.experiment.sample_count {
 			if i % 100 == 0 {
 				eprint!("{}.. ", i);
-				std::io::stdout().flush().unwrap();
+				std::io::stderr().flush().unwrap();
 			}
 			if i > 0 && fw.resend_tiling() {
 				control::tilings(&mut TilingsConfig {
@@ -127,7 +137,8 @@ fn run_experiment_with_datatype<T>(
 
 			control::send_state::<T>(
 				&mut SendStateConfig { global, transport },
-				vec![T::from_int(0); dims],
+				// vec![T::from_int(0); dims],
+				generate_state(&setup, &mut rng),
 			);
 
 			// measure and parse output of cycle-estimate.
