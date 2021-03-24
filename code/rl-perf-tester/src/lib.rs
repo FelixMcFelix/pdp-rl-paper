@@ -133,6 +133,8 @@ fn run_experiment_with_datatype<T>(
 
 			let mut cycle_ct = 0u64;
 
+			eprintln!("{:?}", std::str::from_utf8(&mem_text.stdout[..]));
+
 			let chunks = std::str::from_utf8(&mem_text.stdout[..])
 				.expect("RTSym output not valid UTF-8.")
 				.split_whitespace()
@@ -174,7 +176,8 @@ fn run_experiment_with_datatype<T>(
 				.expect("Write of individual value failed.");
 		}
 
-		out_file.flush()
+		out_file
+			.flush()
 			.expect("Failed to flush file contents to disk.");
 
 		eprintln!("\t\tWritten!");

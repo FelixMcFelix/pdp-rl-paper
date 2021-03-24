@@ -13,11 +13,9 @@ fn main() {
 				.short("i")
 				.long("interface")
 				.value_name("IFACE")
-				.help(
-					"Interface to send packets over.\
-				If none is named, the first available interface will be used.",
-				)
-				.takes_value(true),
+				.help("Interface to send packets over.")
+				.takes_value(true)
+				.default_value("vf0_0"),
 		)
 		.arg(
 			Arg::with_name("rtecli-path")
