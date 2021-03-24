@@ -14,9 +14,9 @@ pub fn list() {
 	match std::fs::read_dir(EXPERIMENT_DIR) {
 		Ok(iter) =>
 			for entry in iter.flatten() {
-				println!("{}", entry.path().file_stem().unwrap().to_str().unwrap());
+				eprintln!("{}", entry.path().file_stem().unwrap().to_str().unwrap());
 			},
-		Err(e) => println!("Failed to iterate over experiments: {:?}", e),
+		Err(e) => eprintln!("Failed to iterate over experiments: {:?}", e),
 	}
 }
 
@@ -29,12 +29,12 @@ pub fn run_experiment(config: &Config, global: &mut GlobalConfig) {
 		.cartesian_product(config.experiment.fws.iter().cloned());
 
 	for (bit_depth, fw) in fws {
-		println!("{:?} {:?}", bit_depth, fw.output_name());
+		eprintln!("{:?} {:?}", bit_depth, fw.output_name());
 
 		match bit_depth.as_str() {
 			"8" | "16" | "32" => {},
 			_ => {
-				println!("INVALID BIT DEPTH: {}", bit_depth);
+				eprintln!("INVALID BIT DEPTH: {}", bit_depth);
 				continue;
 			},
 		}
@@ -79,7 +79,7 @@ fn run_experiment_with_datatype<T>(
 		.cartesian_product(config.experiment.elements_to_time.iter());
 
 	for ((dim_count, core_count), timed_el) in cfg_params {
-		println!("\t{:?} {:?} {:?}", dim_count, core_count, timed_el);
+		eprintln!("\t{:?} {:?} {:?}", dim_count, core_count, timed_el);
 
 		let transport = config.transport_cfg;
 
@@ -109,7 +109,8 @@ fn run_experiment_with_datatype<T>(
 
 		for i in 0..config.experiment.sample_count {
 			if i % 100 == 0 {
-				print!("{}.. ", i);
+				eprint!("{}.. ", i);
+				std::io::stdout().flush().unwrap();
 			}
 			if i > 0 && fw.resend_tiling() {
 				control::tilings(&mut TilingsConfig {
@@ -148,7 +149,7 @@ fn run_experiment_with_datatype<T>(
 			samples.push(cycle_ct * 16);
 		}
 
-		println!("Done!");
+		eprintln!("\t\tDone!");
 
 		let out_dir = format!("{}/{}/{}/", OUTPUT_DIR, config.name, bit_depth,);
 
@@ -176,6 +177,6 @@ fn run_experiment_with_datatype<T>(
 		out_file.flush()
 			.expect("Failed to flush file contents to disk.");
 
-		println!("Written!");
+		eprintln!("\t\tWritten!");
 	}
 }

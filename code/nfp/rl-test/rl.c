@@ -659,6 +659,18 @@ main() {
 				#else
 				state_packet_delegate(&cfg, &workq_read_register, r_out_addr, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
 				#endif /* _RL_CORE_OLD_POLICY_WORK */
+
+				// TEMP: this is here to handle actions put on the line.
+				if (!cfg.disable_action_writeout) {
+					__declspec(read_reg) struct rl_answer_item workq_dump;
+					mem_workq_add_thread(
+						RL_OUT_RING_NUMBER,
+						r_out_addr,
+						&workq_dump,
+						RL_ANSWER_LEN_ALIGN
+					);
+					rl_pkt_return_slot(&rl_actions, workq_dump.state);
+				}
 				break;
 			case PIF_PARREP_TYPE_in_reward:
 				pt._pad = workq_read_register.parsed_fields.reward.measured_value;
