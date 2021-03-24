@@ -1,8 +1,5 @@
 use control::{KeySource, Setup, Tile, Tiling, TilingSet};
-use rand::{
-	Rng,
-	RngCore,
-};
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{
 	convert::TryInto,
@@ -363,7 +360,6 @@ pub fn generate_state<T: Tile + Clone>(setup: &Setup<T>, rng: &mut impl RngCore)
 		out.push(T::from_int(sample))
 	}
 
-
 	out
-    //vec![T::from_int(0); setup.n_dims as usize]
+	//vec![T::from_int(0); setup.n_dims as usize]
 }

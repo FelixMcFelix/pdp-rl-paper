@@ -80,6 +80,7 @@ fn main() {
 					Arg::with_name("NAME")
 						.help("Experiment name")
 						.takes_value(true)
+						.min_values(1)
 						.required(true),
 				),
 		)
@@ -123,30 +124,36 @@ fn main() {
 					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
-			let raw_name = sub_m.value_of("NAME").unwrap();
-			let name = format!("{}/{}.json", rl_perf_tester::EXPERIMENT_DIR, raw_name);
+			if let Some(names) = sub_m.values_of("NAME") {
+				for raw_name in names {
+					let name = format!("{}/{}.json", rl_perf_tester::EXPERIMENT_DIR, raw_name);
 
-			let setup_file = File::open(&name).expect("Setup file could not be opened.");
+					let setup_file = File::open(&name).expect("Setup file could not be opened.");
 
-			let experiment_file: ExperimentFile =
-				serde_json::from_reader(BufReader::new(setup_file))
-					.expect("Invalid experiment config file!");
+					let experiment_file: ExperimentFile =
+						serde_json::from_reader(BufReader::new(setup_file))
+							.expect("Invalid experiment config file!");
 
-			let experiment = experiment_file.into();
+					let experiment = experiment_file.into();
 
-			let mut cfg = Config {
-				transport_cfg: t_cfg,
-				experiment,
-				name: &raw_name,
-				rtecli_path: matches
-					.value_of("rtecli-path")
-					.expect("Always has a value by default."),
-				rtsym_path: matches
-					.value_of("rtsym-path")
-					.expect("Always has a value by default."),
-			};
+					let mut cfg = Config {
+						transport_cfg: t_cfg,
+						experiment,
+						name: &raw_name,
+						rtecli_path: matches
+							.value_of("rtecli-path")
+							.expect("Always has a value by default."),
+						rtsym_path: matches
+							.value_of("rtsym-path")
+							.expect("Always has a value by default."),
+					};
 
-			rl_perf_tester::run_experiment(&mut cfg, if_name);
+					rl_perf_tester::run_experiment(&mut cfg, if_name);
+				}
+			} else {
+				println!("No experiment names given.");
+				println!("{}", matches.usage());
+			}
 		},
 		_ => {
 			println!("{}", matches.usage());

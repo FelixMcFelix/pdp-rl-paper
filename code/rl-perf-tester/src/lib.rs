@@ -50,12 +50,8 @@ pub fn run_experiment(config: &Config, if_name: &str) {
 	}
 }
 
-fn run_experiment_with_datatype<T>(
-	config: &Config,
-	if_name: &str,
-	bit_depth: &str,
-	fw: &Firmware,
-) where
+fn run_experiment_with_datatype<T>(config: &Config, if_name: &str, bit_depth: &str, fw: &Firmware)
+where
 	T: Tile + DeserializeOwned + Serialize + Debug + Default + Clone,
 {
 	let cfg_params = config
@@ -178,7 +174,7 @@ fn run_experiment_with_datatype<T>(
 			core_count,
 			timed_el,
 		);
-        eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
+		eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
 
 		let _ = std::fs::create_dir_all(&out_dir);
 
