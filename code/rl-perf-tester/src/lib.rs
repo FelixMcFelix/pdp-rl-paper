@@ -111,6 +111,7 @@ fn run_experiment_with_datatype<T>(
 
 		let mut samples = Vec::with_capacity(config.experiment.sample_count as usize);
 
+		eprint!("\t\t");
 		for i in 0..config.experiment.sample_count {
 			if i % 100 == 0 {
 				eprint!("{}.. ", i);
@@ -137,8 +138,6 @@ fn run_experiment_with_datatype<T>(
 
 			let mut cycle_ct = 0u64;
 
-			eprintln!("{:?}", std::str::from_utf8(&mem_text.stdout[..]));
-
 			let chunks = std::str::from_utf8(&mem_text.stdout[..])
 				.expect("RTSym output not valid UTF-8.")
 				.split_whitespace()
@@ -154,6 +153,7 @@ fn run_experiment_with_datatype<T>(
 
 			samples.push(cycle_ct * 16);
 		}
+		eprint!("\n");
 
 		eprintln!("\t\tDone!");
 
@@ -167,6 +167,7 @@ fn run_experiment_with_datatype<T>(
 			core_count,
 			timed_el,
 		);
+        eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
 
 		let _ = std::fs::create_dir_all(&out_dir);
 

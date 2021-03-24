@@ -123,11 +123,8 @@ fn main() {
 					.set_port(port.parse().expect("Invalid destination port (u16)."));
 			}
 
-			let name = format!(
-				"{}/{}.json",
-				rl_perf_tester::EXPERIMENT_DIR,
-				sub_m.value_of("NAME").unwrap(),
-			);
+			let raw_name = sub_m.value_of("NAME").unwrap();
+			let name = format!("{}/{}.json", rl_perf_tester::EXPERIMENT_DIR, raw_name);
 
 			let setup_file = File::open(&name).expect("Setup file could not be opened.");
 
@@ -140,7 +137,7 @@ fn main() {
 			let mut cfg = Config {
 				transport_cfg: t_cfg,
 				experiment,
-				name: &name,
+				name: &raw_name,
 				rtecli_path: matches
 					.value_of("rtecli-path")
 					.expect("Always has a value by default."),
