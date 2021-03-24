@@ -123,7 +123,7 @@ where
 			.quantise(quantiser_shift);
 
 		let mut maxes = val.maxes.unwrap_or_else(|| vec![10.0; n_dims.into()]);
-		let mut mins = val.mins.unwrap_or_else(|| vec![10.0; n_dims.into()]);
+		let mut mins = val.mins.unwrap_or_else(|| vec![-10.0; n_dims.into()]);
 
 		maxes.resize(n_dims.into(), maxes.last().cloned().unwrap_or(10.0));
 		mins.resize(n_dims.into(), mins.last().cloned().unwrap_or(-10.0));
@@ -352,7 +352,7 @@ pub fn prime_setup_with_timings<T: Tile>(setup: &mut Setup<T>, timed_el: &TimeBr
 	}
 }
 
-pub fn generate_state<T: Tile>(setup: &Setup<T>, rng: &mut impl RngCore) -> Vec<T> {
+pub fn generate_state<T: Tile + Clone>(setup: &Setup<T>, rng: &mut impl RngCore) -> Vec<T> {
 	let mut out = Vec::new();
 
 	for i in 0..setup.n_dims as usize {
@@ -363,5 +363,7 @@ pub fn generate_state<T: Tile>(setup: &Setup<T>, rng: &mut impl RngCore) -> Vec<
 		out.push(T::from_int(sample))
 	}
 
+
 	out
+    //vec![T::from_int(0); setup.n_dims as usize]
 }
