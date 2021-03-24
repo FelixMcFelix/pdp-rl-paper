@@ -192,6 +192,8 @@ impl From<Experiment> for ExperimentFile {
 pub enum ExperimentRange {
 	Fixed(u64),
 	List(Vec<u64>),
+	Range(u64, u64),
+	RangeStride(u64, u64, u64),
 }
 
 #[derive(Clone, Debug)]
@@ -207,6 +209,8 @@ impl Iterator for ExperimentRangeIter {
 		let out = match &self.range {
 			ExperimentRange::Fixed(v) if self.idx == 0 => Some(*v),
 			ExperimentRange::List(l) => l.get(self.idx).copied(),
+			ExperimentRange::Range(s, e) if e >= s && (self.idx as u64) <= e - s => Some(s + self.idx as u64),
+			ExperimentRange::RangeStride(s, e, step) if e >= s && (self.idx as u64) * step <= e - s => Some(s + step * (self.idx as u64)),
 			_ => None,
 		};
 
