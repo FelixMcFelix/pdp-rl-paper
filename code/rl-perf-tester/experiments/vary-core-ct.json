@@ -1,0 +1,17 @@
+{
+	"bit_depths": ["8", "16", "32"],
+	"core_count": {
+		"Range": [1, 31]
+	},
+	"policy_dims": {
+		"Fixed": 28
+	},
+	"sample_count": 1000,
+	"elements_to_time": [
+		"ComputeAndWriteout",
+		"UpdateAll"
+	],
+	"fws": [
+		"Randomised"
+	]
+}
