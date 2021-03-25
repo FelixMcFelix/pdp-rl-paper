@@ -8,7 +8,7 @@ out_format = "vary-core-ct/{}/SUMMARY.{}.{}.csv"
 
 bits = [8, 16, 32]
 fws = ["randomised", "single"]
-measures = ["UpdateAll, ComputeAndWriteout"]
+measures = ["UpdateAll", "ComputeAndWriteout"]
 core_counts = range(1, 32)
 
 for bit in bits:
@@ -34,7 +34,7 @@ for bit in bits:
 
 				rows.append([d_count] + ["{:.4f}".format(s) for s in stats])
 
-			with open(writeout_dir, "rw+") as of:
+			with open(writeout_dir, "w+") as of:
 				writer = csv.writer(of, quoting=csv.QUOTE_NONE)
 				writer.writerow(["cores", "mean_t", "std_t", "med_t", "99_t", "75_t", "25_t"])
 				writer.writerows(rows)
