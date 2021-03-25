@@ -16,6 +16,7 @@ pub struct ExperimentFile {
 	pub fws: Vec<Firmware>,
 
 	pub setup: Option<ProtoSetup>,
+	pub warmup_len: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -28,6 +29,7 @@ pub struct Experiment {
 	pub fws: Vec<Firmware>,
 
 	pub setup: ProtoSetup,
+	pub warmup_len: u64,
 }
 
 // define these in terms of
@@ -169,6 +171,7 @@ impl From<ExperimentFile> for Experiment {
 			fws: val.fws,
 
 			setup: val.setup.unwrap_or_default(),
+			warmup_len: val.warmup_len.unwrap_or(1000),
 		}
 	}
 }
@@ -184,6 +187,7 @@ impl From<Experiment> for ExperimentFile {
 			fws: val.fws,
 
 			setup: Some(val.setup),
+			warmup_len: Some(val.warmup_len),
 		}
 	}
 }
@@ -209,8 +213,11 @@ impl Iterator for ExperimentRangeIter {
 		let out = match &self.range {
 			ExperimentRange::Fixed(v) if self.idx == 0 => Some(*v),
 			ExperimentRange::List(l) => l.get(self.idx).copied(),
-			ExperimentRange::Range(s, e) if e >= s && (self.idx as u64) <= e - s => Some(s + self.idx as u64),
-			ExperimentRange::RangeStride(s, e, step) if e >= s && (self.idx as u64) * step <= e - s => Some(s + step * (self.idx as u64)),
+			ExperimentRange::Range(s, e) if e >= s && (self.idx as u64) <= e - s =>
+				Some(s + self.idx as u64),
+			ExperimentRange::RangeStride(s, e, step)
+				if e >= s && (self.idx as u64) * step <= e - s =>
+				Some(s + step * (self.idx as u64)),
 			_ => None,
 		};
 

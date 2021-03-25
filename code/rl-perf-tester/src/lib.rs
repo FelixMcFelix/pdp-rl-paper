@@ -117,12 +117,9 @@ where
 
 		let mut samples = Vec::with_capacity(config.experiment.sample_count as usize);
 
-		eprint!("\t\t");
-		for i in 0..config.experiment.sample_count {
-			if i % 100 == 0 {
-				eprint!("{}.. ", i);
-				std::io::stderr().flush().unwrap();
-			}
+		eprint!("\t\tWarming up... ");
+		std::io::stderr().flush().unwrap();
+		for i in 0..config.experiment.warmup_len {
 			if i > 0 && fw.resend_tiling() {
 				control::tilings(&mut TilingsConfig {
 					global,
@@ -133,7 +130,28 @@ where
 
 			control::send_state::<T>(
 				&mut SendStateConfig { global, transport },
-				// vec![T::from_int(0); dims],
+				generate_state(&setup, &mut rng),
+			);
+		}
+
+		eprintln!("Done!");
+
+		eprint!("\t\t");
+		for i in 0..config.experiment.sample_count {
+			if i % 100 == 0 {
+				eprint!("{}.. ", i);
+				std::io::stderr().flush().unwrap();
+			}
+			if fw.resend_tiling() {
+				control::tilings(&mut TilingsConfig {
+					global,
+					tiling: tiling.clone(),
+					transport,
+				});
+			}
+
+			control::send_state::<T>(
+				&mut SendStateConfig { global, transport },
 				generate_state(&setup, &mut rng),
 			);
 

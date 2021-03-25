@@ -6,7 +6,7 @@
 	"policy_dims": {
 		"Fixed": 28
 	},
-	"sample_count": 1000,
+	"sample_count": 5000,
 	"elements_to_time": [
 		"Compute",
 		"ComputeAndWriteout",
