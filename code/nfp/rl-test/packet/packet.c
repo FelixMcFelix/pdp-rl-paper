@@ -389,8 +389,8 @@ void state_packet(
 	__declspec(xfer_write_reg) uint64_t nani;
 
 	__declspec(xfer_read_reg) union two_u16s word;
-	int i = 0;
-	int j = 0;
+	uint16_t i = 0;
+	uint16_t j = 0;
 
 	//tile_t state_key = select_key(cfg->state_key, state);
 	//tile_t reward_key = select_key(cfg->reward_key, state);
@@ -403,24 +403,12 @@ void state_packet(
 		return;
 	}
 
-	// What is this doing? Copies from packet to local state vector.
-	while (i < dim_count) {
-		// i is the index into the local state we're writing.
-		// j is the index of the u32 we're reading.
-		// inner is the index *into* the u32 we're reading.
-		int inner;
-		mem_read32(
-			&(word.raw),
-			pkt->packet_payload + (j * sizeof(union two_u16s)),
-			sizeof(union two_u16s)
-		);
-
-		for (inner = 0; (inner < sizeof(uint32_t) / sizeof(tile_t)) && (i < dim_count); inner++, i++) {
-			state[i] = word.tiles[inner];	
-		}
-
-		j += 1;
-	}
+	//dst, src, len
+	ua_memcpy_mem40_mem40(
+		pkt->packet_payload, 0,
+		(void*)state, 0,
+		dim_count * sizeof(tile_t)
+	);
 
 	tc_count = tile_code(state, cfg, tc_indices);
 	global_tc_count = tc_count;

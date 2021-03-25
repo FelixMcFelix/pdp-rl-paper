@@ -225,6 +225,112 @@ nffw_ld_cmd = [
 	"-emu_cache_as_ddr.i26"
 ]
 
+nfcc_pif_command = [
+	r"C:\NFP_SDK_6.1.0-preview\bin\nfcc.exe",
+	"-chip", "AMDA0078-0012:0",
+	"-Qrevision_min=16",
+	"-ng," r"C:\NFP_SDK_6.1.0-preview\components\standardlibrary\microc\src\libc.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\standardlibrary\microc\src\rtl.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\fc.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\hashmap\src\camp_hash.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\pif_app_nfd.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\pkt_clone.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\mcast.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\pif_app_controller.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\cflow_tstamp\src\cflow_tstamp.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\dcfl_init.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\src\system_init.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\pktio\libpktio.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\ng_nfd\me\blocks\vnic\libnfd.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\blocks\blm\libblm.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\macflush\libmacflushuser.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_design.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_parrep.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_actions.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_global.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_ctlflow.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_tables.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_deparse.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_digests.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_meters.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_registers.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_pkt_recurse.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_pkt_clone.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_flcalc.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\dcfl\me\lib\dcfl\libdcfl.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\gro\libgro.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\nfp\libnfp.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\std\libstd.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\pkt\libpkt.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\pktdma\libpktdma.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\net\libnet.c",
+	r"C:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\modscript\libmodscript.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\mac_time_user.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_action_common.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_meter.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_lookup.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_pkt.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_counters.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_init.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_flcalc_algorithms.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\src\pif_memops.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\flowcache\_c\flow_cache.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\flowcache\_c\flow_cache_remove.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\flowcache\_c\flow_cache_timestamp.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\flowcache\_c\flow_cache_lock.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\standardlibrary\_c\mem_atomic_indirect.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\standardlibrary\_c\mem_cam_add_inc.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\standardlibrary\_c\cluster_target.c",
+	r"C:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\standardlibrary\_c\cam.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\rl-test.c",
+	r"C:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\rl-pkt-store.c",
+	"-DPLATFORM_PORT_SELECTION=SF_PLATFORM",
+	"-DPIF_APP_CONFIG=PIF_APP_DEFAULT",
+	"-DNUM_IMU=2",
+	"-DNUM_EMU=2",
+	"-DPCIE_ISL_CNT=2",
+	"-DSIMULATION=0",
+	"-DPIF_APP_REDUCED_THREADS=1",
+	"-DPIF_DEBUG=1",
+	"-DPIF_APP_MASTER_ME=0x204",
+	"-DHASHMAP_CAMPHASH",
+	"-O2", "-Ob1", "-W3",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\common\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\shared\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\flowcache",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\flowcache\me\lib\standardlibrary",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\dcfl\me\lib\dcfl",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\dcfl\shared\include\dcfl",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\include\nfp6000",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\lib\nfp",
+	r"-IC:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out",
+	r"-IC:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\callbackapi",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\blocks\blm\_h",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\flowenv\me\blocks",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\pif_app_nfd\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\ng_nfd\me\blocks",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\ng_nfd\shared",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\ng_nfd",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\hashmap\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\cflow_tstamp\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\ng_nfd\me\lib ",
+	r"IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\gro",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\macflush",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\standardlibrary\include",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\standardlibrary\microc\src",
+	r"-IC:\NFP_SDK_6.1.0-preview\components\standardlibrary\microc\include",
+	"-FI", r"C:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\apps\pif_app_nfd\include\config.h",
+	"-Qnctx=4", "-Qspill=3", "-Qnctx_mode=4", "-Qnn_mode=1", "-Qlm_start=0", "-Qlm_size=1024",
+	"-Zi",
+	r"-FoC:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_app_nfd.list",
+	r"-FeC:\Users\Kyle\gits\pdp-rl-paper\code\nfp\rl-test\out\pif_app_nfd.list\pif_app_nfd.list",
+	"-Qno_decl_volatile", "-mIPOPT_nfp=2", "-ng"
+]
+
 map_from_labels = {
 	"singlethread": "#define _RL_CONFIG_SOLO_INDEP_RL_CORES",
 	"multithread": "#define _RL_CONFIG_SOLO_REMOTE_WORK",
@@ -235,7 +341,11 @@ map_from_labels = {
 	"stride_off": "#define WORK_ALLOC_STRAT ALLOC_STRIDE_OFFSET",
 }
 
-bit_depths = [8, 16, 32]
+bit_depths = [
+	8,
+	16,
+	32
+]
 thread_strats = [("single", False), ("multi", True)]
 work_alloc_schemes = ["chunk", "chunk_rand", "stride", "stride_off"]
 
@@ -292,6 +402,7 @@ def main():
 
 		# run the bat
 		subprocess.run([build_bat])
+		# subprocess.run(nfcc_pif_command)
 		subprocess.run(nffw_ld_cmd)
 
 		final_out_path = fw_path_base + name + ".nffw"
