@@ -39,7 +39,14 @@ fn main() {
 		.subcommand(SubCommand::with_name("expts").about("List all experiment names for `run`."))
 		.subcommand(
 			SubCommand::with_name("run")
-				.about("Sends a single setup packet.")
+				.about("Runs the given experiments.")
+				.arg(
+					Arg::with_name("force-build")
+						.short("B")
+						.long("force-build")
+						.help("Forces individual datafiles to be rebuilt even if firmware hasn't changed.")
+						.takes_value(false),
+				)
 				.arg(
 					Arg::with_name("src-ip")
 						.short("s")
@@ -146,6 +153,7 @@ fn main() {
 						rtsym_path: matches
 							.value_of("rtsym-path")
 							.expect("Always has a value by default."),
+						force_build: matches.is_present("force-build"),
 					};
 
 					rl_perf_tester::run_experiment(&mut cfg, if_name);

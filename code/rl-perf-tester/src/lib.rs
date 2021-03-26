@@ -68,15 +68,47 @@ where
 
 		eprintln!("\t{:?} {:?} {:?}", dim_count, core_count, timed_el);
 
+		let in_file = format!("{}/{}bit/{}.nffw", FIRMWARE_DIR, bit_depth, fw.fw_name());
+		let out_dir = format!("{}/{}/{}/", OUTPUT_DIR, config.name, bit_depth,);
+		let out_file = format!(
+			"{}{}.{}d.{}c.{:?}.dat",
+			out_dir,
+			fw.output_name(),
+			dim_count,
+			core_count,
+			timed_el,
+		);
+
+		// Try to skip if we don't need to rebuild.
+		let files_changed = {
+			let in_file_meta = std::fs::metadata(&in_file)
+				.expect("Target firmware does not exist!");
+			match std::fs::metadata(&out_file) {
+				Ok(out_file_meta) => {
+					let t_firmware = in_file_meta.modified().unwrap();
+					let t_out = out_file_meta.modified().unwrap();
+
+					// Ok => output is newer than firmware
+					// Err(_) => output is older than firmware => changed!
+					t_out.duration_since(t_firmware).is_err()
+				},
+				_ => true,
+			}
+		};
+		if !(config.force_build || files_changed) {
+			eprintln!("\tNo change to {}. Skipping.", &in_file);
+			continue;
+		}
+
 		// NOTE: I do this here to try and mitigate any randomness between sets foe now.
 		// And/or strange bugs that lead to permanent early exit.
 		eprint!("\tInstalling firmware... ");
 		std::io::stderr().flush().unwrap();
-		Command::new(config.rtecli_path)
+		let cmd_output = Command::new(config.rtecli_path)
 			.args(&[
 				"design-load",
 				"-f",
-				&format!("{}/{}bit/{}.nffw", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
+				&in_file[..],
 				"-p",
 				&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
 				"-c",
@@ -84,7 +116,19 @@ where
 			])
 			.output()
 			.expect("Failed to install firmware.");
+
+		if !cmd_output.status.success() {
+			panic!(
+				"Failed to install firmware (code {:?}): {:?} {:?}",
+				cmd_output.status.code(),
+				std::str::from_utf8(&cmd_output.stdout[..]),
+				std::str::from_utf8(&cmd_output.stderr[..]),
+			);
+		}
+
 		eprintln!("Installed!");
+
+		std::thread::sleep(std::time::Duration::from_secs(3));
 
 		// NOTE: we must do this here because firmware installation
 		// destroys and recreates the sending channel/virtual interfaces.
@@ -117,7 +161,7 @@ where
 
 		let mut samples = Vec::with_capacity(config.experiment.sample_count as usize);
 
-		eprint!("\t\tWarming up... ");
+		eprint!("\t\tWarming up for {} packets... ", config.experiment.warmup_len);
 		std::io::stderr().flush().unwrap();
 		for i in 0..config.experiment.warmup_len {
 			if i > 0 && fw.resend_tiling() {
@@ -134,7 +178,8 @@ where
 			);
 		}
 
-		eprintln!("Done!");
+		eprint!("Warmed up!\n");
+		std::io::stderr().flush().unwrap();
 
 		eprint!("\t\t");
 		for i in 0..config.experiment.sample_count {
@@ -182,16 +227,6 @@ where
 
 		eprintln!("\t\tDone!");
 
-		let out_dir = format!("{}/{}/{}/", OUTPUT_DIR, config.name, bit_depth,);
-
-		let out_file = format!(
-			"{}{}.{}d.{}c.{:?}.dat",
-			out_dir,
-			fw.output_name(),
-			dim_count,
-			core_count,
-			timed_el,
-		);
 		eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
 
 		let _ = std::fs::create_dir_all(&out_dir);

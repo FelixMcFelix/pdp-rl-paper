@@ -7,4 +7,5 @@ pub struct Config<'a> {
 	pub name: &'a str,
 	pub rtecli_path: &'a str,
 	pub rtsym_path: &'a str,
+	pub force_build: bool,
 }
