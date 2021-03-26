@@ -31,6 +31,6 @@ DashStyles[1] = 1
 DashStyles[2] = 2
 
 myTitle(i) = sprintf("%s (%s)", PresentationNames[(i / 2) + 1], Variants[(i % 2) + 1])
-file(n) = sprintf("../results/rl-perf-tester/vary-work-ct/8/SUMMARY.%s.UpdateAll.csv", Names[(n / 2) + 1])
+file(n) = sprintf("../results/rl-perf-tester/vary-work-ct/16/SUMMARY.%s.UpdateAll.csv", Names[(n / 2) + 1])
 
 plot for [i=0:3] file(i) u 1:(column(TargetColumn[(i % 2) + 1])/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[(i / 2) + 1] dt DashStyles[(i % 2) + 1]

@@ -1,7 +1,7 @@
 # set xlabel "Rule Count"
 set ylabel "Time (us)"
 
-set yrange [0:130]
+#set yrange [0:130]
 
 set style boxplot nooutliers pointtype 7
 set style data boxplot
