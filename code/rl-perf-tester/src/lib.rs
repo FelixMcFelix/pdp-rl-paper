@@ -22,6 +22,17 @@ pub fn list() {
 	}
 }
 
+pub fn get_list() -> Vec<String> {
+	match std::fs::read_dir(EXPERIMENT_DIR) {
+		Ok(iter) =>
+			iter.flatten().map(|ent| ent.path().file_stem().unwrap().to_str().unwrap().into()).collect(),
+		Err(e) => {
+			eprintln!("Failed to iterate over experiments: {:?}", e);
+			vec![]
+		},
+	}
+}
+
 pub fn run_experiment(config: &Config, if_name: &str) {
 	let fws = config
 		.experiment
@@ -81,8 +92,8 @@ where
 
 		// Try to skip if we don't need to rebuild.
 		let files_changed = {
-			let in_file_meta = std::fs::metadata(&in_file)
-				.expect("Target firmware does not exist!");
+			let in_file_meta =
+				std::fs::metadata(&in_file).expect("Target firmware does not exist!");
 			match std::fs::metadata(&out_file) {
 				Ok(out_file_meta) => {
 					let t_firmware = in_file_meta.modified().unwrap();
@@ -100,35 +111,37 @@ where
 			continue;
 		}
 
-		// NOTE: I do this here to try and mitigate any randomness between sets foe now.
-		// And/or strange bugs that lead to permanent early exit.
-		eprint!("\tInstalling firmware... ");
-		std::io::stderr().flush().unwrap();
-		let cmd_output = Command::new(config.rtecli_path)
-			.args(&[
-				"design-load",
-				"-f",
-				&in_file[..],
-				"-p",
-				&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
-				"-c",
-				P4CFG_PATH,
-			])
-			.output()
-			.expect("Failed to install firmware.");
+		if !config.skip_firmware_install {
+			// NOTE: I do this here to try and mitigate any randomness between sets foe now.
+			// And/or strange bugs that lead to permanent early exit.
+			eprint!("\tInstalling firmware... ");
+			std::io::stderr().flush().unwrap();
+			let cmd_output = Command::new(config.rtecli_path)
+				.args(&[
+					"design-load",
+					"-f",
+					&in_file[..],
+					"-p",
+					&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
+					"-c",
+					P4CFG_PATH,
+				])
+				.output()
+				.expect("Failed to install firmware.");
 
-		if !cmd_output.status.success() {
-			panic!(
-				"Failed to install firmware (code {:?}): {:?} {:?}",
-				cmd_output.status.code(),
-				std::str::from_utf8(&cmd_output.stdout[..]),
-				std::str::from_utf8(&cmd_output.stderr[..]),
-			);
+			if !cmd_output.status.success() {
+				panic!(
+					"Failed to install firmware (code {:?}): {:?} {:?}",
+					cmd_output.status.code(),
+					std::str::from_utf8(&cmd_output.stdout[..]),
+					std::str::from_utf8(&cmd_output.stderr[..]),
+				);
+			}
+
+			eprintln!("Installed!");
+
+			std::thread::sleep(std::time::Duration::from_secs(3));
 		}
-
-		eprintln!("Installed!");
-
-		std::thread::sleep(std::time::Duration::from_secs(3));
 
 		// NOTE: we must do this here because firmware installation
 		// destroys and recreates the sending channel/virtual interfaces.
@@ -152,19 +165,24 @@ where
 			setup: setup.clone(),
 		};
 
-		control::setup::<T>(&mut setup_cfg);
-		control::tilings(&mut TilingsConfig {
-			global,
-			tiling: tiling.clone(),
-			transport,
-		});
+		if !config.skip_setup {
+			control::setup::<T>(&mut setup_cfg);
+			control::tilings(&mut TilingsConfig {
+				global,
+				tiling: tiling.clone(),
+				transport,
+			});
+		}
 
 		let mut samples = Vec::with_capacity(config.experiment.sample_count as usize);
 
-		eprint!("\t\tWarming up for {} packets... ", config.experiment.warmup_len);
+		eprint!(
+			"\t\tWarming up for {} packets... ",
+			config.experiment.warmup_len
+		);
 		std::io::stderr().flush().unwrap();
 		for i in 0..config.experiment.warmup_len {
-			if i > 0 && fw.resend_tiling() {
+			if !(config.skip_retiling) && i > 0 && fw.resend_tiling() {
 				control::tilings(&mut TilingsConfig {
 					global,
 					tiling: tiling.clone(),
@@ -187,7 +205,7 @@ where
 				eprint!("{}.. ", i);
 				std::io::stderr().flush().unwrap();
 			}
-			if fw.resend_tiling() {
+			if !(config.skip_retiling) && fw.resend_tiling() {
 				control::tilings(&mut TilingsConfig {
 					global,
 					tiling: tiling.clone(),
@@ -227,24 +245,26 @@ where
 
 		eprintln!("\t\tDone!");
 
-		eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
+		if !config.skip_writeout {
+			eprintln!("\t\tWriting out {} to: {}", config.name, out_file);
 
-		let _ = std::fs::create_dir_all(&out_dir);
+			let _ = std::fs::create_dir_all(&out_dir);
 
-		let mut out_file =
-			File::create(out_file).expect("Unable to open file for writing results.");
+			let mut out_file =
+				File::create(out_file).expect("Unable to open file for writing results.");
 
-		for sample in samples {
-			let to_push = format!("{}\n", sample);
+			for sample in samples {
+				let to_push = format!("{}\n", sample);
+				out_file
+					.write_all(to_push.as_bytes())
+					.expect("Write of individual value failed.");
+			}
+
 			out_file
-				.write_all(to_push.as_bytes())
-				.expect("Write of individual value failed.");
+				.flush()
+				.expect("Failed to flush file contents to disk.");
+
+			eprintln!("\t\tWritten!");
 		}
-
-		out_file
-			.flush()
-			.expect("Failed to flush file contents to disk.");
-
-		eprintln!("\t\tWritten!");
 	}
 }
