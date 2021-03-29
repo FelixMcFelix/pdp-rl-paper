@@ -17,3 +17,7 @@ serde_json = "1"
 
 [dependencies.control]
 path = "../control"
+
+# [patch.crates-io]
+# pnet = { path = "/home/clouduser/kyles/libpnet" }
+

@@ -204,11 +204,11 @@ fn run_core<'a>(matches: &ArgMatches<'_>, sub_m: &ArgMatches<'_>, expts: impl It
 			rtsym_path: matches
 				.value_of("rtsym-path")
 				.expect("Always has a value by default."),
-			force_build: matches.is_present("force-build"),
-			skip_firmware_install: matches.is_present("no-fw"),
-			skip_writeout: matches.is_present("no-write"),
-			skip_setup: matches.is_present("no-setup"),
-			skip_retiling: matches.is_present("no-rand"),
+			force_build: sub_m.is_present("force-build"),
+			skip_firmware_install: sub_m.is_present("no-fw"),
+			skip_writeout: sub_m.is_present("no-write"),
+			skip_setup: sub_m.is_present("no-setup"),
+			skip_retiling: sub_m.is_present("no-rand"),
 		};
 
 		rl_perf_tester::run_experiment(&mut cfg, if_name);

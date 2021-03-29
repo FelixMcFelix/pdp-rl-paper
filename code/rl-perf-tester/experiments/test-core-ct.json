@@ -1,0 +1,17 @@
+{
+	"bit_depths": ["32"],
+	"core_count": {
+		"Fixed": 23
+	},
+	"policy_dims": {
+		"Fixed": 28
+	},
+	"sample_count": 0,
+	"warmup_len": 500,
+	"elements_to_time": [
+		"ComputeAndWriteout"
+	],
+	"fws": [
+		"Randomised"
+	]
+}
