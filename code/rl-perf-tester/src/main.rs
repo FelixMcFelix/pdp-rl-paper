@@ -1,6 +1,6 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use core::iter::Iterator;
 use control::TransportConfig;
+use core::iter::Iterator;
 use rl_perf_tester::{Config, ExperimentFile, RTE_PATH, RTSYM_PATH};
 use std::{fs::File, io::BufReader};
 
@@ -113,19 +113,15 @@ fn main() {
 		.subcommand(SubCommand::with_name("list").about("List all bindable interfaces."))
 		.subcommand(SubCommand::with_name("expts").about("List all experiment names for `run`."))
 		.subcommand(
-			run_base.clone()
-				.arg(
-					Arg::with_name("NAME")
-						.help("Experiment name")
-						.takes_value(true)
-						.min_values(1)
-						.required(true),
-				),
+			run_base.clone().arg(
+				Arg::with_name("NAME")
+					.help("Experiment name")
+					.takes_value(true)
+					.min_values(1)
+					.required(true),
+			),
 		)
-		.subcommand(
-			run_base.clone()
-				.name("run-all"),
-		)
+		.subcommand(run_base.clone().name("run-all"))
 		.get_matches();
 
 	match matches.subcommand() {
@@ -136,25 +132,33 @@ fn main() {
 			rl_perf_tester::list();
 		},
 		("run-all", Some(sub_m)) => {
-			run_core(&matches, &sub_m, rl_perf_tester::get_list().iter().map(|s| s.as_str()));
+			run_core(
+				&matches,
+				&sub_m,
+				rl_perf_tester::get_list().iter().map(|s| s.as_str()),
+			);
 		},
-		("run", Some(sub_m)) => {
+		("run", Some(sub_m)) =>
 			if let Some(names) = sub_m.values_of("NAME") {
 				run_core(&matches, &sub_m, names);
 			} else {
 				println!("No experiment names given.");
 				println!("{}", matches.usage());
-			}
-		},
+			},
 		_ => {
 			println!("{}", matches.usage());
 		},
 	}
 }
 
-fn run_core<'a>(matches: &ArgMatches<'_>, sub_m: &ArgMatches<'_>, expts: impl Iterator<Item=&'a str>) {
-	let if_name = matches.value_of("interface")
-		.expect("Interface name is always set: you MUST know what it will be after fw installation.");
+fn run_core<'a>(
+	matches: &ArgMatches<'_>,
+	sub_m: &ArgMatches<'_>,
+	expts: impl Iterator<Item = &'a str>,
+) {
+	let if_name = matches.value_of("interface").expect(
+		"Interface name is always set: you MUST know what it will be after fw installation.",
+	);
 	let mut t_cfg: TransportConfig = Default::default();
 
 	t_cfg.src_addr.set_ip(
@@ -188,9 +192,8 @@ fn run_core<'a>(matches: &ArgMatches<'_>, sub_m: &ArgMatches<'_>, expts: impl It
 
 		let setup_file = File::open(&name).expect("Setup file could not be opened.");
 
-		let experiment_file: ExperimentFile =
-			serde_json::from_reader(BufReader::new(setup_file))
-				.expect("Invalid experiment config file!");
+		let experiment_file: ExperimentFile = serde_json::from_reader(BufReader::new(setup_file))
+			.expect("Invalid experiment config file!");
 
 		let experiment = experiment_file.into();
 

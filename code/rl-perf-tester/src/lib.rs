@@ -10,7 +10,13 @@ use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{fs::File, io::Write, process::Command};
+use std::{
+	fs::File,
+	io::Write,
+	process::Command,
+	thread,
+	time::{Duration, Instant},
+};
 
 pub fn list() {
 	match std::fs::read_dir(EXPERIMENT_DIR) {
@@ -24,8 +30,10 @@ pub fn list() {
 
 pub fn get_list() -> Vec<String> {
 	match std::fs::read_dir(EXPERIMENT_DIR) {
-		Ok(iter) =>
-			iter.flatten().map(|ent| ent.path().file_stem().unwrap().to_str().unwrap().into()).collect(),
+		Ok(iter) => iter
+			.flatten()
+			.map(|ent| ent.path().file_stem().unwrap().to_str().unwrap().into())
+			.collect(),
 		Err(e) => {
 			eprintln!("Failed to iterate over experiments: {:?}", e);
 			vec![]
@@ -180,6 +188,9 @@ where
 			"\t\tWarming up for {} packets... ",
 			config.experiment.warmup_len
 		);
+
+		let mut delay_target = Instant::now() + Duration::from_millis(1);
+
 		std::io::stderr().flush().unwrap();
 		for i in 0..config.experiment.warmup_len {
 			if !(config.skip_retiling) && i > 0 && fw.resend_tiling() {
@@ -194,10 +205,16 @@ where
 				&mut SendStateConfig { global, transport },
 				generate_state(&setup, &mut rng),
 			);
+
+			if let Some(t_left) = delay_target.checked_duration_since(Instant::now()) {
+				thread::sleep(t_left);
+			}
+			delay_target = Instant::now() + Duration::from_millis(1);
 		}
 
 		eprint!("Warmed up!\n");
 		std::io::stderr().flush().unwrap();
+		delay_target = Instant::now() + Duration::from_millis(1);
 
 		eprint!("\t\t");
 		for i in 0..config.experiment.sample_count {
@@ -240,6 +257,11 @@ where
 			}
 
 			samples.push(cycle_ct * 16);
+
+			if let Some(t_left) = delay_target.checked_duration_since(Instant::now()) {
+				thread::sleep(t_left);
+			}
+			delay_target = Instant::now() + Duration::from_millis(1);
 		}
 		eprint!("\n");
 
