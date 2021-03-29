@@ -36,6 +36,7 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 	SIGNAL sig;
 
 	if (pif_plugin_hdr_rt_present(headers)) {
+		__declspec(emem) __addr40 uint8_t *payload_dest = 0;
 		__declspec(write_reg) struct rl_work_item workq_write_register;
 		__declspec(write_reg) uint32_t test_write_register;
 		unsigned int mu_island = 1;
@@ -48,7 +49,16 @@ int pif_plugin_filter_func(EXTRACTED_HEADERS_T *headers, MATCH_DATA_T *data) {
 		// Allocate the space here somehow...
 		// Using RL-island's yonder free-list
 		// FIXME: handle case where packet space cannot be acquired.
-		work_to_send.packet_payload = rl_pkt_get_slot(&rl_pkts);
+		while (1) {
+			payload_dest = rl_pkt_get_slot(&rl_pkts);
+			if (payload_dest != 0) {
+				break;
+			}
+
+			// full disclosure; it could be a *long* time before a packet is freed.
+			sleep(10000);
+		}
+		work_to_send.packet_payload = payload_dest;
 
 		test_write_register = sizeof(__declspec(emem) __addr40 uint8_t *);
 	

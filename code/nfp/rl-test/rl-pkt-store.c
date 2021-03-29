@@ -11,7 +11,7 @@ void init_rl_pkt_store(
 	__addr40 __declspec(emem) struct rl_pkt_store *store,
 	__addr40 __declspec(emem) uint8_t *pkt_base,
 	uint32_t byte_ct
-	) {
+) {
 	int slot;
 	__declspec(emem) __addr40 uint8_t *pkt_cursor = pkt_base;
 	store->slots_available = RL_PKT_STORE_COUNT;
@@ -30,24 +30,27 @@ void init_rl_pkt_store(
 
 __declspec(emem) __addr40 uint8_t *rl_pkt_get_slot(__declspec(emem) __addr40 struct rl_pkt_store *store) {
 	__xrw uint32_t xfer = 1;
-	__declspec(emem) __addr40 uint8_t *out;
+	__declspec(emem) __addr40 uint8_t *out = 0;
 
 	while (1) {
 		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
-		if (xfer == 1) {
+		if (xfer == 0) {
 			break;
 		} else {
-			sleep(100);
+			sleep(500);
 		}
 	}
 
-	if (store->slots_available) {
+	if (store->slots_available > 0) {
 		// decrement available count
 		// get top entry
+		// xfer = 1;
+		// mem_test_sub(&xfer, &store->slots_available, sizeof(uint32_t));
+		// xfer contains the value *before* subtraction.
+
+		// out = store->freelist[xfer - 1];
+
 		out = store->freelist[--store->slots_available];
-	} else {
-		// FIXME: try to wake here, or sleep until next free entry added.
-		out = 0;
 	}
 
 	// unlock mutex
@@ -63,15 +66,25 @@ void rl_pkt_return_slot(__declspec(emem) __addr40 struct rl_pkt_store *store, __
 	// lock mutex
 	while (1) {
 		mem_test_set((void*)&xfer, (__addr40 void*)&(store->lock), sizeof(uint32_t));
-		if (xfer == 1) {
+		if (xfer == 0) {
 			break;
 		} else {
-			sleep(100);
+			sleep(500);
 		}
 	}
 
 	// put slot into top entry
 	// increment available count
+	// xfer = 1;
+	// mem_test_add(&xfer, &store->slots_available, sizeof(uint32_t));
+
+	// if (xfer >= RL_PKT_STORE_COUNT) {
+	// 	__asm {
+	// 		ctx_arb[bpt]
+	// 	}
+	// }
+
+	// store->freelist[xfer] = slot;
 	store->freelist[store->slots_available++] = slot;
 
 	// unlock mutex
