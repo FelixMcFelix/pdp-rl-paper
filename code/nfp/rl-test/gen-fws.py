@@ -316,7 +316,7 @@ nfcc_pif_command = [
 	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\hashmap\include",
 	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\cflow_tstamp\include",
 	r"-IC:\NFP_SDK_6.1.0-preview\components\ng_nfd\me\lib ",
-	r"IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib",
+	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib",
 	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\gro",
 	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\pif\include",
 	r"-IC:\NFP_SDK_6.1.0-preview\p4\components\nfp_pif\me\lib\macflush",

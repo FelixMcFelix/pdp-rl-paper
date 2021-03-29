@@ -489,6 +489,15 @@ void state_packet(
 		updating_on_this_cycle = (!(state_added || changed_key)) && state_found >= 0 && reward_found >= 0;
 		updating_on_this_cycle &= cfg->force_update_to_happen != BHAV_SKIP;
 
+		if (cfg->force_update_to_happen == BHAV_ALWAYS) {
+			if (state_found < 0) {
+				state_found = 0;
+			}
+			if (reward_found < 0) {
+				reward_found = 0;
+			}
+		}
+
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
 		if ((cfg->force_update_to_happen == BHAV_ALWAYS) || updating_on_this_cycle) {
