@@ -531,6 +531,134 @@ void state_packet_delegate(
 
 #endif /* !_RL_WORKER_DISABLED */
 
+__declspec(export, emem) volatile uint32_t vis_indices[RL_MAX_TILE_HITS] = {0};
+
+void heavy_first_work_allocation(
+	__addr40 __declspec(emem) uint32_t *indices,
+	__addr40 __declspec(emem) struct rl_config *cfg
+) {
+	// FIXME: in future, this could be made to rely upon larger CT/runtime bounds.
+	uint32_t class_costs[4] = {6, 10, 13, 19};
+	uint32_t available_ctxs[4] = {7, 8, 8, 8};
+	uint32_t first_ctx[4] = {0, 7, 15, 23};
+	uint32_t first_missing_ctx[4] = {8, 16, 24, 32};
+
+	uint32_t ctx_costs[31] = {0};
+	uint8_t ctx_items_allocd[31] = {0};
+	uint8_t ctx_items_max[31] = {0};
+
+	uint32_t me_costs[4] = {0};
+	uint8_t me_items_allocd[4] = {0};
+	uint8_t me_items_max[4] = {0};
+
+	int32_t work_index_to_place;
+	uint8_t bias_tile_exists = cfg->tiling_sets[0].num_dims == 0;
+
+	uint16_t usable_ctxs = (cfg->worker_limit != 0)
+		? cfg->worker_limit
+		: 31;
+	uint16_t usable_mes = 0;
+	uint8_t ctx_ct = 0;
+
+	uint8_t base_alloc_sz = cfg->num_work_items / usable_ctxs;
+	uint8_t allocs_with_spill = cfg->num_work_items % usable_ctxs;
+
+	while (ctx_ct < usable_ctxs) {
+		uint16_t amt_to_add = available_ctxs[usable_mes];
+		amt_to_add = (amt_to_add > (usable_ctxs - ctx_ct))
+			? (usable_ctxs - ctx_ct)
+			: amt_to_add;
+
+		available_ctxs[usable_mes] = amt_to_add;
+
+		usable_mes++;
+		ctx_ct += amt_to_add;
+	}
+
+	// setup maxes for all workers.
+	for (ctx_ct = 0; ctx_ct < usable_ctxs; ctx_ct++) {
+		uint8_t my_me = 0;
+
+		if (ctx_ct < allocs_with_spill) {
+			ctx_items_max[ctx_ct]= base_alloc_sz + 1;
+		} else {
+			ctx_items_max[ctx_ct] = base_alloc_sz;
+		}
+
+		while (ctx_ct >= first_missing_ctx[my_me]) {
+			my_me++;
+		}
+
+		me_items_max[my_me] += ctx_items_max[ctx_ct];
+	}
+
+	// do work alloc
+	for (work_index_to_place = cfg->num_work_items - 1; work_index_to_place >= 0; --work_index_to_place) {
+		// caclulate loc of each work item => cost
+		// place by heuristic
+		//   calculate dest me
+		//   then calculate dest ctx.
+		// use these to place `work_index_to_place` into indices.
+
+		uint32_t tiling_set_idx = bias_tile_exists
+			? (((work_index_to_place - 1) / cfg->tilings_per_set) + 1)
+			: (work_index_to_place / cfg->tilings_per_set);
+
+		uint8_t loc = cfg->tiling_sets[tiling_set_idx].location + 1;
+
+		uint8_t best_me = usable_mes - 1;
+		uint8_t base_ctx = 0;
+		uint8_t best_sub_ctx = 0;
+		int8_t i;
+		uint16_t my_target;
+
+		loc -= (bias_tile_exists && work_index_to_place == 0)
+			? 1
+			: 0;
+
+		for (i = usable_mes - 1; i >= 0; --i) {
+			if (me_items_allocd[i] < me_items_max[i] && me_costs[i] < me_costs[best_me]) {
+				best_me = i;
+			}
+		}
+
+		base_ctx = first_ctx[best_me];
+
+		for (i = 0; i < available_ctxs[best_me]; ++i) {
+			uint8_t l_ctx = base_ctx + i;
+			if (ctx_items_allocd[l_ctx] < ctx_items_max[l_ctx] && ctx_costs[base_ctx + i] < ctx_costs[base_ctx + best_sub_ctx]) {
+				best_sub_ctx = i;
+			}
+		}
+
+		me_items_allocd[best_me]++;
+		me_costs[best_me] += class_costs[loc];
+
+		base_ctx += best_sub_ctx;
+
+		// ind[x] = ...
+		// where x = first work_idx for this ctx + ctx_items_allocd[base_ctx]
+
+		if (base_ctx >= allocs_with_spill) {
+			my_target = allocs_with_spill * (base_alloc_sz + 1);
+			my_target += (base_ctx - allocs_with_spill) * base_alloc_sz;
+		} else {
+			my_target = base_ctx * (base_alloc_sz + 1);
+		}
+
+		indices[my_target + ctx_items_allocd[base_ctx]] = work_index_to_place;
+
+		ctx_items_allocd[base_ctx]++;
+		ctx_costs[base_ctx] += class_costs[loc];
+
+		// if (work_index_to_place == 0) {
+		// 	__asm {
+		// 		ctx_arb[bpt]
+		// 	}
+		// }
+	}
+}
+
 main() {
 	__declspec(xfer_write_reg) uint64_t nani;
 	mem_ring_addr_t r_addr;
@@ -740,12 +868,20 @@ main() {
 
 				#endif /* WORK_ALLOC_RANDOMISE */
 
+				#if (WORK_ALLOC_STRAT == ALLOC_FILL_HEAVY)
+				heavy_first_work_allocation(&indices, &cfg);
+				#endif
+
 				to_do.type = WORK_ALLOCATE;
 				to_do.body.alloc.strat = WORK_ALLOC_STRAT;
 				to_do.body.alloc.work_indices = &indices;
 				pass_work_on(to_do, __signal_number(&internal_handout_sig));
 				aggregate.type = ACK_NO_BODY;
 				receive_worker_acks(&aggregate, total_num_workers);
+
+				for (i=0; i<RL_MAX_TILE_HITS; ++i) {
+					vis_indices[i] = indices[i];
+				}
 			}
 		}
 

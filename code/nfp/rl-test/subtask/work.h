@@ -17,7 +17,8 @@ enum work_type {
 enum alloc_strategy {
 	ALLOC_CHUNK,
 	ALLOC_STRIDE,
-	ALLOC_STRIDE_OFFSET
+	ALLOC_STRIDE_OFFSET,
+	ALLOC_FILL_HEAVY
 };
 
 struct work_alloc {

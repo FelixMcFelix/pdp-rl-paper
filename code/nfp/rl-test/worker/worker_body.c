@@ -193,6 +193,7 @@ __intrinsic void compute_my_work_alloc(
 	uint8_t offset = 0;
 	uint32_t scratch = 0;
 	switch (local_ctx_work.body.alloc.strat) {
+		case ALLOC_FILL_HEAVY:
 		case ALLOC_CHUNK:
 			// not too expensive to be dumb here.
 			// i.e., not in a hot compute loop
@@ -229,6 +230,7 @@ __intrinsic void compute_my_work_alloc(
 }
 
 __declspec(shared imem) uint64_t iter_ct = 0;
+__declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
 
 void work(uint8_t is_master, unsigned int parent_sig) {
 	__addr40 _declspec(emem) struct rl_config *cfg;
@@ -252,6 +254,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint8_t iter = 0;
 	uint16_t work_idxes[RL_MAX_TILE_HITS/2] = {0};
 	uint32_t tile_hits[RL_MAX_TILE_HITS/2] = {0};
+
+	uint32_t last_work_t;
 
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -384,9 +388,13 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					// uint32_t t0 = local_csr_read(local_csr_timestamp_low);
+					// uint32_t t1;
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
 					// place tile into slot governed by active_pref_space
 					action_preferences_with_cfg_single(hit_tile, cfg);
+					// t1 = local_csr_read(local_csr_timestamp_low);
+					// write_space[work_idxes[iter]] = t1 - t0;
 				}
 
 				should_writeback = 1;
