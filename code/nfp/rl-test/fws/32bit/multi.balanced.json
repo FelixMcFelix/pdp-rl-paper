@@ -1,0 +1,207 @@
+{
+    "generic": {
+        "tables_info": {
+            "ingress::at": {
+                "max_entries": 1, 
+                "allowed_actions": [
+                    "ingress::drop"
+                ], 
+                "name": "ingress::at"
+            }
+        }, 
+        "action_info": {
+            "ingress::act": {
+                "name": "ingress::act", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }, 
+            "ingress::drop": {
+                "name": "ingress::drop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }
+            }
+        }
+    }, 
+    "vendor": {
+        "register_info": {}, 
+        "backend_source_info": {
+            "date": "2021/03/16 16:21:24", 
+            "source_files": "C:\\Users\\Kyle\\gits\\pdp-rl-paper\\code\\nfp\\rl-test\\out\\rl-test.yml"
+        }, 
+        "counters_info": {}, 
+        "meter_info": {}, 
+        "frontend_source_info": {
+            "date": "2021/03/16 16:21:23", 
+            "source_files": [
+                "", 
+                "C:/Users/Kyle/gits/pdp-rl-paper/code/nfp/rl-test/rl-test.p4", 
+                "C:/NFP_SDK_6.1.0-preview/p4/include/16/p4include/core.p4"
+            ]
+        }, 
+        "tables_info": {
+            "ingress::at": {
+                "name": "ingress::at", 
+                "constant_default": false, 
+                "matches": [], 
+                "allowed_actions": [
+                    "ingress::drop"
+                ], 
+                "id": 0, 
+                "max_entries": 1, 
+                "data_shift": 4, 
+                "rtsym": "_pif_actiondata_table_0_ingress__at", 
+                "data_size": 16
+            }
+        }, 
+        "action_info": {
+            "ingress::act": {
+                "timeoutno_field": "", 
+                "name": "ingress::act", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": false, 
+                "id": 0, 
+                "tableno_field": "__pif_table_no"
+            }, 
+            "ingress::drop": {
+                "timeoutno_field": "", 
+                "name": "ingress::drop", 
+                "action_data": {
+                    "__pif_rule_no": {
+                        "size": 32
+                    }, 
+                    "__pif_table_no": {
+                        "size": 32
+                    }
+                }, 
+                "ruleno_field": "__pif_rule_no", 
+                "action_data_packed": [
+                    {
+                        "actiondata": "__pif_rule_no", 
+                        "name": "__pif_rule_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }, 
+                    {
+                        "actiondata": "__pif_table_no", 
+                        "name": "__pif_table_no", 
+                        "pad_cnt": 1, 
+                        "doc": null, 
+                        "pad_szbytes": 4, 
+                        "pad_type": "uint32_t", 
+                        "split": false, 
+                        "size": 32
+                    }
+                ], 
+                "noeffect": false, 
+                "id": 1, 
+                "tableno_field": "__pif_table_no"
+            }
+        }, 
+        "multicast": {
+            "table_rtsym": "_pif_mcast_table", 
+            "group_count": 16, 
+            "group_size": 16
+        }, 
+        "custom_errors": {
+            "NoError": 1, 
+            "PacketTooShort": 2, 
+            "NoMatch": 3, 
+            "StackOutOfBounds": 4, 
+            "HeaderTooShort": 5, 
+            "ParserTimeout": 6
+        }, 
+        "build_uuid": [
+            3506408568, 
+            2706742454, 
+            2255688171, 
+            2796806878
+        ], 
+        "digests_info": {}, 
+        "parser_value_set_info": {}
+    }, 
+    "p4info": {
+        "tables": [
+            {
+                "actionRefs": [
+                    {
+                        "id": 16793508
+                    }, 
+                    {
+                        "id": 16800567, 
+                        "annotations": [
+                            "@defaultonly()"
+                        ]
+                    }
+                ], 
+                "preamble": {
+                    "alias": "at", 
+                    "id": 33590252, 
+                    "name": "at"
+                }, 
+                "size": "1024"
+            }
+        ], 
+        "actions": [
+            {
+                "preamble": {
+                    "alias": "NoAction", 
+                    "id": 16800567, 
+                    "name": "NoAction"
+                }
+            }, 
+            {
+                "preamble": {
+                    "alias": "drop", 
+                    "id": 16793508, 
+                    "name": "drop"
+                }
+            }
+        ]
+    }
+}

@@ -339,6 +339,7 @@ map_from_labels = {
 	"chunk_rand": "#define WORK_ALLOC_RANDOMISE\n#define WORK_ALLOC_STRAT ALLOC_CHUNK",
 	"stride": "#define WORK_ALLOC_STRAT ALLOC_STRIDE",
 	"stride_off": "#define WORK_ALLOC_STRAT ALLOC_STRIDE_OFFSET",
+	"balanced": "#define WORK_ALLOC_STRAT ALLOC_FILL_HEAVY",
 }
 
 bit_depths = [
@@ -347,7 +348,7 @@ bit_depths = [
 	32
 ]
 thread_strats = [("single", False), ("multi", True)]
-work_alloc_schemes = ["chunk", "chunk_rand", "stride", "stride_off"]
+work_alloc_schemes = ["chunk", "chunk_rand", "stride", "stride_off", "balanced"]
 
 def gen_tag_sets():
 	out = []

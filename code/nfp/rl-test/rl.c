@@ -617,7 +617,8 @@ void heavy_first_work_allocation(
 			: 0;
 
 		for (i = usable_mes - 1; i >= 0; --i) {
-			if (me_items_allocd[i] < me_items_max[i] && me_costs[i] < me_costs[best_me]) {
+			if (me_items_allocd[i] < me_items_max[i]
+					&& ((me_costs[i] * available_ctxs[best_me]) < (me_costs[best_me] * available_ctxs[i]))) {
 				best_me = i;
 			}
 		}
