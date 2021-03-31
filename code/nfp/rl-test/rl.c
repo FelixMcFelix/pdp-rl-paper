@@ -129,7 +129,7 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 			}
 
 			output[out_idx++] = local_tile;
-			local_tile_base += cfg->tiling_sets[tiling_set_idx].tiling_size / cfg->tilings_per_set;
+			local_tile_base += cfg->tiling_sets[tiling_set_idx].tiling_size;
 		}
 	}
 	return out_idx;

@@ -43,7 +43,12 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 
 	// can also get by remul'ing
 	local_tile = cfg->tiling_sets[tiling_set_idx].start_tile;
-	tiling_idx = work_idx - local_tile;
+	tiling_idx = work_idx - (bias_tile_exists
+		? 1 + ((tiling_set_idx-1) * cfg->tilings_per_set)
+		: tiling_set_idx * cfg->tilings_per_set);
+		// work_idx - local_tile;
+
+	local_tile += tiling_idx * cfg->tiling_sets[tiling_set_idx].tiling_size;
 
 	// These goes over each dimension in the top-level loop
 	for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_set_idx].num_dims; ++dim_idx) {

@@ -297,7 +297,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 
 		cfg->last_tier_tile[loc] = current_start_tile;
 
-		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling;
+		cfg->tiling_sets[num_tilings].tiling_size = tiles_in_tiling / cfg->tilings_per_set;
 		cfg->tiling_sets[num_tilings].end_tile = current_start_tile;
 
 		num_tilings++;
