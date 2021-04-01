@@ -876,9 +876,9 @@ main() {
 
 				#endif /* WORK_ALLOC_RANDOMISE */
 
-				#if (WORK_ALLOC_STRAT == ALLOC_FILL_HEAVY)
-				heavy_first_work_allocation(&indices, &cfg);
-				#endif
+				if (WORK_ALLOC_STRAT == ALLOC_FILL_HEAVY) {
+					heavy_first_work_allocation(&indices, &cfg);
+				}
 
 				to_do.type = WORK_ALLOCATE;
 				to_do.body.alloc.strat = WORK_ALLOC_STRAT;
