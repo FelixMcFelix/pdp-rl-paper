@@ -17,6 +17,7 @@
 		"Chunk",
 		"Randomised",
 		"Stride",
-		"OffsetStride"
+		"OffsetStride",
+		"Balanced"
 	]
 }

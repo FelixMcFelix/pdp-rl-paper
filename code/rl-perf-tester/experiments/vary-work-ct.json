@@ -13,6 +13,6 @@
 	],
 	"fws": [
 		"SingleCore",
-		"Randomised"
+		"Balanced"
 	]
 }
