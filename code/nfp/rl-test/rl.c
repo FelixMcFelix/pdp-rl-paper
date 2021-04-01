@@ -592,7 +592,10 @@ void heavy_first_work_allocation(
 		me_items_max[my_me] += ctx_items_max[ctx_ct];
 
 		//emergency test
-		// ctx_costs[ctx_ct] = available_ctxs[my_me] - (first_missing_ctx[my_me] - ctx_ct) - 1;
+		ctx_costs[ctx_ct] = available_ctxs[my_me] - (first_missing_ctx[my_me] - ctx_ct) - 1;
+
+		// ctx_costs[ctx_ct] *= 2;
+		me_costs[my_me] += ctx_costs[ctx_ct];
 	}
 
 	// do work alloc
