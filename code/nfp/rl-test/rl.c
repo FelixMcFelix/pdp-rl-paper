@@ -541,7 +541,7 @@ void heavy_first_work_allocation(
 	uint32_t class_costs[4] = {6, 10, 13, 19};
 	uint32_t available_ctxs[4] = {7, 8, 8, 8};
 	uint32_t first_ctx[4] = {0, 7, 15, 23};
-	uint32_t first_missing_ctx[4] = {8, 16, 24, 32};
+	uint32_t first_missing_ctx[4] = {7, 15, 23, 31};
 
 	uint32_t ctx_costs[31] = {0};
 	uint8_t ctx_items_allocd[31] = {0};
@@ -590,6 +590,9 @@ void heavy_first_work_allocation(
 		}
 
 		me_items_max[my_me] += ctx_items_max[ctx_ct];
+
+		//emergency test
+		// ctx_costs[ctx_ct] = available_ctxs[my_me] - (first_missing_ctx[my_me] - ctx_ct) - 1;
 	}
 
 	// do work alloc
@@ -619,6 +622,7 @@ void heavy_first_work_allocation(
 		for (i = usable_mes - 1; i >= 0; --i) {
 			if (me_items_allocd[i] < me_items_max[i]
 					&& ((me_costs[i] * available_ctxs[best_me]) < (me_costs[best_me] * available_ctxs[i]))) {
+					// && ((me_costs[i]) < (me_costs[best_me]))) {
 				best_me = i;
 			}
 		}
