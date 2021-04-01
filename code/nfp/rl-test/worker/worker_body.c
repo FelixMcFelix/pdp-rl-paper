@@ -231,6 +231,8 @@ __intrinsic void compute_my_work_alloc(
 
 __declspec(shared imem) uint64_t iter_ct = 0;
 __declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
+__declspec(export emem) uint32_t other_write_space[31] = {0};
+__declspec(export emem) uint32_t otherr_write_space[31] = {0};
 
 void work(uint8_t is_master, unsigned int parent_sig) {
 	__addr40 _declspec(emem) struct rl_config *cfg;
@@ -256,6 +258,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint32_t tile_hits[RL_MAX_TILE_HITS/2] = {0};
 
 	uint32_t last_work_t;
+	uint32_t b_t0;
+	uint32_t b_t1;
 
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -387,6 +391,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//
 				// for each id in work list:
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
+				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					// uint32_t t0 = local_csr_read(local_csr_timestamp_low);
 					// uint32_t t1;
@@ -396,6 +401,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					// t1 = local_csr_read(local_csr_timestamp_low);
 					// write_space[work_idxes[iter]] = t1 - t0;
 				}
+				// b_t1 = local_csr_read(local_csr_timestamp_low);
+				// other_write_space[my_id] = b_t1 - b_t0;
 
 				should_writeback = 1;
 				break;
@@ -412,6 +419,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				break;
 			case WORK_UPDATE_POLICY:
 				__critical_path(90);
+				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.update.state, cfg, has_bias, work_idxes[iter]);
 					update_action_preference_with_cfg_single(
@@ -421,6 +429,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 						local_ctx_work.body.update.delta
 					);
 				}
+				// b_t1 = local_csr_read(local_csr_timestamp_low);
+				// otherr_write_space[my_id] = b_t1 - b_t0;
 
 				should_writeback = 1;
 				break;
