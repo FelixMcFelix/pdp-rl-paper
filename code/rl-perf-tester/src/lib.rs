@@ -189,7 +189,7 @@ where
 			config.experiment.warmup_len
 		);
 
-		let mut delay_target = Instant::now() + Duration::from_millis(1);
+		let mut delay_target = Instant::now() + Duration::from_millis(2);
 
 		std::io::stderr().flush().unwrap();
 		for i in 0..config.experiment.warmup_len {
@@ -209,12 +209,12 @@ where
 			if let Some(t_left) = delay_target.checked_duration_since(Instant::now()) {
 				thread::sleep(t_left);
 			}
-			delay_target = Instant::now() + Duration::from_millis(1);
+			delay_target = Instant::now() + Duration::from_millis(2);
 		}
 
 		eprint!("Warmed up!\n");
 		std::io::stderr().flush().unwrap();
-		delay_target = Instant::now() + Duration::from_millis(1);
+		delay_target = Instant::now() + Duration::from_millis(2);
 
 		eprint!("\t\t");
 		for i in 0..config.experiment.sample_count {
@@ -261,7 +261,7 @@ where
 			if let Some(t_left) = delay_target.checked_duration_since(Instant::now()) {
 				thread::sleep(t_left);
 			}
-			delay_target = Instant::now() + Duration::from_millis(1);
+			delay_target = Instant::now() + Duration::from_millis(2);
 		}
 		eprint!("\n");
 

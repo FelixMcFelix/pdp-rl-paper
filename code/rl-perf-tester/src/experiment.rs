@@ -256,6 +256,7 @@ pub enum Firmware {
 	Randomised,
 	Stride,
 	OffsetStride,
+	Balanced,
 }
 
 impl Firmware {
@@ -267,6 +268,7 @@ impl Firmware {
 			Randomised => "multi.chunk_rand",
 			Stride => "multi.stride",
 			OffsetStride => "multi.stride_off",
+			Balanced => "multi.balanced",
 		}
 	}
 
@@ -278,6 +280,7 @@ impl Firmware {
 			Randomised => "randomised",
 			Stride => "stride",
 			OffsetStride => "offset_stride",
+			Balanced => "balanced",
 		}
 	}
 
