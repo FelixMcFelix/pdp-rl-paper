@@ -305,14 +305,9 @@ uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks)
 __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 	int i = 0;
 	atomic_writeback_acks = 0;
-	atomic_writeback_hit_count = 0;
 
 	for (i=0; i<MAX_ACTIONS; i++) {
 		atomic_writeback_prefs[i] = 0;
-	}
-
-	for (i=0; i<RL_MAX_TILE_HITS; i++) {
-		atomic_writeback_hits[i] = 0;
 	}
 
 	//remote
@@ -336,7 +331,6 @@ void state_packet_delegate(
 	__declspec(write_reg) struct rl_answer_item workq_write_register;
 	struct rl_answer_item action_item;
 	__declspec(emem) volatile struct value_set vals = {0};
-	uint32_t seen_hits;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 
@@ -369,9 +363,6 @@ void state_packet_delegate(
 	aggregate.type = ACK_VALUE_SET;
 	aggregate.body.value_set = &vals;
 
-	__implicit_write(&atomic_writeback_hit_count);
-	__implicit_write(&atomic_writeback_hits);
-
 	// copy state into writeback here?
 	if (!cfg->disable_action_writeout) {
 		action_item.len = dim_count;
@@ -387,8 +378,6 @@ void state_packet_delegate(
 	}
 
 	receive_worker_acks(&aggregate, worker_ct);
-
-	seen_hits = atomic_writeback_hit_count;
 	
 	// choose action
 	rng_draw = local_csr_read(local_csr_pseudo_random_number);
@@ -473,8 +462,6 @@ void state_packet_delegate(
 
 			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
 
-			#ifndef WORKER_DO_UPDATES_LOCALLY
-
 			to_do.type = WORK_UPDATE_POLICY;
 			to_do.body.update.action = chosen_action;
 			to_do.body.update.delta = adjustment;
@@ -487,17 +474,6 @@ void state_packet_delegate(
 
 			aggregate.type = ACK_NO_BODY;
 			receive_worker_acks(&aggregate, worker_ct);
-			#else
-
-			update_action_preferences(
-				&(state_action_pairs[state_found].tiles[0]),
-				seen_hits,
-				cfg,
-				chosen_action,
-				adjustment
-			);
-
-			#endif /* !WORKER_DO_UPDATES_LOCALLY */
 		}
 
 		// TODO: figure out "broken-math" version of this (indiv tile shifts)
@@ -505,7 +481,6 @@ void state_packet_delegate(
 		// store the tile list, chosen action, and its value.
 		state_action_pairs[state_found].action = chosen_action;
 		state_action_pairs[state_found].val = prefs[chosen_action];
-		state_action_pairs[state_found].len = atomic_writeback_hit_count;
 
 		// dst, src, size
 		ua_memcpy_mem40_mem40(
@@ -533,7 +508,7 @@ void state_packet_delegate(
 
 __declspec(export, emem) volatile uint32_t vis_indices[RL_MAX_TILE_HITS] = {0};
 
-void heavy_first_work_allocation(
+__intrinsic void heavy_first_work_allocation(
 	__addr40 __declspec(emem) uint32_t *indices,
 	__addr40 __declspec(emem) struct rl_config *cfg
 ) {

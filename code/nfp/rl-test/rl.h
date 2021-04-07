@@ -200,14 +200,22 @@ struct policy_install_data {
 
 struct state_action_pair {
 	uint16_t action;
-	uint16_t len;
 	tile_t val;
 	
 	#ifdef _RL_CORE_OLD_POLICY_WORK
 	uint32_t tiles[RL_MAX_TILE_HITS];
+	uint16_t len;
 	#else
 	tile_t state[RL_DIMENSION_MAX];
 	#endif /* _RL_CORE_OLD_POLICY_WORK */
 };
+
+
+#ifdef WORKER_BARGAIN_BUCKET_SIMD
+
+// divide by SIMD_THROUGHPUT and round up
+#define MAX_SIMD_WB_SLOTS ((MAX_ACTIONS + (SIMD_THROUGHPUT - 1)) / SIMD_THROUGHPUT)
+
+#endif /* WORKER_BARGAIN_BUCKET_SIMD */
 
 #endif /* !_RL_H_ */

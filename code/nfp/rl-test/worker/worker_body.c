@@ -1,9 +1,14 @@
 #include <stdint.h>
 #include <nfp/cls.h>
+#include <nfp/mem_bulk.h>
 #include "../worker_config.h"
 #include "../subtask/work.h"
 #include "../subtask/ack.h"
 #include "../rl.h"
+#include "../util.h"
+
+#include <nfp6000/nfp_me.h>
+#include <assert.h>
 
 #ifdef _RL_WORKER_DISABLED
 
@@ -77,7 +82,103 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	return local_tile;
 }
 
-__intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
+// COPIED FROM ELSE
+#define _CLS_CMD(cmdname, data, addr, size, max_size, sync, sig, cmin, cmax) \
+do {                                                                    \
+    struct nfp_mecsr_prev_alu ind;                                      \
+    unsigned int count = (size >> 2);                                   \
+    unsigned int max_count = (max_size >> 2);                           \
+                                                                        \
+    ctassert(__is_ct_const(max_size));                                  \
+    ctassert(__is_ct_const(sync));                                      \
+    ctassert(sync == sig_done || sync == ctx_swap);                     \
+                                                                        \
+    if (__is_ct_const(size)) {                                          \
+        ctassert(size != 0);                                            \
+        ctassert(__is_aligned(size, 4));                                \
+                                                                        \
+        if(size <= (cmax * 4)) {                                        \
+            if (sync == sig_done) {                                     \
+                __asm { cls[cmdname, *data, addr, 0, __ct_const_val(count)], \
+                        sig_done[*sig] }                                \
+            } else {                                                    \
+                __asm { cls[cmdname, *data, addr, 0, __ct_const_val(count)], \
+                        ctx_swap[*sig] }                                \
+            }                                                           \
+        } else {                                                        \
+            ctassert(size <= 128);                                      \
+                                                                        \
+            /* Setup length in PrevAlu for the indirect */              \
+            ind.__raw = 0;                                              \
+            ind.ov_len = 1;                                             \
+            ind.length = count - 1;                                     \
+                                                                        \
+            if (sync == sig_done) {                                     \
+                __asm { alu[--, --, B, ind.__raw] }                     \
+                __asm { cls[cmdname, *data, addr, 0, __ct_const_val(count)], \
+                        sig_done[*sig], indirect_ref }                  \
+            } else {                                                    \
+                __asm { alu[--, --, B, ind.__raw] }                     \
+                __asm { cls[cmdname, *data, addr, 0, __ct_const_val(count)], \
+                        ctx_swap[*sig], indirect_ref }                  \
+            }                                                           \
+        }                                                               \
+    } else {                                                            \
+        /* Setup length in PrevAlu for the indirect */                  \
+        ind.__raw = 0;                                                  \
+        ind.ov_len = 1;                                                 \
+        ind.length = count - 1;                                         \
+                                                \
+        if (sync == sig_done) {                                         \
+            __asm { alu[--, --, B, ind.__raw] }                         \
+            __asm { cls[cmdname, *data, addr, 0, __ct_const_val(max_count)], \
+                    sig_done[*sig], indirect_ref }                      \
+        } else {                                                        \
+            __asm { alu[--, --, B, ind] }                               \
+            __asm { cls[cmdname, *data, addr, 0, __ct_const_val(max_count)], \
+                    ctx_swap[*sig], indirect_ref }                      \
+        }                                                               \
+    }                                                                   \
+} while (0)
+
+__intrinsic void
+__cls_test_add64(__xrw void *data, __cls void *addr, size_t size,
+               const size_t max_size, sync_t sync, SIGNAL *sig)
+{
+    try_ctassert(size <= 64);
+
+    _CLS_CMD(test_add64, data, addr, size, size, sync, sig, 1, 8);
+}
+
+__intrinsic void
+cls_test_add64(__xrw void *data, __cls void *addr, size_t size)
+{
+    SIGNAL sig;
+
+    __cls_test_add64(data, addr, size, size, ctx_swap, &sig);
+}
+
+__intrinsic void
+__cls_test_sub64(__xrw void *data, __cls void *addr, size_t size,
+               const size_t max_size, sync_t sync, SIGNAL *sig)
+{
+    try_ctassert(size <= 64);
+
+    _CLS_CMD(test_add64, data, addr, size, size, sync, sig, 1, 8);
+}
+
+__intrinsic void
+cls_test_sub64(__xrw void *data, __cls void *addr, size_t size)
+{
+    SIGNAL sig;
+
+    __cls_test_sub64(data, addr, size, size, ctx_swap, &sig);
+}
+
+// END COPY
+
+void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
+	__declspec(xfer_read_reg) union four_u16s read_words;
 	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
@@ -85,36 +186,120 @@ __intrinsic void action_preferences_with_cfg_single(uint32_t tile_index, __addr4
 	uint32_t loc_base = cfg->last_tier_tile[loc];
 	uint32_t base;
 
+	uint8_t read_word_index = 0;
+
+	#ifdef WORKER_BARGAIN_BUCKET_SIMD
+	__declspec(xfer_read_write_reg) uint64_t atomic_prep = 0;
+	uint64_t atomic_prep_scratch = 0;
+	uint8_t atom_write_word_index = 0;
+	uint8_t simd_shift = 0;
+	uint16_t writing_j = 0;
+	#endif
+
 	while (tile_index >= loc_base) {
 		loc++;
 		loc_base = cfg->last_tier_tile[loc];
 	}
 
-	// atomic_writeback_prefs
+	// WORKER_BARGAIN_BUCKET_SIMD
+	// atomic_writeback_prefs_simd
+
+	// #define SIMD_THROUGHPUT 4
+	// #define SIMD_SHIFT_PER 
+
+	// __declspec(i5.cls, export)tile_t t1_tiles[MAX_CLS_TILES] = {0};
+	// __declspec(i5.ctm, export)tile_t t2_tiles[MAX_CTM_TILES] = {0};
+	// __declspec(export imem)tile_t t3_tiles[MAX_IMEM_TILES] = {0};
+
+	// DON'T SWAP UNTIL RIGHT BEFORE ADD?
+	// for cls cls_read(__xread void *data, __cls void *addr, size_t size);
+	// for ctm/imem mem_read64_swap(__xread void *data, __mem40 void *addr, const size_t size);
 
 	// find location of tier in memory.
 	switch (loc) {
 		case TILE_LOCATION_T1:
 			base = tile_index;
-			for (j = 0; j < act_count; j++) {
-				xfer_pref = t1_tiles[base + j];
-				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
-			}
 			break;
 		case TILE_LOCATION_T2:
 			base = tile_index - cfg->last_tier_tile[loc-1];
-			for (j = 0; j < act_count; j++) {
-				xfer_pref = t2_tiles[base + j];
-				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
-			}
 			break;
 		case TILE_LOCATION_T3:
 			base = tile_index - cfg->last_tier_tile[loc-1];
-			for (j = 0; j < act_count; j++) {
-				xfer_pref = t3_tiles[base + j];
-				cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
-			}
 			break;
+	}
+
+	while (j < act_count) {
+		if (j == 0 || read_word_index >= TILES_IN_U64) {
+			switch (loc) {
+				case TILE_LOCATION_T1:
+					cls_read(&read_words.raw, &t1_tiles[base + j], sizeof(union four_u16s));
+					break;
+				case TILE_LOCATION_T2:
+					mem_read64(&read_words.raw, &t2_tiles[base + j], sizeof(union four_u16s));
+					break;
+				case TILE_LOCATION_T3:
+					mem_read64(&read_words.raw, &t3_tiles[base + j], sizeof(union four_u16s));
+					break;
+			}
+			read_word_index = 0;
+		}
+
+		#ifdef WORKER_BARGAIN_BUCKET_SIMD
+		//bb simd
+		if (atom_write_word_index >= SIMD_THROUGHPUT) {
+			atom_write_word_index = 0;
+			atomic_prep_scratch = 0;
+			simd_shift = 0;
+		}
+
+		while (atom_write_word_index < SIMD_THROUGHPUT || read_word_index < TILES_IN_U64) {
+			atomic_prep_scratch |= read_words.tiles[read_word_index] << simd_shift;
+
+			simd_shift += SIMD_SHIFT_PER;
+
+			j++;
+			atom_write_word_index++;
+			read_word_index++;
+		}
+
+		if (atom_write_word_index >= SIMD_THROUGHPUT || j == act_count) {
+			uint32_t add_scratch = 0;
+			atomic_prep = atomic_prep_scratch;
+			// TODO: SWAP WORDS??
+			cls_test_add64(&atomic_prep, &(atomic_writeback_prefs_simd[writing_j]), sizeof(uint64_t));
+
+			writing_j = j;
+
+			#ifdef _32_BIT_TILES
+			// add_scratch = atomic_prep + ((uint32_t) atomic_prep_scratch);
+
+			// atomic_prep + atomic_prep_scratch
+			// if carry set, then sub.
+
+			__asm {
+				// add atomic_prep, ((uint32_t) atomic_prep_scratch) w/ no dest
+				// store 0 + carry into add_scratch
+				alu[--, atomic_prep, +, atomic_prep_scratch];
+				alu[add_scratch, add_scratch, +carry, 0];
+			}
+
+			if ((atomic_prep | 0x80000000 == 1)) {
+				atomic_prep = 0x0000000100000000;
+				cls_test_sub64(&atomic_prep, &(atomic_writeback_prefs_simd[writing_j]), sizeof(uint64_t));
+			}
+			#endif /* _32_BIT_TILES */
+		}
+		#else
+		//old-but-new way
+		for (
+			read_word_index = 0;
+			read_word_index < TILES_IN_U64 && j < act_count;
+			read_word_index++, j++
+		) {
+			xfer_pref = read_words.tiles[read_word_index];
+			cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
+		}
+		#endif /* WORKER_BARGAIN_BUCKET_SIMD */
 	}
 }
 

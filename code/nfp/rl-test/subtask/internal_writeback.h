@@ -19,18 +19,13 @@ __declspec(export, emem) uint32_t emem_writeback_locks[RL_WORKER_WRITEBACK_SLOTS
 // fall back to CTM in worst case.
 __declspec(export, cls) uint32_t atomic_writeback_acks = 0;
 __declspec(export, cls) uint32_t atomic_writeback_prefs[MAX_ACTIONS] = {0};
-__declspec(export, cls) uint32_t atomic_writeback_hit_count = 0;
-__declspec(export, cls) uint32_t atomic_writeback_hits[RL_MAX_TILE_HITS] = {0};
+
+#ifdef WORKER_BARGAIN_BUCKET_SIMD
+__declspec(export, cls) uint64_t atomic_writeback_prefs_simd[MAX_SIMD_WB_SLOTS] = {0};
+#endif /* WORKER_BARGAIN_BUCKET_SIMD */
+
 #endif /* _RL_CORE_OLD_POLICY_WORK */
 
-enum writeback_result internal_writeback_ack(
-	uint8_t target_slot,
-	struct worker_ack ack,
-	unsigned int client_sig
-);
-
 __intrinsic void atomic_ack();
-
-__intrinsic uint32_t atomic_writeback_slot();
 
 #endif /* !_INTERNAL_WRITEBACK_H_ */
