@@ -7,7 +7,7 @@ set ylabel "Time (us)"
 set key top left
 
 array Names[2]
-Names[1] = "randomised"
+Names[1] = "balanced"
 # Names[2] = "single"
 
 array PresentationNames[2]

@@ -7,7 +7,7 @@ folder_format = "vary-work-ct/{}/{}.{}d.31c.{}.dat"
 out_format = "vary-work-ct/{}/SUMMARY.{}.{}.csv"
 
 bits = [8, 16, 32]
-fws = ["randomised", "single"]
+fws = ["randomised", "single", "balanced"]
 measures = ["UpdateAll", "ComputeAndWriteout"]
 d_counts = range(1, 29)
 

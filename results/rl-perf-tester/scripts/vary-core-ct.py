@@ -7,7 +7,7 @@ folder_format = "vary-core-ct/{}/{}.28d.{}c.{}.dat"
 out_format = "vary-core-ct/{}/SUMMARY.{}.{}.csv"
 
 bits = [8, 16, 32]
-fws = ["randomised"]
+fws = ["randomised", "balanced"]
 measures = ["UpdateAll", "ComputeAndWriteout"]
 core_counts = range(1, 32)
 

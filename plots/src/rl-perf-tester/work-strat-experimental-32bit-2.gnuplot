@@ -10,12 +10,10 @@ set boxwidth 0.5
 unset key
 set pointsize 0.1
 
-array Names[5]
+array Names[3]
 Names[1] = "chunk"
 Names[2] = "mk1"
 Names[3] = "mk2"
-Names[4] = "stride"
-Names[5] = "randomised"
 
 array Stages[4]
 Stages[1] = "Compute"
@@ -26,4 +24,4 @@ Stages[4] = "UpdateAll"
 file(n) = sprintf("../results/rl-perf-tester/test-strat/32/%s.28d.31c.%s.dat", Names[(n / 4) + 1], Stages[(n % 4) + 1])
 x_coord(n) = 1 + floor(n / 4) + n
 
-plot for [i=0:19] file(i) u (x_coord(i)):($1/1.2e3):(1.0) ps .1 notitle
+plot for [i=0:11] file(i) u (x_coord(i)):($1/1.2e3):(1.0) ps .1 notitle

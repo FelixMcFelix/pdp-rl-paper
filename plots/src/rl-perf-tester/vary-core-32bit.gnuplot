@@ -7,7 +7,7 @@ set ylabel "Time (us)"
 set key top left
 
 array Names[2]
-Names[1] = "randomised"
+Names[1] = "balanced"
 # Names[2] = "single"
 
 array PresentationNames[2]
@@ -31,6 +31,6 @@ DashStyles[1] = 1
 DashStyles[2] = 2
 
 myTitle(i) = sprintf("%s (%s)", PresentationNames[(i / 2) + 1], Variants[(i % 2) + 1])
-file(n) = sprintf("../results/rl-perf-tester/vary-core-ct/32/SUMMARY.%s.ComputeAndWriteout.csv", Names[(n / 2) + 1])
+file(n) = sprintf("../results/rl-perf-tester/vary-core-ct/32/SUMMARY.%s.UpdateAll.csv", Names[(n / 2) + 1])
 
 plot for [i=0:1] file(i) u 1:(column(TargetColumn[(i % 2) + 1])/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[(i / 2) + 1] dt DashStyles[(i % 2) + 1]

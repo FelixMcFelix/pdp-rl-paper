@@ -23,7 +23,7 @@ Stages[2] = "ComputeAndWriteout"
 Stages[3] = "UpdateOnlyPrep"
 Stages[4] = "UpdateAll"
 
-file(n) = sprintf("../results/rl-perf-tester/test-strat/32/%s.28d.31c.%s.dat", Names[(n / 4) + 1], Stages[(n % 4) + 1])
+file(n) = sprintf("../results/rl-perf-tester/test-strat-8/8/%s.28d.31c.%s.dat", Names[(n / 4) + 1], Stages[(n % 4) + 1])
 x_coord(n) = 1 + floor(n / 4) + n
 
-plot for [i=0:19] file(i) u (x_coord(i)):($1/1.2e3):(1.0) ps .1 notitle
+plot for [i=0:3] file(i) u (x_coord(i)):($1/1.2e3):(1.0) ps .1 notitle
