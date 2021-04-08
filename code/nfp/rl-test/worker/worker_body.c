@@ -178,7 +178,10 @@ cls_test_sub64(__xrw void *data, __cls void *addr, size_t size)
 // END COPY
 
 void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
-	__declspec(xfer_read_reg) union four_u16s read_words;
+	#define _NUM_U64S_TO_READ (4)
+	#define _TILES_TO_READ (_NUM_U64S_TO_READ * TILES_IN_U64)
+
+	__declspec(xfer_read_reg) tile_t read_words[_TILES_TO_READ];
 	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
@@ -229,16 +232,16 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 	}
 
 	while (j < act_count) {
-		if (j == 0 || read_word_index >= TILES_IN_U64) {
+		if (j == 0 || read_word_index >= _TILES_TO_READ) {
 			switch (loc) {
 				case TILE_LOCATION_T1:
-					cls_read(&read_words.raw, &t1_tiles[base + j], sizeof(union four_u16s));
+					cls_read(&read_words[0], &t1_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
 					break;
 				case TILE_LOCATION_T2:
-					mem_read64(&read_words.raw, &t2_tiles[base + j], sizeof(union four_u16s));
+					mem_read64(&read_words[0], &t2_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
 					break;
 				case TILE_LOCATION_T3:
-					mem_read64(&read_words.raw, &t3_tiles[base + j], sizeof(union four_u16s));
+					mem_read64(&read_words[0], &t3_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
 					break;
 			}
 			read_word_index = 0;
@@ -252,7 +255,7 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 			simd_shift = 0;
 		}
 
-		while (atom_write_word_index < SIMD_THROUGHPUT || read_word_index < TILES_IN_U64) {
+		while (atom_write_word_index < SIMD_THROUGHPUT || read_word_index < _TILES_TO_READ) {
 			atomic_prep_scratch |= read_words.tiles[read_word_index] << simd_shift;
 
 			simd_shift += SIMD_SHIFT_PER;
@@ -266,6 +269,7 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 			uint32_t add_scratch = 0;
 			atomic_prep = atomic_prep_scratch;
 			// TODO: SWAP WORDS??
+			// is writing j correct? shouldn't this be mod throughput?!
 			cls_test_add64(&atomic_prep, &(atomic_writeback_prefs_simd[writing_j]), sizeof(uint64_t));
 
 			writing_j = j;
@@ -293,14 +297,17 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 		//old-but-new way
 		for (
 			read_word_index = 0;
-			read_word_index < TILES_IN_U64 && j < act_count;
+			read_word_index < _TILES_TO_READ && j < act_count;
 			read_word_index++, j++
 		) {
-			xfer_pref = read_words.tiles[read_word_index];
+			xfer_pref = read_words[read_word_index];
 			cls_test_add(&xfer_pref, &(atomic_writeback_prefs[j]), sizeof(uint32_t));
 		}
 		#endif /* WORKER_BARGAIN_BUCKET_SIMD */
 	}
+
+	#undef _TILES_TO_READ
+	#undef _NUM_U64S_TO_READ
 }
 
 __intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
@@ -415,9 +422,9 @@ __intrinsic void compute_my_work_alloc(
 }
 
 __declspec(shared imem) uint64_t iter_ct = 0;
-__declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
+/*__declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
 __declspec(export emem) uint32_t other_write_space[31] = {0};
-__declspec(export emem) uint32_t otherr_write_space[31] = {0};
+__declspec (export emem) uint32_t otherr_write_space[31] = {0};*/
 
 void work(uint8_t is_master, unsigned int parent_sig) {
 	__addr40 _declspec(emem) struct rl_config *cfg;
