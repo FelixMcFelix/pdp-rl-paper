@@ -102,9 +102,36 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 		pkt->packet_payload + cursor,
 		sizeof(union two_u16s)
 	);
-	cursor += sizeof(union two_u16s);
+	cursor += sizeof(tile_t);
 
-	cfg->epsilon = (tile_t) word.raw;
+	cfg->epsilon = word.tiles[0];
+
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(tile_t);
+
+	cfg->alpha = word.tiles[0];
+
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(tile_t);
+
+	cfg->gamma = word.tiles[0];
+
+	mem_read32(
+		&(word.raw),
+		pkt->packet_payload + cursor,
+		sizeof(union two_u16s)
+	);
+	cursor += sizeof(tile_t);
+
+	cfg->epsilon_decay_amt = word.tiles[0];
 
 	mem_read32(
 		&(word.raw),
@@ -113,26 +140,7 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	);
 	cursor += sizeof(union two_u16s);
 
-	cfg->alpha = (tile_t) word.raw;
-
-	mem_read32(
-		&(word.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union two_u16s)
-	);
-	cursor += sizeof(union two_u16s);
-
-	cfg->gamma = (tile_t) word.raw;
-
-	mem_read64(
-		&(bigword.raw),
-		pkt->packet_payload + cursor,
-		sizeof(union four_u16s)
-	);
-	cursor += sizeof(union four_u16s);
-
-	cfg->epsilon_decay_amt = (tile_t) bigword.words[0];
-	cfg->epsilon_decay_freq = bigword.words[1];
+	cfg->epsilon_decay_freq = word.raw;
 
 	cfg->state_key.kind = pkt->packet_payload[cursor];
 	cursor += 1;

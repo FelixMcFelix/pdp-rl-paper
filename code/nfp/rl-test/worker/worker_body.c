@@ -23,7 +23,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {}
 
 #if defined(NO_FORWARD) || (defined(IN_PORT) && defined(OUT_PORT))
 
-__intrinsic uint32_t tile_code_with_cfg_single(
+__declspec(export, emem) tile_t life_sucks[4] = {0};
+
+uint32_t tile_code_with_cfg_single(
 	__addr40 _declspec(emem) tile_t *state,
 	__addr40 _declspec(emem) struct rl_config *cfg,
 	uint8_t bias_tile_exists,
@@ -34,6 +36,8 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 	uint32_t local_tile;
 	uint16_t tiling_idx;
 	uint32_t width_product = cfg->num_actions;
+
+	tile_t emergency_vals[4] = {0};
 
 	// check if there's a bias tile.
 	// => yes? set 0 has size 1, others have size cfg->tilings_per_set
@@ -60,6 +64,9 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 		uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
 		uint8_t reduce_tile;
 		tile_t val = state[active_dim];
+		#ifdef _8_BIT_TILES
+		double_tile_t valour = 0;
+		#endif
 
 		// This is what varies per tiling in a set.
 		tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
@@ -71,13 +78,41 @@ __intrinsic uint32_t tile_code_with_cfg_single(
 		val = (val < max) ? val : max;
 		reduce_tile = val == max;
 
+		#ifdef _8_BIT_TILES
+		// THIS CAUSES OVERFLOW.
+		// BACKPORT TO SINGLECORE.
+		valour = (val > min) ? ((double_tile_t) val) - min : 0;
+
+		valour /= cfg->width[active_dim];
+
+		// emergency_vals[dim_idx] = val;
+
+		local_tile += width_product * ((uint32_t)valour - (reduce_tile ? 1 : 0));
+		#else
 		val = (val > min) ? val - min : 0;
 
 		val /= cfg->width[active_dim];
 
+		// emergency_vals[dim_idx] = val;
+
 		local_tile += width_product * ((uint32_t)val - (reduce_tile ? 1 : 0));
+		#endif
 		width_product *= cfg->tiles_per_dim;
 	}
+
+	#ifdef RL_DEBUG_ASSERTS
+	if (local_tile < cfg->tiling_sets[tiling_set_idx].start_tile || local_tile >= cfg->tiling_sets[tiling_set_idx].end_tile) {
+		life_sucks[0] = emergency_vals[0];
+		life_sucks[1] = emergency_vals[1];
+		life_sucks[2] = emergency_vals[2];
+		life_sucks[3] = emergency_vals[3];
+		__implicit_read(emergency_vals);
+		__asm{ctx_arb[bpt]}
+		__implicit_read(emergency_vals);
+	}
+	#endif
+
+	__implicit_read(emergency_vals);
 
 	return local_tile;
 }
@@ -177,13 +212,16 @@ cls_test_sub64(__xrw void *data, __cls void *addr, size_t size)
 
 // END COPY
 
-void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg) {
+void action_preferences_with_cfg_single(
+	uint32_t tile_index,
+	__addr40 _declspec(emem) struct rl_config *cfg,
+	enum tile_location loc
+) {
 	#define _NUM_U64S_TO_READ (4)
 	#define _TILES_TO_READ (_NUM_U64S_TO_READ * TILES_IN_U64)
 
 	__declspec(xfer_read_reg) tile_t read_words[_TILES_TO_READ];
 	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
-	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t j = 0;
 	uint16_t act_count = cfg->num_actions;
 	uint32_t loc_base = cfg->last_tier_tile[loc];
@@ -199,9 +237,13 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 	uint16_t writing_j = 0;
 	#endif
 
-	while (tile_index >= loc_base) {
-		loc++;
+	if (loc > TILE_LOCATION_T3) {
+		loc = TILE_LOCATION_T1;
 		loc_base = cfg->last_tier_tile[loc];
+		while (tile_index >= loc_base) {
+			loc++;
+			loc_base = cfg->last_tier_tile[loc];
+		}
 	}
 
 	// WORKER_BARGAIN_BUCKET_SIMD
@@ -256,7 +298,7 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 		}
 
 		while (atom_write_word_index < SIMD_THROUGHPUT || read_word_index < _TILES_TO_READ) {
-			atomic_prep_scratch |= read_words.tiles[read_word_index] << simd_shift;
+			atomic_prep_scratch |= read_words[read_word_index] << simd_shift;
 
 			simd_shift += SIMD_SHIFT_PER;
 
@@ -271,8 +313,6 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 			// TODO: SWAP WORDS??
 			// is writing j correct? shouldn't this be mod throughput?!
 			cls_test_add64(&atomic_prep, &(atomic_writeback_prefs_simd[writing_j]), sizeof(uint64_t));
-
-			writing_j = j;
 
 			#ifdef _32_BIT_TILES
 			// add_scratch = atomic_prep + ((uint32_t) atomic_prep_scratch);
@@ -292,6 +332,8 @@ void action_preferences_with_cfg_single(uint32_t tile_index, __addr40 _declspec(
 				cls_test_sub64(&atomic_prep, &(atomic_writeback_prefs_simd[writing_j]), sizeof(uint64_t));
 			}
 			#endif /* _32_BIT_TILES */
+
+			writing_j++;
 		}
 		#else
 		//old-but-new way
@@ -342,16 +384,23 @@ __intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint
 	}
 }
 
-__intrinsic void update_action_preference_with_cfg_single(uint32_t tile_index, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
-	enum tile_location loc = TILE_LOCATION_T1;
-
+__intrinsic void update_action_preference_with_cfg_single(
+	uint32_t tile_index,
+	__addr40 _declspec(emem) struct rl_config *cfg,
+	uint16_t action,
+	tile_t delta,
+	enum tile_location loc
+) {
 	uint32_t target = tile_index;
 	uint32_t loc_base = cfg->last_tier_tile[loc];
 	uint32_t base;
 
-	while (target >= loc_base) {
-		loc++;
-		loc_base = cfg->last_tier_tile[loc];
+	if (loc > TILE_LOCATION_T3) {
+		loc = TILE_LOCATION_T1;
+		while (target >= loc_base) {
+			loc++;
+			loc_base = cfg->last_tier_tile[loc];
+		}
 	}
 
 	// find location of tier in memory.
@@ -425,6 +474,7 @@ __declspec(shared imem) uint64_t iter_ct = 0;
 /*__declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
 __declspec(export emem) uint32_t other_write_space[31] = {0};
 __declspec (export emem) uint32_t otherr_write_space[31] = {0};*/
+__declspec (export emem) uint64_t nntf = 0;
 
 void work(uint8_t is_master, unsigned int parent_sig) {
 	__addr40 _declspec(emem) struct rl_config *cfg;
@@ -452,6 +502,9 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint32_t last_work_t;
 	uint32_t b_t0;
 	uint32_t b_t1;
+
+	enum tile_location precache_locs[RL_MAX_PRECACHE] = {0};
+	uint16_t fucking_hell[RL_MAX_PRECACHE] = {0};
 
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -585,11 +638,35 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					enum tile_location loc = (iter < RL_MAX_PRECACHE)
+						? precache_locs[iter]
+						: TILE_LOCATION_T3 + 1;
 					// uint32_t t0 = local_csr_read(local_csr_timestamp_low);
 					// uint32_t t1;
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.state, cfg, has_bias, work_idxes[iter]);
+
+					#ifdef RL_DEBUG_ASSERTS
+					enum tile_location n_loc = TILE_LOCATION_T1;
+					uint32_t loc_base = cfg->last_tier_tile[n_loc];
+					while (hit_tile >= loc_base) {
+						n_loc++;
+						loc_base = cfg->last_tier_tile[n_loc];
+					}
+
+
+					if (n_loc != loc) {
+						uint32_t tiling_set_idx = has_bias
+							? (((work_idxes[iter] - 1) / cfg->tilings_per_set) + 1)
+							: (work_idxes[iter] / cfg->tilings_per_set);
+
+						nntf = (hit_tile << 16) | ((tiling_set_idx & 0xff) << 8) | (work_idxes[iter] & 0xff);
+						__asm {ctx_arb[bpt]}
+						nntf = (hit_tile << 16) | ((tiling_set_idx & 0xff) << 8) | (work_idxes[iter] & 0xff);
+					}
+					#endif
+
 					// place tile into slot governed by active_pref_space
-					action_preferences_with_cfg_single(hit_tile, cfg);
+					action_preferences_with_cfg_single(hit_tile, cfg, loc);
 					// t1 = local_csr_read(local_csr_timestamp_low);
 					// write_space[work_idxes[iter]] = t1 - t0;
 				}
@@ -607,18 +684,38 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 					my_work_alloc_size,
 					work_idxes
 				);
+
+				for(iter=0; iter<my_work_alloc_size && iter<RL_MAX_PRECACHE; iter++) {
+					enum tile_location loc = TILE_LOCATION_T1;
+					uint32_t tiling_set_idx = has_bias
+						? (((work_idxes[iter] - 1) / cfg->tilings_per_set) + 1)
+						: (work_idxes[iter] / cfg->tilings_per_set);
+
+					precache_locs[iter] = cfg->tiling_sets[tiling_set_idx].location;
+					fucking_hell[iter] = work_idxes[iter];
+				}
+
+				// __asm {
+				// 	ctx_arb[bpt]
+				// }
+
 				should_writeback = 1;
 				break;
 			case WORK_UPDATE_POLICY:
 				__critical_path(90);
 				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
+					enum tile_location loc = (iter < RL_MAX_PRECACHE)
+						? precache_locs[iter]
+						: TILE_LOCATION_T3 + 1;
+
 					uint32_t hit_tile = tile_code_with_cfg_single(local_ctx_work.body.update.state, cfg, has_bias, work_idxes[iter]);
 					update_action_preference_with_cfg_single(
 						hit_tile, 
 						cfg,
 						local_ctx_work.body.update.action,
-						local_ctx_work.body.update.delta
+						local_ctx_work.body.update.delta,
+						loc
 					);
 				}
 				// b_t1 = local_csr_read(local_csr_timestamp_low);

@@ -36,4 +36,6 @@
 
 #define WORKER_BARGAIN_BUCKET_SIMD
 
+#define RL_DEBUG_ASSERTS
+
 #endif /* !_WORK_CONFIG_MARKER_H_ */
