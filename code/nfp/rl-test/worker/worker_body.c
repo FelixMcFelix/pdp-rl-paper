@@ -64,9 +64,6 @@ uint32_t tile_code_with_cfg_single(
 		uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
 		uint8_t reduce_tile;
 		tile_t val = state[active_dim];
-		#ifdef _8_BIT_TILES
-		double_tile_t valour = 0;
-		#endif
 
 		// This is what varies per tiling in a set.
 		tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
@@ -78,25 +75,17 @@ uint32_t tile_code_with_cfg_single(
 		val = (val < max) ? val : max;
 		reduce_tile = val == max;
 
-		#ifdef _8_BIT_TILES
-		// THIS CAUSES OVERFLOW.
-		// BACKPORT TO SINGLECORE.
-		valour = (val > min) ? ((double_tile_t) val) - min : 0;
-
-		valour /= cfg->width[active_dim];
-
-		// emergency_vals[dim_idx] = val;
-
-		local_tile += width_product * ((uint32_t)valour - (reduce_tile ? 1 : 0));
-		#else
+		// WE NEED TO CAST VAL AS A UTILE *BEFORE* USE
+		// OTHERWISE DIVISION WILL BE WRONG DUE
+		// TO POTENTIAL OVERFLOW
 		val = (val > min) ? val - min : 0;
 
-		val /= cfg->width[active_dim];
-
 		// emergency_vals[dim_idx] = val;
 
-		local_tile += width_product * ((uint32_t)val - (reduce_tile ? 1 : 0));
-		#endif
+		local_tile +=
+			width_product
+			* (( ((utile_t)val) / cfg->width[active_dim]) - (reduce_tile ? 1 : 0));
+
 		width_product *= cfg->tiles_per_dim;
 	}
 
