@@ -134,20 +134,39 @@ impl ProtoSetup {
 
 		if sanitise_bounds {
 			let format_min = T::minimum_float(quantiser_shift);
-			for val in mins.iter_mut() {
-				*val = val.max(format_min);
-			}
+			let format_max = T::maximum_float(quantiser_shift);
 
-			let f_max = T::maximum_float(quantiser_shift);
 			if tilings_per_set <= 1 {
+				for val in mins.iter_mut() {
+					*val = val.max(format_min);
+				}
+
 				for val in maxes.iter_mut() {
-					*val = val.min(f_max);
+					*val = val.min(format_max);
 				}
 			} else {
-				let const_term = f_max * ((tiles_per_dim - 1) as f32);
-				for (max, min) in maxes.iter_mut().zip(mins.iter()) {
-					let up_bnd = (const_term + min) / 2.0;
-					*max = max.min(up_bnd);
+				//mins
+				for (max, min) in maxes.iter_mut().zip(mins.iter_mut()) {
+					let width = (*max - *min) / ((tiles_per_dim - 1) as f32);
+					let beyond_bound = *min - width;
+
+					if beyond_bound <= format_min {
+						let frac = beyond_bound / format_min;
+						*max /= frac;
+						*min /= frac;
+					}
+				}
+
+				//maxes
+				for (max, min) in maxes.iter_mut().zip(mins.iter_mut()) {
+					let width = (*max - *min) / ((tiles_per_dim - 1) as f32);
+					let beyond_bound = *max + width;
+
+					if beyond_bound >= format_max {
+						let frac = beyond_bound / format_max;
+						*max /= frac;
+						*min /= frac;
+					}
 				}
 			};
 		}
