@@ -17,6 +17,7 @@ pub struct ExperimentFile {
 
 	pub setup: Option<ProtoSetup>,
 	pub warmup_len: Option<u64>,
+	pub sanitise_bounds: Option<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -30,6 +31,7 @@ pub struct Experiment {
 
 	pub setup: ProtoSetup,
 	pub warmup_len: u64,
+	pub sanitise_bounds: bool,
 }
 
 // define these in terms of
@@ -72,31 +74,28 @@ impl FloatKeySource {
 	}
 }
 
-impl<T> From<ProtoSetup> for Setup<T>
-where
-	T: Tile,
-{
-	fn from(val: ProtoSetup) -> Self {
-		let quantiser_shift = val
+impl ProtoSetup {
+	pub fn instantiate<T: Tile>(&self, sanitise_bounds: bool) -> Setup<T> {
+		let quantiser_shift = self
 			.quantiser_shift
 			.unwrap_or_else(|| (2 * ((T::size_of() * 8) - 1) / 3).try_into().unwrap());
 
-		let n_dims = val.n_dims.unwrap_or(20);
+		let n_dims = self.n_dims.unwrap_or(20);
 
-		let tiles_per_dim = val.tiles_per_dim.unwrap_or(6);
+		let tiles_per_dim = self.tiles_per_dim.unwrap_or(6);
 
-		let tilings_per_set = val.tilings_per_set.unwrap_or(8);
+		let tilings_per_set = self.tilings_per_set.unwrap_or(8);
 
-		let n_actions = val.n_actions.unwrap_or(10);
+		let n_actions = self.n_actions.unwrap_or(10);
 
-		let raw_epsilon = val.epsilon.unwrap_or(0.1);
+		let raw_epsilon = self.epsilon.unwrap_or(0.1);
 		let epsilon = T::from_float_with_quantiser(raw_epsilon, quantiser_shift);
 
-		let alpha = T::from_float_with_quantiser(val.alpha.unwrap_or(0.05), quantiser_shift);
+		let alpha = T::from_float_with_quantiser(self.alpha.unwrap_or(0.05), quantiser_shift);
 
-		let gamma = T::from_float_with_quantiser(val.gamma.unwrap_or(0.8), quantiser_shift);
+		let gamma = T::from_float_with_quantiser(self.gamma.unwrap_or(0.8), quantiser_shift);
 
-		let epsilon_decay_calcs = val.epsilon_decay_calcs.unwrap_or(10_000) as f32;
+		let epsilon_decay_calcs = self.epsilon_decay_calcs.unwrap_or(10_000) as f32;
 
 		let per_ts_decay = raw_epsilon / epsilon_decay_calcs;
 		let test_ep_decay_amt = T::from_float_with_quantiser(per_ts_decay, quantiser_shift);
@@ -111,21 +110,47 @@ where
 			(test_ep_decay_amt, 1)
 		};
 
-		let state_key = val
+		let state_key = self
 			.state_key
 			.unwrap_or(FloatKeySource::Field(0))
 			.quantise(quantiser_shift);
 
-		let reward_key = val
+		let reward_key = self
 			.reward_key
 			.unwrap_or(FloatKeySource::Shared)
 			.quantise(quantiser_shift);
 
-		let mut maxes = val.maxes.unwrap_or_else(|| vec![10.0; n_dims.into()]);
-		let mut mins = val.mins.unwrap_or_else(|| vec![-10.0; n_dims.into()]);
+		let mut maxes = self
+			.maxes
+			.clone()
+			.unwrap_or_else(|| vec![10.0; n_dims.into()]);
+		let mut mins = self
+			.mins
+			.clone()
+			.unwrap_or_else(|| vec![-10.0; n_dims.into()]);
 
 		maxes.resize(n_dims.into(), maxes.last().cloned().unwrap_or(10.0));
 		mins.resize(n_dims.into(), mins.last().cloned().unwrap_or(-10.0));
+
+		if sanitise_bounds {
+			let format_min = T::minimum_float(quantiser_shift);
+			for val in mins.iter_mut() {
+				*val = val.max(format_min);
+			}
+
+			let f_max = T::maximum_float(quantiser_shift);
+			if tilings_per_set <= 1 {
+				for val in maxes.iter_mut() {
+					*val = val.min(f_max);
+				}
+			} else {
+				let const_term = f_max * ((tiles_per_dim - 1) as f32);
+				for (max, min) in maxes.iter_mut().zip(mins.iter()) {
+					let up_bnd = (const_term + min) / 2.0;
+					*max = max.min(up_bnd);
+				}
+			};
+		}
 
 		let maxes = maxes
 			.drain(..)
@@ -172,6 +197,7 @@ impl From<ExperimentFile> for Experiment {
 
 			setup: val.setup.unwrap_or_default(),
 			warmup_len: val.warmup_len.unwrap_or(1000),
+			sanitise_bounds: val.sanitise_bounds.unwrap_or(true),
 		}
 	}
 }
@@ -188,6 +214,7 @@ impl From<Experiment> for ExperimentFile {
 
 			setup: Some(val.setup),
 			warmup_len: Some(val.warmup_len),
+			sanitise_bounds: Some(val.sanitise_bounds),
 		}
 	}
 }

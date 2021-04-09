@@ -12,6 +12,8 @@ pub trait Tile {
 	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize>;
 	fn float(&self) -> f32;
 	fn wideint(&self) -> i32;
+	fn maximum_tile() -> Self;
+	fn minimum_tile() -> Self;
 
 	fn from_float(val: f32) -> Self;
 	fn from_int(val: i32) -> Self;
@@ -33,6 +35,18 @@ pub trait Tile {
 		where Self: Sized
 	{
 		Self::from_int(1).to_float_with_quantiser(quantiser)
+	}
+
+	fn maximum_float(quantiser: u8) -> f32
+		where Self: Sized
+	{
+		Self::maximum_tile().to_float_with_quantiser(quantiser)
+	}
+
+	fn minimum_float(quantiser: u8) -> f32
+		where Self: Sized
+	{
+		Self::minimum_tile().to_float_with_quantiser(quantiser)
 	}
 }
 
@@ -62,6 +76,14 @@ impl Tile for i8 {
 	fn size_of() -> usize {
 		mem::size_of::<Self>()
 	}
+
+	fn maximum_tile() -> Self {
+		i8::MAX
+	}
+
+	fn minimum_tile() -> Self {
+		i8::MIN
+	}
 }
 
 impl Tile for i16 {
@@ -89,6 +111,14 @@ impl Tile for i16 {
 	fn size_of() -> usize {
 		mem::size_of::<Self>()
 	}
+
+	fn maximum_tile() -> Self {
+		i16::MAX
+	}
+
+	fn minimum_tile() -> Self {
+		i16::MIN
+	}
 }
 
 impl Tile for i32 {
@@ -115,6 +145,14 @@ impl Tile for i32 {
 
 	fn size_of() -> usize {
 		mem::size_of::<Self>()
+	}
+
+	fn maximum_tile() -> Self {
+		i32::MAX
+	}
+
+	fn minimum_tile() -> Self {
+		i32::MIN
 	}
 }
 

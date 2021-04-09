@@ -161,7 +161,10 @@ where
 		// create the setup packet, tiling packet here
 		// send those over.
 
-		let mut setup: Setup<T> = config.experiment.setup.clone().into();
+		let mut setup: Setup<T> = config
+			.experiment
+			.setup
+			.instantiate(config.experiment.sanitise_bounds);
 		let tiling = generate_tiling(&setup, dim_count as usize);
 
 		prime_setup_with_timings(&mut setup, timed_el);
