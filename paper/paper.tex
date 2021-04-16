@@ -129,13 +129,15 @@
 \acmISBN{67890}
 
 %Conference
-\acmConference[SOSR '21]{}
+\acmConference[SOSR '21]{Symposium of SDx Research 2021}{\numrange{13}{14} September}{Virtual Conference}
 %\acmYear{2021}
 %\copyrightyear{}
 
 %% {} with no args suppresses printing of the price
 \acmPrice{}
 
+\newcommand{\approach}{On Path Learning}
+\newcommand{\approachshort}{OPaL}
 
 \begin{document}
 	\title{Revisiting the Classics: Online RL in the Programmable Data-Plane}
@@ -316,203 +318,21 @@ Interesting thing I realised from \textcite{DBLP:conf/sigcomm/NeugebauerAZAL018}
 
 ?? Use this to explain differences between the modern state of the art and older works.
 
-?? Probably give a rough introduction to the algorithm, show how computation needs only addition---particularly when using Qm.n fixed point.
+?? Probably give a rough introduction to the algorithm, show what arithmetic operations are needed---particularly when using Qm.n fixed point.
+
+?? Explain how it is an embarrassingly parallel problem? Or at least very amenable to partition-aggregate.
+
+?? Critical section around shared writeback loc, but individual work items are disjoint in their input data (particularly useful for updates).
 
 \subsection{Hmm..}
 Should motivation be in here? Unsure what other preliminaries need to be explained.
 
 \section{Design and Implementation}\label{sec:design}
-Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system.
+Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{}}.
+At a high level, \approachshort{} is designed to use the auxiliary compute exposed by general SmartNIC devices to offer low-latency online learning, scaling according to available on-chip resources at build time.
+
 \Cref{fig:netro-arch} outlines our design and implementation on Netronome SmartNIC hardware in pursuit of this goal.
-At a high level, ...
-
-\subsection{Policy Storage}
-?? Blocks of dense quantised tiles: each an action preference list.
-
-?? Tiling data is split into regions of memory based on access time: higher-dimension tilings are sent to further NUMA regions (EMEM/IMEM).
-
-\subsection{Action Computation}
-?? Split across MEs.
-
-?? each ME can then subdivide by factor of 4 among contexts.
-
-\subsection{Communication}
-?? Free-list of packet handles shared between P4 pipeline threads for state/config/action handover.
-
-?? multi-producer-multi-consumer -- rings used to signal cores, place work, etc., combined with above free-list
-
-?? used for both directions of communication.
-
-\subsection{Notes from PGR}
-
-The main gist of this design is that RL operations \emph{do not happen on the core data path}, which ensures that action computation, installation, and updates don't stall packet transmission or affect throughput.
-In the default deployment of a P4 packet processing pipeline, several of these cores go unused, making this paradigm possible.
-These dedicated cores (\emph{micro-engines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
-The main interaction model is that platform-specific IPC mechanisms (message rings) are used to \emph{push} configuration, state vectors, and reward measurements to the RL system.
-These same mechanisms are used by other cores on the same device to \emph{pull} output actions from the RL system.
-Both input and output can occur on any other core of the device, i.e., as part of P4 \texttt{extern} plugins, while the P4 control plane itself provides granular control over which flows are monitored or affected.
-An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key in the state.
-Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
-
-?? Expand: this is based on PGR Year 3 atm.
-
-\subsection{Targetting other device classes}
-While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
-For instance, the availability of other cores can be handled by designing additional off-path functional units, much like the floating-point adders used by \textcite{DBLP:conf/isca/LiLYCSH19}.
-Rather than general-purpose cross-core communication, an RL functional unit would be hard-wired to and from the custom actions that interface with it, using the P4$\rightarrow$NetFPGA toolchain to offer the base framework and granular control over packet and flow selection.
-
-?? Fill out above with more specific instances.
-
-Bringing this to high-port density devices such as Intel Tofino-powered switches is more difficult.
-As discussed in \cref{sec:motivation}, Tofino ASICs map closely to the P4 PSA, meaning that there are no spare asynchronous general-purpose compute units to place this work on.
-A potential solution is to divide RL actions across several received packets (i.e., iteratively computing a portion of the action preference list each time) until any further work would delay outbound transmission.
-This, however, would introduce new issues surrounding concurrent accesses, work splitting, and altered timescales for learning: we leave their treatment and examination to future work.
-
-\section{Techniques}
-
-What does the hardware give us, and what can we assume are present on many other classes of device?
-\begin{itemize}
-	\item 96-core (\emph{management engine}, ME) (? check), grouped into \emph{islands} based on local capabilities. Fast transfer between MEs on same island (\emph{nearest neighbour registers}, NNRs)
-	
-	\begin{itemize}
-		\item Multicore model common.
-		\item Arch-specific: one program per ME. Enables cooperative scheduling between \numrange{4}{8} threads, zero-cost context switch due to register file (below).
-	\end{itemize}
-
-	\item Explicit memory hierarchy:
-	
-	\begin{itemize}
-		\item Large register file split disjointly between threads. (likely common)
-		\item Transparent cache.
-		\item In order of speed? Reg file, External Mem
-	\end{itemize}
-
-	\item One program to a core---enables cooperative scheduling with zero-cost context switches.
-	
-\end{itemize}
-Now how do we make this work?
-\begin{itemize}
-	\item No floating point math. Solution? Quantisation (cite some other papers who've used this to decent effect).
-	
-	\item Bump-in-the-wire design for SmartNIC.
-	
-	\item P4 for easy packet parsing, control packet extraction, passthrough and manipulation of other traffic.
-	
-	\item RL Island keeps freelist, P4 PIF Islands copy packets over (could in theory hack P4 firmware micro-C libraries to stop freeing resources and just pass those?).
-	
-	\item Control packets marked by custom \emph{experimenter} DSCP (as in \textcite{DBLP:conf/isca/LiLYCSH19}). Infrastructure can ensure that only trusted internal nodes can produce such packets.
-	
-	\item Control allows adaptation to any policy design assuming standard tile-coding, for any target application. Policies may be installed via block copy, or trained online. (So long as policy meets compiled maximum dimensions, constraints.)
-	
-	\item (not impl'd yet) How does state work? Packet passed in over work queue to control ME. source can be either the network (same mechanism as control packets)
-	
-	\item (not impl'd yet) How do actions work? 2 options.
-	\begin{enumerate}
-		\item Produce packet on wire according to config (custom format).
-		\item Pass packet to local island/ME (requires both config and custom build).
-	\end{enumerate}
-
-	\item Built with \Textcite{DBLP:journals/tnsm/SimpsonRP20} in mind, but applicable to any RL application.
-	
-	\item New PDPs have encryption primitives: scope to include authentication etc. around control packets.
-	
-	\item (Not impl'd yet) Event loop can easily run on Control ME: timing APIs exposed to generate periodic events in lieu of something like \textcite{DBLP:conf/hotnets/IbanezABM19}.
-\end{itemize}
-
-\begin{figure}
-	\centering
-	\resizebox{\linewidth}{!}{\begin{tikzpicture}
-		\node(remote){Remote};
-		
-		%%%
-		
-		\node[below=0.05 of remote](swpos){};
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of swpos.north west](sw1){};
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw1.north west](sw2){};
-		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw2.north west](switch){};
-		\node[below right, inner sep=2pt] at (switch.north west) {\small Switch};
-		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (oswlc) at (switch.south) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-		
-		%
-		
-		\node[right=2 of swpos](epos){};
-		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of epos.north west](e1){};
-		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e1.north west](e2){};
-		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e2.north west](egress){};
-		\node[below right, inner sep=2pt] at (egress.north west) {\small Egress Switch};
-		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (eglc) at ($(egress.south) + (-0.85,0)$) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, right=0.1] (egest) at (eglc.east) {\begin{varwidth}{1.5 cm}\small \centering Estimator\\$g(\cdot)$\end{varwidth}};
-		
-		%
-		
-		\node[right=3.5 of epos](apos){};
-		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of apos.north west](a1){};
-		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a1.north west](a2){};
-		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a2.north west](otheragent){};
-		\node[below right, inner sep=2pt] at (otheragent.north west) {\small Agent vNF};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, above=0.3] (oasa) at (otheragent.south) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
-		
-		%
-		
-		\node[below=2.3 of remote.west](linestart){};
-		\path let \p1 = (linestart) in node (lineend) at (9,\y1){};
-		\draw [dashed] (linestart) -- (lineend);
-		
-		%%%
-		
-		\node[below=2.4 of remote](local){Local};
-		
-		%%%
-		
-		\node[below=0.25 of local](aswpos){};
-		\node[fill=white!80!uofgthistle, draw=black, minimum height=3cm, minimum width=2.2cm, below right= 0.1 of aswpos.north west](aswitch){};
-		\node[below right, inner sep=2pt] at (aswitch.north west) {\small Agent Switch};
-		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswoft) at (aswitch.south) {\begin{varwidth}{1.5 cm}\small \centering OpenFlow\\Tables\end{varwidth}};
-		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswsc) at (aswoft.north) {\begin{varwidth}{1.5 cm}\small \centering Stats\\Collector\end{varwidth}};
-		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswlc) at (aswsc.north) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-		
-		%
-		
-		\node (avfpos) at ($(aswpos) + (3,0.2)$){};
-		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=3.5cm, minimum width=4.5cm, below right= 0.1 of avfpos.north west](avf){};
-		\node[below right, inner sep=2pt] at (avf.north west) {\small Agent vNF};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.15] (avfsa) at ($(avf.north) + (0.2,0)$) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.9] (avfdb) at (avfsa.south west) {\begin{varwidth}{1.5 cm}\small \centering Flowstate\\Database\end{varwidth}};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.1] (avfsched) at (avfdb.east) {\begin{varwidth}{1.5 cm}\small \centering TRS\\Scheduler\end{varwidth}};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=2.3] (avfcore) at (avfsa.south) {\begin{varwidth}{1.5 cm}\small \centering Core\end{varwidth}};
-		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.8] (avfrl) at (avfcore.east) {\begin{varwidth}{1.5 cm}\small \centering RL\end{varwidth}};
-		
-		%%%
-		
-		\tikzset{>=stealth}
-		
-		\draw[thick, ->] (aswlc) -- (avfsa.west) node[midway,above] {\tiny Current load};
-		\draw[thick, ->] (aswsc) -- (avfsa.west) node[midway,sloped, above] {\tiny Flow stats};
-		
-		\draw[thick, ->] (oswlc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
-		
-		\draw[thick, ->] (eglc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
-		\draw[thick, ->] (egest) -- (avfsa) node[midway,above, sloped] {\tiny Estimation data};
-		
-		\draw[thick, <->] (oasa) -- (avfsa) node[midway,above, sloped] {\tiny Experience};
-		
-		\draw[thick, ->] (avfsa) -- (avfdb) node[midway,above, sloped] {\tiny State};
-		\draw[thick, ->] (avfsa) -- (avfsched) node[midway,above, sloped] {\tiny Live flows};
-		
-		\draw[thick, ->] (avfcore) -- (aswoft) node[midway,above, sloped] {\tiny Packet drop rules};
-		\draw[thick, <->] (avfcore) -- (avfdb) node[midway,below, sloped] {\tiny State};
-		\draw[thick, <->] (avfcore) -- (avfsched) node[midway,below, sloped] {\tiny Work};
-		\draw[thick, <-] ($(avfcore.east) + (0,0.1)$) -- ($(avfrl.west) + (0,0.1)$) node[midway,above, sloped] {\tiny Actions};
-		\draw[thick, ->] (avfcore) -- (avfrl) node[midway,below, sloped] {\tiny State};
-		
-		\draw[thick, ->] (avfsa.east) to [out=0, in=45] (avfrl.north);
-		\node[right=0.3] at (avfsa.east) {\tiny Experience};
-		\end{tikzpicture}}
-	\caption{
-		System architecture  for our RL-driven DDoS defence system.
-		\label{fig:sys-arch}
-	}
-\end{figure}
+We describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
 
 \begin{figure}
 	\centering
@@ -586,8 +406,237 @@ Now how do we make this work?
 			\draw[->] (po-me-2) to node[midway, above, sloped] {\tiny NN} (po-me-3);
 			\draw[->] (po-me-3) to [out=-45,in=0,looseness=2] node[midway, above, sloped] {\tiny NN} (loop);
 	\end{tikzpicture}}
-	\caption{Architecture for generalised RL agent on Netronome hardware.\label{fig:netro-arch}}
+	\caption{Architecture for an \approachshort{} agent on Netronome hardware, using 4 cores for parallel policy processing. (FIXME: redo in illustrator? Show CTXes, PISA)\label{fig:netro-arch}}
 \end{figure}
+
+\subsection{System Model}
+\approachshort{} is a general, task-independent framework for in-network, online training and execution of \emph{any reinforcement learning agent design} using classical methods.
+The meaning 
+However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
+\approachshort{} runs on one more cores of a SmartNIC to convert state measurements from the environment into a stream of actions using a stored policy.
+These dedicated cores (\emph{micro-engines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
+Combined with reward measurements, this policy can then be updated or trained from scratch entirely on the NIC, acting as a fully online RL agent.
+An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key placed alongside the state.
+
+%However, high-speed data networks impose inviolable per-packet deadlines.
+
+To protect traffic throughput and allow for effective deployment in as many environments as possible, \approachshort{} places RL execution off the main packet path, communicating and running parallel to the main P4 dataplane.
+This asynchrony allows coexistence with P4 programs, and imposes minimal/no impact on carried traffic for both bump-in-the-wire deployments and at end-points.
+For instance, in the default deployment of a P4 packet processing pipeline on Netronome NFP chips several of these cores go unused (as does spare area on an FPGA design), making this paradigm possible.
+
+The main interaction model is that platform-specific IPC mechanisms (message rings) are used to \emph{push} configuration, state vectors, and reward measurements to the RL system.
+These same mechanisms are used by other cores on the same device to \emph{pull} output actions from the RL system.
+Both input and output can occur on any other core of the device, i.e., as part of P4 \texttt{extern} plugins or a dedicated flow state measurement subsystem, while the P4 control plane itself provides granular control over which flows are monitored or affected.
+
+Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
+
+
+?? Dynamic, runtime configuration via control and data planes.
+
+?? Compile-time config of bit-depth, 
+?? Allows learning from several live traces simultaneously.
+?? Allows execution of indepdnnt traces simultaneously.
+
+\subsection{Action Computation}
+Note: talk about single core AND parallel.
+
+\begin{itemize}
+	\item A state vector is tile coded, action probabilities are produced, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
+	\item \emph{Open question: how to configure action destination? This should either be another core (after an optional transformation), a packet sent out to a destination, maybe talk back to the controller.}
+\end{itemize}
+\begin{itemize}
+	\item \emph{Open question: how to safely \& reasonably map state back to incoming rewards?}
+	\item \emph{Open question: Can/should this also support on-chip reward signals?}
+\end{itemize}
+
+?? Split across MEs.
+
+?? each ME can then subdivide by factor of 8 among contexts.
+
+?? Scales from 1--(n-1) cores.
+
+\subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
+\approachshort{} uses \emph{multiple-producer/multiple-consumer} (MPMC) messaging channels to communicate with other computational elements; be they P4 programs on the packet path, or additional on-chip analysis and control modules.
+Through these channels the system \emph{pushes} state vectors, reward measures, and control/setup packets as its inputs, and \emph{pulls} a stream of state-action pairs as its outputs.
+This allows agent decisions to be made asynchronously---preventing packet stalling---and allowing for many parallel decision-making agents to be used if desired.
+The key insight of this mechanism is that on-chip reward/state signals enjoy first-class support in much the same manner as packets from the P4 dataplane, allowing agents to act on environmental signals from other on-NIC/chip asynchronous processes or the controller.
+
+Our implementation uses platform-specific IPC mechanisms (\emph{EMEM ring buffers}) with hardware signalling mechanisms on work arrival to achieve this.
+Due to the lack of memory allocation in these environments, P4 pipeline threads request buffers for packet payloads using a shared freelist to enable state/configuration/policy data handover.
+Packet headers are extracted and parsed using the tooling and data types autogenerated by the P4 pipeline.
+We found that this costs a median \SIrange{126}{140}{\nano\second} communication time, comparable to message channels in the Rust and Go languages on commodity hardware.
+
+\subsection{Intra-Agent Communication}
+Even with embarrassingly parallel problems, optimising for latency requires meticulous care in how work is passed out and aggregated.
+This is truer still when moving from the moderately fine-grained, efficient control of classical RL methods ($\sim$\SI{2}{\milli\second}) to its logical limit (tens of \si{\micro\second}).
+Ordinarily, the serialisation/marshalling of requests, responses, and safe shared data access can incur significant extra overheads.
+On-chip execution and the nature of action preference computation allow us to use lockless atomic aggregation, removing the overheads of explicit messaging/packetisation.
+Moreover, physically adjacent functional units may have special-purpose shared registers or share a small fast cache to accelerate communication further.
+
+Our implementation exploits the locality of threads, cores, and their parent islands in the NFP architecture.
+Groups of \numrange{4}{12} cores (MEs) in this platform are termed \emph{islands}, with shared access to low-latency scratch memory and the adjacent registers of neighbouring MEs.
+Each ME then has a number of threads fixed at compile time (\numrange{4}{8}), sharing one large register file to enable zero-cost context switches.
+Policy compute/update tasks and configuration updates are passed between cores using these direct \emph{next neighbour} registers, signalling all child threads in response.
+Each task performs atomic adds to a shared preference list, and atomically increments an acknowledgement counter to be periodically checked by the master thread.
+
+In earlier designs we had experimented with bounded buffers as in \cref{sec:agent-environment-communication} for this, modified to be located solely in local scratch memory, dedicating the master thread to result aggregation.
+We found that this created a performance bottleneck at this final stage, causing significant head-of-line blocking for each of the workers.
+Similarly, our next neighbour work notification scheme ($\sim$\SI{20}{\nano\second} latency per relayed message) was examined against \emph{reflector} and \emph{work queue} IPC mechanisms (\SIlist{58;126}{\nano\second} per messaged core).
+These slower messages can be used in theory to skip ahead into longer ME chains.
+
+\subsection{Reconfiguration}
+?? Compile-time config of bit-depth, what else?
+
+\begin{itemize}
+	\item (Re)-configurable at runtime.
+	\item Custom DSCP marker acts as indicator of RL packets (i.e., bother with parsing past UDP). This trick is copied from \textcite{DBLP:conf/isca/LiLYCSH19}.
+	\item P4 parser extracts headers, parser state and payload passed over ring to another core dedicated to RL operations.
+	\item Policy dimensions, size, action count, tiling strategies, learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) can all be chosen and changed live.
+\end{itemize}
+
+\subsection{Work Allocation}
+?? WHy
+
+?? How
+
+\subsection{Policy Storage}
+?? Why
+
+?? Trained online or installed by block copy from control/data planes.
+
+?? Blocks of dense quantised tiles: each an action preference list.
+
+?? Tiling data is split into regions of memory based on access time: higher-dimension tilings are sent to further NUMA regions (EMEM/IMEM).
+
+\subsection{Variable Quantisation Bitdepth}
+Compile time eh
+
+?? Mention that BB SIMD failed here.
+
+?? 
+
+?? Lower bitdepth can mean more actions, more tilings, more dimensions in tilings, higher perf.
+
+\subsection{Notes from chat with others}
+This approach can be used to generate transferable policies/samples for other models.
+
+Potential: low-latency train for some specific points, and high throughput for others? Think on the exact note I took...
+
+``can have accel'd offline, train online subset w/ my approach''
+
+THis might mean "do 32-bit online", then downsample to 8-bit policy for high-throughput mode.
+
+Can changes in trained policy be used to transfer to a more complex function approximator elsewhere?
+
+\subsection{Targeting other device classes}
+While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
+For instance, the availability of other cores can be handled by designing additional off-path functional units, much like the floating-point adders used by \textcite{DBLP:conf/isca/LiLYCSH19}.
+Rather than general-purpose cross-core communication, an RL functional unit would be hard-wired to and from the custom actions that interface with it, using the P4$\rightarrow$NetFPGA toolchain to offer the base framework and granular control over packet and flow selection.
+Further optimisations arise from this model: a NetFPGA design would be able to replicate and optimise further on this concept of dedicated, low-latency communication between functional units.
+Consider a single, shared, read-only register between RL functional ...
+?? think about really really carefully lest Reviewer 2 murder you
+?? Parallel, atomic writes at the required resolution.
+?? No bit stuffing required.
+
+Bringing this to high-port density devices such as Intel Tofino-powered switches is more difficult.
+As discussed in \cref{sec:motivation}, Tofino ASICs map closely to the P4 PSA, meaning that there are no spare asynchronous general-purpose compute units to place this work on.
+A potential solution is to divide RL actions across several received packets (i.e., iteratively computing a portion of the action preference list each time) until any further work would delay outbound transmission.
+This, however, would introduce new issues surrounding concurrent accesses, work splitting, and altered timescales for learning: we leave their treatment and examination to future work.
+
+%\begin{figure}
+%	\centering
+%	\resizebox{\linewidth}{!}{\begin{tikzpicture}
+%		\node(remote){Remote};
+%		
+%		%%%
+%		
+%		\node[below=0.05 of remote](swpos){};
+%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of swpos.north west](sw1){};
+%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw1.north west](sw2){};
+%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw2.north west](switch){};
+%		\node[below right, inner sep=2pt] at (switch.north west) {\small Switch};
+%		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (oswlc) at (switch.south) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
+%		
+%		%
+%		
+%		\node[right=2 of swpos](epos){};
+%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of epos.north west](e1){};
+%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e1.north west](e2){};
+%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e2.north west](egress){};
+%		\node[below right, inner sep=2pt] at (egress.north west) {\small Egress Switch};
+%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (eglc) at ($(egress.south) + (-0.85,0)$) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
+%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, right=0.1] (egest) at (eglc.east) {\begin{varwidth}{1.5 cm}\small \centering Estimator\\$g(\cdot)$\end{varwidth}};
+%		
+%		%
+%		
+%		\node[right=3.5 of epos](apos){};
+%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of apos.north west](a1){};
+%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a1.north west](a2){};
+%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a2.north west](otheragent){};
+%		\node[below right, inner sep=2pt] at (otheragent.north west) {\small Agent vNF};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, above=0.3] (oasa) at (otheragent.south) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
+%		
+%		%
+%		
+%		\node[below=2.3 of remote.west](linestart){};
+%		\path let \p1 = (linestart) in node (lineend) at (9,\y1){};
+%		\draw [dashed] (linestart) -- (lineend);
+%		
+%		%%%
+%		
+%		\node[below=2.4 of remote](local){Local};
+%		
+%		%%%
+%		
+%		\node[below=0.25 of local](aswpos){};
+%		\node[fill=white!80!uofgthistle, draw=black, minimum height=3cm, minimum width=2.2cm, below right= 0.1 of aswpos.north west](aswitch){};
+%		\node[below right, inner sep=2pt] at (aswitch.north west) {\small Agent Switch};
+%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswoft) at (aswitch.south) {\begin{varwidth}{1.5 cm}\small \centering OpenFlow\\Tables\end{varwidth}};
+%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswsc) at (aswoft.north) {\begin{varwidth}{1.5 cm}\small \centering Stats\\Collector\end{varwidth}};
+%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswlc) at (aswsc.north) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
+%		
+%		%
+%		
+%		\node (avfpos) at ($(aswpos) + (3,0.2)$){};
+%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=3.5cm, minimum width=4.5cm, below right= 0.1 of avfpos.north west](avf){};
+%		\node[below right, inner sep=2pt] at (avf.north west) {\small Agent vNF};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.15] (avfsa) at ($(avf.north) + (0.2,0)$) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.9] (avfdb) at (avfsa.south west) {\begin{varwidth}{1.5 cm}\small \centering Flowstate\\Database\end{varwidth}};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.1] (avfsched) at (avfdb.east) {\begin{varwidth}{1.5 cm}\small \centering TRS\\Scheduler\end{varwidth}};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=2.3] (avfcore) at (avfsa.south) {\begin{varwidth}{1.5 cm}\small \centering Core\end{varwidth}};
+%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.8] (avfrl) at (avfcore.east) {\begin{varwidth}{1.5 cm}\small \centering RL\end{varwidth}};
+%		
+%		%%%
+%		
+%		\tikzset{>=stealth}
+%		
+%		\draw[thick, ->] (aswlc) -- (avfsa.west) node[midway,above] {\tiny Current load};
+%		\draw[thick, ->] (aswsc) -- (avfsa.west) node[midway,sloped, above] {\tiny Flow stats};
+%		
+%		\draw[thick, ->] (oswlc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
+%		
+%		\draw[thick, ->] (eglc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
+%		\draw[thick, ->] (egest) -- (avfsa) node[midway,above, sloped] {\tiny Estimation data};
+%		
+%		\draw[thick, <->] (oasa) -- (avfsa) node[midway,above, sloped] {\tiny Experience};
+%		
+%		\draw[thick, ->] (avfsa) -- (avfdb) node[midway,above, sloped] {\tiny State};
+%		\draw[thick, ->] (avfsa) -- (avfsched) node[midway,above, sloped] {\tiny Live flows};
+%		
+%		\draw[thick, ->] (avfcore) -- (aswoft) node[midway,above, sloped] {\tiny Packet drop rules};
+%		\draw[thick, <->] (avfcore) -- (avfdb) node[midway,below, sloped] {\tiny State};
+%		\draw[thick, <->] (avfcore) -- (avfsched) node[midway,below, sloped] {\tiny Work};
+%		\draw[thick, <-] ($(avfcore.east) + (0,0.1)$) -- ($(avfrl.west) + (0,0.1)$) node[midway,above, sloped] {\tiny Actions};
+%		\draw[thick, ->] (avfcore) -- (avfrl) node[midway,below, sloped] {\tiny State};
+%		
+%		\draw[thick, ->] (avfsa.east) to [out=0, in=45] (avfrl.north);
+%		\node[right=0.3] at (avfsa.east) {\tiny Experience};
+%		\end{tikzpicture}}
+%	\caption{
+%		System architecture  for our RL-driven DDoS defence system.
+%		\label{fig:sys-arch}
+%	}
+%\end{figure}
 
 \section{Evaluation}
 
@@ -642,44 +691,6 @@ I can think of one way to evaluate this if we employ classification performance:
 	\item For each level of quantisation needed, examine average performance.
 	\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
 \end{enumerate}
-
-\section{Bullets on (intended) design.}
-See also: \cref{fig:netro-arch}.
-\begin{itemize}
-	\item High-level overview.
-	\begin{itemize}
-		\item RL operations \emph{do not happen on the core path}.
-		\item Another island (or set of cores) is dedicated to handling inputs, configuration, computation.
-		\item Cross-island communication happens over \emph{rings} (Netronome-specific).
-		\begin{itemize}
-			\item E.g., this is how the P4 firmware propagates rules from master island to P4 workers.
-			\item My impl.\ specific---shared freelist for memory pointers in EMEM.
-		\end{itemize}
-		\item Controller is \emph{always} co-hosted, interfaces over PCI-e. This also applies to Barefoot Tofino.
-	\end{itemize}
-	\item Policy configuration.
-	\begin{itemize}
-		\item (Re)-configurable at runtime.
-		\item Custom DSCP marker acts as indicator of RL packets (i.e., bother with parsing past UDP).
-		\item P4 parser extracts headers, parser state and payload passed over ring to another core dedicated to RL operations.
-		\item Policy dimensions, size, action count, tiling strategies, learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) can all be chosen and changed live.
-	\end{itemize}
-	\item State Handling.
-	\begin{itemize}
-		\item State input to model \emph{always} should produce an action.
-		\item State vectors should come from elsewhere on the device: this may either be a dedicated island/core cluster (i.e., also performing INT management), or it may be a packet from the network.
-	\end{itemize}
-	\item Action Handling.
-	\begin{itemize}
-		\item A state vector is tile coded, action probabilities are produced, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
-		\item \emph{Open question: how to configure action destination? This should either be another core (after an optional transformation), a packet sent out to a destination, maybe talk back to the controller.}
-	\end{itemize}
-	\item Learning.
-	\begin{itemize}
-		\item \emph{Open question: how to safely \& reasonably map state back to incoming rewards?}
-		\item \emph{Open question: Can/should this also support on-chip reward signals?}
-	\end{itemize}
-\end{itemize}
 
 \section{What's implemented 'til now?}
 System?
@@ -860,6 +871,8 @@ This is application-dependent: see earlier discussions on rule batching and loca
 
 ?? A switch/NIC architecture like \textcite{DBLP:conf/hotnets/StephensAS18} would remove the need for hard-coded island-island relationships.
 
+?? Event-driven model could better support many timer-driven RL use-cases \textcite{DBLP:conf/hotnets/IbanezABM19}.
+
 ?? Taurus. They can't train online though!~\parencite{DBLP:journals/corr/abs-2002-08987}
 
 ?? Do switches~\parencite{DBLP:conf/hotnets/XiongZ19}.
@@ -875,6 +888,8 @@ This is application-dependent: see earlier discussions on rule batching and loca
 ?? RL for congestion control. ~\parencite{DBLP:journals/corr/abs-1910-04054}
 
 ?? Arbitrary training enhanced by in-network? General NNs~\parencite{DBLP:conf/micro/LiPAYQPWSEK18}, RL-specfic~\parencite{DBLP:conf/isca/LiLYCSH19}.
+
+?? Mechanisms to support full in-switch DDoS detection~\cite{tnms-ddos-victim-ident}.
 
 \section{Conclusion}
 	
