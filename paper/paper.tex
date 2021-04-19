@@ -33,6 +33,7 @@
 
 \usepackage[british]{babel}
 \usepackage{csquotes}
+\usepackage{pifont}
 
 \usepackage{booktabs}
 %\usepackage[
@@ -138,6 +139,10 @@
 
 \newcommand{\approach}{On Path Learning}
 \newcommand{\approachshort}{OPaL}
+
+\makeatletter\let\expandableinput\@@input\makeatother
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
 
 \begin{document}
 	\title{Revisiting the Classics: Online RL in the Programmable Data-Plane}
@@ -440,6 +445,8 @@ Runtime reconfiguration and interaction occur via the control and/or dataplane: 
 \subsection{Action Computation}
 Note: talk about single core AND parallel.
 
+?? Mention that you compute action, send action, AND THEN compute update exactly as in that one paper to reduce latency
+
 \begin{itemize}
 	\item A state vector is tile coded, action probabilities are produced, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
 	\item \emph{Open question: how to configure action destination? This should either be another core (after an optional transformation), a packet sent out to a destination, maybe talk back to the controller.}
@@ -639,6 +646,13 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 %\end{figure}
 
 \section{Evaluation}
+
+\begin{table}
+	\caption{Throughput and per-item compute time for an RL agent with/without policy learning. State$\rightarrow$action latency equals the offline completion cost. TODO: compare to host machine? Put completion times first? Put multi first?}
+	\resizebox{\linewidth}{!}{
+		\expandableinput ../tables/build/latency-tput
+	}
+\end{table}
 
 How do we evaluate this without looking into classification performance?
 \begin{itemize}

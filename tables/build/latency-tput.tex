@@ -1,0 +1,11 @@
+\begin{tabular}{@{}ccSSSSSS@{}}
+\toprule\multicolumn{1}{c}{Bitdepth} & \multicolumn{1}{c}{Online} & \multicolumn{2}{c}{Throughput (k actions/s)} & \multicolumn{4}{c}{Completion (\si{\micro\second})}\\
+\cmidrule(lr){3-4}\cmidrule(lr){5-8} & & \multicolumn{1}{c}{Single} & \multicolumn{1}{c}{Multi} & \multicolumn{1}{c}{Single} & \multicolumn{1}{c}{Single (\nth{99})} & \multicolumn{1}{c}{Multi} & \multicolumn{1}{c}{Multi (\nth{99})}\\ \midrule
+32 & \cmark & 1.736 \pm 0.000 & 10.104 \pm 0.004 & 576.760 & 578.173 & 99.133 & 99.907\\
+ & \xmark & 70.375 \pm 0.023 & 20.108 \pm 0.047 & 455.053 & 456.147 & 49.853 & 50.387\\
+16 & \cmark & 1.834 \pm 0.000 & 9.910 \pm 0.001 & 545.933 & 547.240 & 100.987 & 101.600\\
+ & \xmark & 69.334 \pm 0.015 & 19.078 \pm 0.004 & 461.827 & 462.733 & 52.453 & 52.800\\
+8 & \cmark & 1.927 \pm 0.000 & 10.398 \pm 0.004 & 519.373 & 520.747 & 96.340 & 96.933\\
+ & \xmark & 70.406 \pm 0.013 & 19.559 \pm 0.043 & 454.773 & 455.600 & 51.267 & 51.627\\
+\bottomrule
+\end{tabular}
