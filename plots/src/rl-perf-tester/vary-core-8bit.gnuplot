@@ -2,7 +2,7 @@ load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
 set xlabel "Cores allocated"
-set ylabel "Time (\si{\micro\second})"
+set ylabel "Time (\\si{\\micro\\second})"
 
 set key top left
 
@@ -30,7 +30,13 @@ array DashStyles[2]
 DashStyles[1] = 1
 DashStyles[2] = 2
 
+array Singles[2]
+Singles[1] = 519.373
+Singles[2] = 520.747
+
 myTitle(i) = sprintf("%s (%s)", PresentationNames[(i / 2) + 1], Variants[(i % 2) + 1])
+singleTitle(i) = sprintf("Single (%s)", Variants[(i % 2) + 1])
 file(n) = sprintf("../results/rl-perf-tester/vary-core-ct/8/SUMMARY.%s.UpdateAll.csv", Names[(n / 2) + 1])
 
-plot for [i=0:1] file(i) u 1:(column(TargetColumn[(i % 2) + 1])/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[(i / 2) + 1] dt DashStyles[(i % 2) + 1]
+plot for [i=0:1] file(i) u 1:(column(TargetColumn[(i % 2) + 1])/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[(i / 2) + 1] dt DashStyles[(i % 2) + 1], \
+	for [i=0:1] Singles[i + 1] ls LineStyles[2] dt DashStyles[i + 1] title singleTitle(i)

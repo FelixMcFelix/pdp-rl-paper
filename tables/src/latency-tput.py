@@ -9,12 +9,12 @@ results_fmt_str = "../results/rl-perf-tester/vary-work-ct/{}/{}.28d.31c.{}.dat"
 cycle_in_ns = 1e9 / 1.2e9
 
 core_ct_for_tput = 32
-types = [("single", "Single", True), ("balanced", "Multi", False)]
+types = [("single", "Single", True), ("balanced", "Parallel", False)]
 measures = [("UpdateAll", R"\cmark", True), ("ComputeAndWriteout", R"\xmark", False)]
 bitdepths = [32, 16, 8]
 
 print(R"\begin{tabular}{@{}ccSSSSSS@{}}")
-print(R"\toprule\multicolumn{1}{c}{Bitdepth} & \multicolumn{1}{c}{Online} & \multicolumn{2}{c}{Throughput (k actions/s)} & \multicolumn{4}{c}{Completion (\si{\micro\second})}\\")
+print(R"\toprule\multicolumn{1}{c}{Bits} & \multicolumn{1}{c}{Online} & \multicolumn{2}{c}{Throughput (k actions/s)} & \multicolumn{4}{c}{Completion (\si{\micro\second})}\\")
 
 # Just generate the next header line...
 t2_header = R"\cmidrule(lr){3-4}\cmidrule(lr){5-8} &"

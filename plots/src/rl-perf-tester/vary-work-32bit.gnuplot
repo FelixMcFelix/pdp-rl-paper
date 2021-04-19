@@ -2,7 +2,7 @@ load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
 set xlabel "Dimensions in Tiling"
-set ylabel "Time (\si{\micro\second})"
+set ylabel "Time (\\si{\\micro\\second})"
 
 set key top left
 
