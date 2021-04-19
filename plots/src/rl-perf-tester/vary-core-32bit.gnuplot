@@ -2,7 +2,7 @@ load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
 set xlabel "Cores allocated"
-set ylabel "Time (us)"
+set ylabel "Time (\si{\micro\second})"
 
 set key top left
 

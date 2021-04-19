@@ -1,5 +1,5 @@
 # set xlabel "Rule Count"
-set ylabel "Time (us)"
+set ylabel "Time (\si{\micro\second})"
 
 #set yrange [0:130]
 
