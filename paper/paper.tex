@@ -111,9 +111,9 @@
 \usepackage{blindtext}
 
 % Copyright
-\renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference info
-\setcopyright{none}
-%\setcopyright{acmcopyright}
+%\renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference info
+%\setcopyright{none}
+\setcopyright{acmcopyright}
 %\setcopyright{acmlicensed}
 %\setcopyright{rightsretained}
 %\setcopyright{usgov}
@@ -121,7 +121,8 @@
 %\setcopyright{cagov}
 %\setcopyright{cagovmixed}
 
-\settopmatter{printacmref=false, printccs=false, printfolios=true}
+%\settopmatter{printacmref=false, printccs=false, printfolios=true}
+\settopmatter{printfolios=true}
 
 % DOI
 \acmDOI{12345}
@@ -130,12 +131,12 @@
 \acmISBN{67890}
 
 %Conference
-\acmConference[SOSR '21]{Symposium of SDx Research 2021}{\numrange{13}{14} September}{Virtual Conference}
-%\acmYear{2021}
+\acmConference[SOSR '21]{Symposium of SDx Research 2021}{September \numrange{13}{14}, 2021}{Online}
+\acmYear{2021}
 %\copyrightyear{}
 
 %% {} with no args suppresses printing of the price
-\acmPrice{}
+\acmPrice{15.00}
 
 \newcommand{\approach}{On Path Learning}
 \newcommand{\approachshort}{OPaL}
@@ -145,9 +146,9 @@
 \newcommand{\xmark}{\ding{55}}%
 
 \begin{document}
-	\title{Revisiting the Classics: Online RL in the Programmable Data-Plane}
+	\title{Revisiting~the~Classics: Online~RL~in~the~Programmable~Data-Plane}
 	
-	%\titlenote{Produces the permission block, and copyright information}
+%	\titlenote{Produces the permission block, and copyright information}
 	%\subtitle{Extended Abstract}
 	
 %	\author{Paper \# XXX, XXX pages}
@@ -168,12 +169,43 @@
 }
 \email{Dimitrios.Pezaros@gla.ac.uk}
 	
-	% The default list of authors is too long for headers}
-	\renewcommand{\shortauthors}{Simpson \emph{et al}.}
+% The default list of authors is too long for headers}
+\renewcommand{\shortauthors}{Simpson \emph{et al}.}
 	
 \begin{abstract}
-Note: below text is just the UK systems workshop abstract I submitted.	
+?? In-NIC execution allows clever use of resources to bring action compute latency  from \SI{1}{\milli\second} to \SI{50}{\micro\second} (2 orders of magnitude!) in real-world policies for DDoS detection/prevention control.
 \end{abstract}
+
+\begin{CCSXML}
+	<ccs2012>
+	<concept>
+	<concept_id>10003033.10003068.10003069</concept_id>
+	<concept_desc>Networks~Data path algorithms</concept_desc>
+	<concept_significance>500</concept_significance>
+	</concept>
+	<concept>
+	<concept_id>10003033.10003099.10003102</concept_id>
+	<concept_desc>Networks~Programmable networks</concept_desc>
+	<concept_significance>500</concept_significance>
+	</concept>
+	<concept>
+	<concept_id>10003752.10010070.10010071.10010261</concept_id>
+	<concept_desc>Theory of computation~Reinforcement learning</concept_desc>
+	<concept_significance>300</concept_significance>
+	</concept>
+	<concept>
+	<concept_id>10010147.10010257.10010258.10010261</concept_id>
+	<concept_desc>Computing methodologies~Reinforcement learning</concept_desc>
+	<concept_significance>500</concept_significance>
+	</concept>
+	</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Networks~Data path algorithms}
+\ccsdesc[500]{Networks~Programmable networks}
+\ccsdesc[500]{Computing methodologies~Reinforcement learning}
+
+%\keywords{ACM proceedings, \LaTeX, text tagging}
 	
 \maketitle
 	
@@ -194,7 +226,19 @@ This paper contributes:
 	\item A thing (?? REFERENCE SECTION). Here's how that thing is utterly fantastic and will change the world, or not.
 \end{itemize}
 
-\section{Motivation}\label{sec:motivation}
+\section{Background and Motivation}\label{sec:motivation}
+?? RL~\parencite{RL2E}
+
+?? Use this to explain differences between the modern state of the art and older works.
+
+?? Probably give a rough introduction to the algorithm, show what arithmetic operations are needed---particularly when using Qm.n fixed point.
+
+?? Tile coding requires div, though can be simplified using binary tile widths (relates down to bitshifts). What other ops?
+
+?? Explain how it is an embarrassingly parallel problem? Or at least very amenable to partition-aggregate.
+
+?? Critical section around shared writeback loc, but individual work items are disjoint in their input data (particularly useful for updates).
+
 \fakepara{Reinforcement learning in asynchronous environments}
 RL techniques allow an \emph{agent} to learn how to iteratively interact with a system in an optimal fashion.
 However, there is some degree of divergence between their theory and implementation.
@@ -314,29 +358,12 @@ Finally, the choice of single-step algorithms (as opposed to $n$-step or Monte C
 \fakepara{To-be-organised}
 Interesting thing I realised from \textcite{DBLP:conf/sigcomm/NeugebauerAZAL018}: GPU and NIC might cause IOMMU contention? Making line-rate offload of DDN to GPU impractical. Unsure if I want to twin this with later measurements/plots.
 
-\section{Background}
-
-\subsection{Classical Reinforcement Learning}
-?? Move into background parent section?
-
-?? RL~\parencite{RL2E}
-
-?? Use this to explain differences between the modern state of the art and older works.
-
-?? Probably give a rough introduction to the algorithm, show what arithmetic operations are needed---particularly when using Qm.n fixed point.
-
-?? Explain how it is an embarrassingly parallel problem? Or at least very amenable to partition-aggregate.
-
-?? Critical section around shared writeback loc, but individual work items are disjoint in their input data (particularly useful for updates).
-
-\subsection{Hmm..}
-Should motivation be in here? Unsure what other preliminaries need to be explained.
-
 \section{Design and Implementation}\label{sec:design}
-Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{}}.
+Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{} (\approach)}.
 At a high level, \approachshort{} is designed to use the auxiliary compute exposed by general SmartNIC devices to offer low-latency online learning, scaling according to available on-chip resources at build time.
 
 \Cref{fig:netro-arch} outlines our design and implementation on Netronome SmartNIC hardware in pursuit of this goal.
+We open-source our firmware design and control programs for the benefit of the community\footnote{\url{https://github.com/FelixMcFelix/pdp-rl-paper}---currently private...}.
 We describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
 
 \begin{figure}
@@ -411,17 +438,19 @@ We describe how our architectural choices may be adapted and improved upon by mo
 			\draw[->] (po-me-2) to node[midway, above, sloped] {\tiny NN} (po-me-3);
 			\draw[->] (po-me-3) to [out=-45,in=0,looseness=2] node[midway, above, sloped] {\tiny NN} (loop);
 	\end{tikzpicture}}
-	\caption{Architecture for an \approachshort{} agent on Netronome hardware, using 4 cores for parallel policy processing. (FIXME: redo in illustrator? Show CTXes, PISA)\label{fig:netro-arch}}
+	\caption{Architecture for an \approachshort{} agent on Netronome hardware, using 4 cores for parallel policy processing. (FIXME: redo in illustrator? Show CTXes, PISA, single vs parallel)\label{fig:netro-arch}}
 \end{figure}
 
 \subsection{System Model}
 \approachshort{} is a general, task-independent framework for in-network, online training and execution of \emph{any reinforcement learning agent design} using classical methods.
-The meaning 
+\approachshort{} is agnostic to the meaning of state vectors it receives as inputs and the actions it produces, which are employed by other functional units or the dataplane.
 However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
-\approachshort{} runs on one more cores of a SmartNIC to convert state measurements from the environment into a stream of actions using a stored policy.
-These dedicated cores (\emph{micro-engines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
+
+\approachshort{} runs on one more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
+These dedicated cores (\emph{microengines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
 Combined with reward measurements, this policy can then be updated or trained from scratch entirely on the NIC, acting as a fully online RL agent.
 An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key placed alongside the state.
+This allows for simultaneous control and learning over independent systems by the same agent (i.e., optimising several flows with their own reward measures).
 
 %However, high-speed data networks impose inviolable per-packet deadlines.
 
@@ -434,33 +463,43 @@ These same mechanisms are used by other cores on the same device to \emph{pull} 
 Both input and output can occur on any other core of the device, i.e., as part of P4 \texttt{extern} plugins or a dedicated flow state measurement subsystem, while the P4 control plane itself provides granular control over which flows are monitored or affected.
 
 Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
+Bitdepth of quantised measurements/preferences, maximum policy sizes, and parallelisation strategy may be configured at compile time.
 
+\subsection{Action and Update Computation}
+\approachshort{} applies the insights of \textcite{DBLP:journals/firai/TravnikMSP18} to minimise action latency; an action is computed, sent out into the environment, and only then is the underlying policy updated.
+Using one of the below strategies chosen at compile time, a state vector is tile coded, converted into action probabilities, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
+This is then written out to the environment as in \cref{sec:agent-environment-communication}.
+If updates are enabled, \approachshort{} then checks an internal hashmap for a previous state-action pair matching the current instruction source, and if found then a policy update is performed.
+Updates are computed using \emph{single-step semi-gradient Sarsa}, though modification to support other single-step methods would be trivial.
+The new state- or tiles-action pair is then written into storage
 
-?? Dynamic, runtime configuration via control and data planes.
+\begin{figure}
+	\begin{subfigure}{0.3\linewidth}
+		\centering
+		\includegraphics[keepaspectratio, width=\linewidth]{figures/single-core-arch-sketch}
+		\caption{Single (offline throughput-optimal).\label{fig:single-and-parallel:single}}
+	\end{subfigure}
+	\begin{subfigure}{0.45\linewidth}
+		\centering
+		\includegraphics[keepaspectratio, width=\linewidth]{figures/parallel-arch-sketch}
+		\caption{Parallel (online-optimal).\label{fig:single-and-parallel:parallel}}
+	\end{subfigure}
+	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to latency/throughput needs. ?? MAKE ME FOR REAL \label{fig:single-and-parallel}}
+\end{figure}
 
-?? Compile-time config of bit-depth, 
-?? Allows learning from several live traces simultaneously.
-?? Allows execution of indepdnnt traces simultaneously.
+?? Do we need better/snappier names than just Single/Parallel? It's awfully dry.
 
-\subsection{Action Computation}
-Note: talk about single core AND parallel.
+In the NFP architecture we use, physical cores (MEs) each have 8 hardware threads (contexts): all contexts on an ME share the same program and employ zero-cost context switches on I/O.
+Each core then provides 8 worker threads, though in the parallel case one must be dedicated to monitoring work acknowledgements.
+Two main firmware models govern how the computation-intensive parts of these tasks (tile-coding, action preference list construction, policy updates) are carried out:
+\begin{description}
+	\item[Single (\cref{fig:single-and-parallel:single})] Separate threads listen for new states, and each performs its work sequentially. Computing an action list requires a \emph{read lock} on the policy. If an update occurs, the core requests a \emph{write lock} before updating, greatly limiting online throughput. Tile lists are stored for update computation.
+	\item[Parallel (\cref{fig:single-and-parallel:parallel})] Threads cooperate on processing state vectors, minimising latency. Workers have a fixed list of work items, while a master thread sends compute/update commands before awaiting worker completion. Work items are disjoint, requiring no policy locks. State vectors are stored for update computation.
+\end{description}
+Each offers a different point of optimisation; if updates are disabled, then the \emph{single} model can maximise throughput, while the \emph{parallel} model is designed to minimise decision latency and needs no locks for updating the policy (increasing online learning throughput).
 
-?? Mention that you compute action, send action, AND THEN compute update exactly as in that one paper to reduce latency
-
-\begin{itemize}
-	\item A state vector is tile coded, action probabilities are produced, and an action is chosen according to current choice of $\epsilon$ (exploration parameter).
-	\item \emph{Open question: how to configure action destination? This should either be another core (after an optional transformation), a packet sent out to a destination, maybe talk back to the controller.}
-\end{itemize}
-\begin{itemize}
-	\item \emph{Open question: how to safely \& reasonably map state back to incoming rewards?}
-	\item \emph{Open question: Can/should this also support on-chip reward signals?}
-\end{itemize}
-
-?? Split across MEs.
-
-?? each ME can then subdivide by factor of 8 among contexts.
-
-?? Scales from 1--(n-1) cores.
+We found that, paradoxically, it was more efficient in the parallel case \emph{to do more work} by having each worker recompute its tile subset from a stored state.
+It transpired that cacheing this data placed a larger \texttt{memcpy} in the serial section, whose size did not scale at all with bit depth.
 
 \subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
 \approachshort{} uses \emph{multiple-producer/multiple-consumer} (MPMC) messaging channels to communicate with other computational elements; be they P4 programs on the packet path, or additional on-chip analysis and control modules.
@@ -501,10 +540,16 @@ These slower messages can be used in theory to skip ahead into longer ME chains.
 	\item Policy dimensions, size, action count, tiling strategies, learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) can all be chosen and changed live.
 \end{itemize}
 
+?? Reconfig triggers cacheing of per-work item data: tiling locations, ....
+
+Written in rust.
+
 \subsection{Work Allocation}
 ?? WHy
 
 ?? How
+
+?? Work index correlates with complexity (and can be estimated a-priori).
 
 \subsection{Policy Storage}
 ?? Why
@@ -522,6 +567,8 @@ Compile time eh
 
 ?? 
 
+?? Batching of reads. ?? action value batching  (relate to bitdepth).
+
 ?? Lower bitdepth can mean more actions, more tilings, more dimensions in tilings, higher perf.
 
 \subsection{Notes from chat with others}
@@ -534,6 +581,15 @@ Potential: low-latency train for some specific points, and high throughput for o
 THis might mean "do 32-bit online", then downsample to 8-bit policy for high-throughput mode.
 
 Can changes in trained policy be used to transfer to a more complex function approximator elsewhere?
+
+\subsection{Limitations}
+Known/understood (but not implemented)?
+\begin{itemize}
+	\item Figure out PIF rule installation.
+	\begin{itemize}
+		\item Not doable through P4 na\"{i}vely. Handing back rules to controller is expensive: need another action to deliberately use its own hash table etc., then batch back as faster P4 rules.
+	\end{itemize}
+\end{itemize}
 
 \subsection{Targeting other device classes}
 While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
@@ -652,12 +708,22 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 ?? Explain how every part may be substituted
 ?? Bump-in-the-wire at edge nodes.
 
+?? Place Dapper~\parencite{DBLP:conf/sosr/GhasemiBR17} on the datapath as the main source of state vectors.
+
+?? Use the TNSM work you reviewed~\parencite{tnms-ddos-victim-ident} as a reward function source.
+
 \subsection{Something host-specific?}
 Accelerate something at an end-host...
 
 \section{Evaluation}
 
 \subsection{Experimental Setup}
+Evaluation of \approachshort{} was performed on server blades hosting a single Netronome Agilio LX 1x100GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
+These ran Ubuntu 18.04.5 LTS (4.15.0-140-generic x86\_64) on Intel Xeon Bronze 3204 CPUs (\SI{1.9}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
+Control programs were built using rustc 1.51.0.
+All timing and throughput measurements were repeated over 5000 trials.
+
+Studies based on \textcite{DBLP:journals/tnsm/SimpsonRP20} mirror their experimental setup (Ubuntu 18.04.2 LTS (4.4.3-040403-generic x86\_64), Intel Core i7-6700K (\SI{4.2}{\giga\hertz}), \SI{32}{\gibi\byte} RAM).
 
 \section{Results}
 
@@ -679,14 +745,14 @@ Accelerate something at an end-host...
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-work}
 	}
-	\caption{?? Max Parallelisation. ?? Bitdepth affects independent cores more.}
+	\caption{?? More work means More time. ?? Max Parallelisation. ?? Bitdepth affects independent cores more.}
 \end{figure}
 
 \begin{figure}
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-core}
 	}
-	\caption{?? Max-size work (129 work-items). ?? Need to dedicate 3 worker to beat independent cores. ?? Sharper perf increase when new physical core added. ?? up to 31 due to master thread.}
+	\caption{?? More cores means less time ?? Max-size work (129 work-items). ?? Need to dedicate 3 worker to beat independent cores. ?? Sharper perf increase when new physical core added. ?? up to 31 due to master thread.}
 \end{figure}
 
 How do we evaluate this without looking into classification performance?
@@ -740,40 +806,6 @@ I can think of one way to evaluate this if we employ classification performance:
 	\item For each level of quantisation needed, examine average performance.
 	\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
 \end{enumerate}
-
-\section{What's implemented 'til now?}
-System?
-\begin{itemize}
-	\item Core-to-core communication.
-	\item P4 parser for relevant packets.
-	\item Packet copy + handoff from P4 to RL MEs.
-	\item Dynamic base configuration.
-	\item Dynamic tiling configuration.
-	\item Policy installation via block-copy.
-	\item Packet generation for above config functions, as well as policy quantisation and splitting.
-	\item Tile-coding of quantised states on-chip, and state packet receipt.
-	\item Action computation on-chip.
-	\item Rudimentary, single-core training.
-\end{itemize}
-
-Experiments?
-\begin{itemize}
-	\item Policy quantisation divergence \& accuracy (via mininet).
-	\item Measure DPDK SmartNIC RTT as a lower bound on controller access time.
-	\begin{itemize}
-		\item Same mechanism applies to other manufacturers (Barefoot), so generalisable.
-		\item My results are non-DPDK, but there is a good study~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018} on exactly this.
-	\end{itemize}
-	\item Measure basic on-switch times: ring-ring communication, tile-coding cost, action compute cost, learning cost.
-\end{itemize}
-
-Known/understood (but not implemented)?
-\begin{itemize}
-	\item Figure out PIF rule installation.
-	\begin{itemize}
-		\item Not doable through P4 na\"{i}vely. Handing back rules to controller is expensive: need another action to deliberately use its own hash table etc., then batch back as faster P4 rules.
-	\end{itemize}
-\end{itemize}
 
 \section{Intermediate steps?}
 System?
@@ -941,6 +973,10 @@ This is application-dependent: see earlier discussions on rule batching and loca
 ?? Mechanisms to support full in-switch DDoS detection~\cite{tnms-ddos-victim-ident}.
 
 \section{Conclusion}
+
+\begin{acks}
+	This work was supported in part by the \grantsponsor{gs-epsrc}{Engineering and Physical Sciences Research Council}{https://epsrc.ukri.org/} [grant~\grantnum{gs-epsrc}{EP/N509668/1}].
+\end{acks}
 	
 %\bibliographystyle{ACM-Reference-Format}
 %\bibliography{reference}
