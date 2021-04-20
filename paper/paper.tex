@@ -645,7 +645,21 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 %	}
 %\end{figure}
 
+\section{Potential Integrations}
+
+\subsection{DDoS Defence}
+?? Link to my own work
+?? Explain how every part may be substituted
+?? Bump-in-the-wire at edge nodes.
+
+\subsection{Something host-specific?}
+Accelerate something at an end-host...
+
 \section{Evaluation}
+
+\subsection{Experimental Setup}
+
+\section{Results}
 
 \begin{table}
 	\caption{Throughput and per-item compute time for an RL agent with/without policy learning. State$\rightarrow$action latency equals the offline completion cost. TODO: compare to host machine? Put completion times first? Put multi first?}
@@ -653,6 +667,27 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 		\expandableinput ../tables/build/latency-tput
 	}
 \end{table}
+
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/work-strat-32bit}
+	}
+	\caption{?? Choice of work strategy is pretty important I guess}
+\end{figure}
+
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/vary-work}
+	}
+	\caption{?? Max Parallelisation. ?? Bitdepth affects independent cores more.}
+\end{figure}
+
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/vary-core}
+	}
+	\caption{?? Max-size work (129 work-items). ?? Need to dedicate 3 worker to beat independent cores. ?? Sharper perf increase when new physical core added. ?? up to 31 due to master thread.}
+\end{figure}
 
 How do we evaluate this without looking into classification performance?
 \begin{itemize}
