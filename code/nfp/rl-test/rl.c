@@ -18,6 +18,7 @@
 #include "worker_config.h"
 
 #include "policy/policy_mem_define.h"
+
 #include "util.h"
 
 // ring head and tail on i25 or emem1
@@ -55,7 +56,7 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 #define SA_ENTRIES 0x10
 CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 
-__declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
+__declspec(export, emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
 
 #define REWARD_ENTRIES 0x10
 CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
@@ -74,7 +75,7 @@ volatile __declspec(shared) struct work local_ctx_work = {0};
 *
 * Returns length of tile coded list.
 */
-uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg, uint32_t *output) {
+uint16_t tile_code(__addr40 _declspec(emem) tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 __declspec(emem) uint32_t *output) {
 	uint16_t tiling_set_idx;
 	uint16_t out_idx = 0;
 
@@ -145,7 +146,7 @@ uint16_t tile_code(tile_t *state, __addr40 _declspec(emem) struct rl_config *cfg
 * Length written into act_list is guaranteed to be equal to cfg->num_actions.
 * Note, that act_list must be at least of size MAX_ACTIONS.
 */
-void action_preferences(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, tile_t *act_list) {
+void action_preferences(__addr40 __declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, __addr40 __declspec(emem) tile_t *act_list) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
 	uint16_t j = 0;
@@ -260,7 +261,7 @@ tile_t fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_
 #include "worker/worker_body.c"
 // WARNING
 
-#ifndef _RL_WORKER_DISABLED
+#ifndef _RL_CORE_OLD_POLICY_WORK
 
 /* Assumes that lock over Ack[i] is held, and returns the number of acks that this packet contained.
 */
@@ -316,14 +317,18 @@ __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 	}
 
 	//remote
+	#ifdef _RL_WORKER_SLAVE_CTXES
 	in_type_a = to_do;
 	local_csr_write(local_csr_next_neighbor_signal, (1 << 7) | (WORKER_SIGNUM << 3));
+	#endif
 
 	//same ctx
+	#ifdef _RL_CORE_SLAVE_CTXES
 	local_ctx_work = to_do;
 	for (i=1; i<8; i++) {
 		signal_ctx(i, sig_no);
 	}
+	#endif
 }
 
 void state_packet_delegate(

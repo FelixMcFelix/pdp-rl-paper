@@ -3,8 +3,8 @@
 
 #include "../rl.h"
 
-__declspec(i5.cls, export, aligned(8))tile_t t1_tiles[MAX_CLS_TILES] = {0};
-__declspec(i5.ctm, export, aligned(8))tile_t t2_tiles[MAX_CTM_TILES] = {0};
+__declspec(cls, export, aligned(8))tile_t t1_tiles[MAX_CLS_TILES] = {0};
+__declspec(ctm, export, aligned(8))tile_t t2_tiles[MAX_CTM_TILES] = {0};
 __declspec(export, imem, aligned(8))tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 
 // Maybe keep one of these locally, too?

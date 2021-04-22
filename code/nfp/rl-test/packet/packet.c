@@ -42,13 +42,13 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 // Need to use this due to size limits on struct in CAMHT def, even
 // if key is different.
 // #define SA_ENTRIES 0x20000
-#define SA_ENTRIES 0x10
-CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
+// #define SA_ENTRIES 0x10
+// CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 
-__declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
+// __declspec(emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
 
-#define REWARD_ENTRIES 0x10
-CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
+// #define REWARD_ENTRIES 0x10
+// CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
 
 void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
@@ -381,14 +381,12 @@ void state_packet(
 	__declspec(write_reg) struct rl_answer_item workq_write_register;
 	struct rl_answer_item action_item;
 
-	uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
+	__declspec(emem) uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
 	uint16_t tc_count;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 
-	tile_t state[RL_DIMENSION_MAX];
-
-	tile_t prefs[MAX_ACTIONS] = {0};
+	__declspec(emem) tile_t prefs[MAX_ACTIONS] = {0};
 
 	uint32_t t0;
 	uint32_t t1;
@@ -412,13 +410,13 @@ void state_packet(
 	}
 
 	//dst, src, len
-	ua_memcpy_mem40_mem40(
-		pkt->packet_payload, 0,
-		(void*)state, 0,
-		dim_count * sizeof(tile_t)
-	);
+	// ua_memcpy_mem40_mem40(
+	// 	pkt->packet_payload, 0,
+	// 	(void*)state, 0,
+	// 	dim_count * sizeof(tile_t)
+	// );
 
-	tc_count = tile_code(state, cfg, tc_indices);
+	tc_count = tile_code((__declspec(emem) __addr40 tile_t *)pkt->packet_payload, cfg, tc_indices);
 	global_tc_count = tc_count;
 
 	/*for (i=0; i<tc_count; i++) {
@@ -476,8 +474,8 @@ void state_packet(
 	if (cfg->do_updates) {
 		// This dummies the access cost.
 		// For some reason, it bugs out if struct size is lte 32bit?
-		uint64_t reward_key = select_key(cfg->reward_key, state);
-		uint64_t state_key = select_key(cfg->state_key, state);
+		uint64_t reward_key = fat_select_key(cfg->reward_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+		uint64_t state_key = fat_select_key(cfg->state_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
 
 		int32_t state_added = 0;
 
