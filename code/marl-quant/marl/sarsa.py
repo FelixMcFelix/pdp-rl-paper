@@ -5,6 +5,7 @@ import random
 from spf import *
 import sys
 import tilecoding.representation as r
+import time
 
 # FIXME: change update et al to use quantiser.
 
@@ -28,8 +29,10 @@ class SarsaLearner:
 				increase_fixed_math_alpha_if_narrowed=True,
 				always_include_bias=True,
 				AcTrans=MarlMachine,
-				quantiser=None):
+				quantiser=None,
+				quantiser_dt=None):
 		self.quantiser = quantiser
+		self.quantiser_dt = quantiser_dt
 
 		state_range = [
 			[0 for i in xrange(vec_size)] + extended_mins,
@@ -97,7 +100,7 @@ class SarsaLearner:
 				if self.quantiser is None:
 					self.values[tile] = np.full(len(self.actions), float(self.default_q))
 				else:
-					self.values[tile] = np.full(len(self.actions), float(self.default_q), dtype=np.dtype(int))
+					self.values[tile] = np.full(len(self.actions), float(self.default_q), dtype=self.quantiser_dt)
 
 	def _get_state_values(self, state):
 		self._ensure_state_vals_exist(state)
@@ -201,6 +204,7 @@ class SarsaLearner:
 		# FIXME: reconcile effect of narrowings upon learning rate when using 'intended' maths.
 		action_narrowing=None,
 		update_narrowing=None,
+		time_write_space=None
 	):
 		(last_state, last_action, last_z) = (self.last_act if subs_last_act is None else subs_last_act)
 
@@ -223,6 +227,9 @@ class SarsaLearner:
 		# but we need ALL values to be made available when we are handling "transitions"
 		# between narrowed/unnarrowed regions of the markov chain.
 		(new_action, new_values, argmax_values, ac_values) = self.select_action(state, action_narrowing)
+
+		if time_write_space is not None:
+			time_write_space["time"] = time.time()
 
 		next_vals = argmax_values if self._argmax_in_dt else new_values
 		argmax_chosen = np.all(new_values == argmax_values)
@@ -302,7 +309,7 @@ class SarsaLearner:
 
 		return tuple(out)
 
-	def as_quantised(self, quantiser):
+	def as_quantised(self, quantiser, dt=np.dtype(int)):
 		out = copy.deepcopy(self)
 
 		# remake tile coding
@@ -321,7 +328,7 @@ class SarsaLearner:
 		# update all entries of values?
 		nv = {}
 		for tile, action_set in self.values.items():
-			nv[tile] = np.array([quantiser.into(val) for val in action_set], dtype=np.dtype(int))
+			nv[tile] = np.array([quantiser.into(val) for val in action_set], dtype=dt)
 		out.values = nv
 
 		# update the individual sarsa params into the new space
@@ -332,6 +339,7 @@ class SarsaLearner:
 		out.discount = quantiser.into(self.discount)
 
 		out.quantiser = quantiser
+		out.quantiser_dt = dt
 
 		return out
 

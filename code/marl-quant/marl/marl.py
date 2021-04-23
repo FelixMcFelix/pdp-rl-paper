@@ -170,6 +170,8 @@ def marlExperiment(
 		quant_iter_start = None,
 
 		train_using_quant = None,
+
+		sarsa_pairs_to_export = None,
 	):
 
 	agent_classes = {
