@@ -3,16 +3,17 @@ import os
 import platform
 from quantiser import *
 from sarsa import SarsaLearner, QLearner
+from spf import *
 import time
 
 machine_name = platform.node()
 results_dir = "../../../results/host-rl-perf/"
-quantisers = [
+pquantisers = [
 	None,
 	("i8", np.dtype("i1"), Quantiser.binary(5)),
 	("i16", np.dtype("i2"), Quantiser.binary(11)),
 	("i32", np.dtype("i4"), Quantiser.binary(24)),
-],
+]
 
 iters_to_run = 5000
 
@@ -159,6 +160,10 @@ def marlParams(
 
 		sarsa_pairs_to_export = None,
 	):
+	if max_bw is None:
+		max_bw = 192.0
+	aset = pdrop_magnitudes
+	AcTrans = MarlMachine
 	sarsaParams = {
 		"max_bw": max_bw,
 		"vec_size": 4,
@@ -197,12 +202,12 @@ def marlParams(
 		50.0, 50.0,
 	][0:feature_max-4]
 
-	sarsaParams["vec_size"] += len(sarsaParams["extended_maxes"])
+	#sarsaParams["vec_size"] += len(sarsaParams["extended_maxes"])
 
 	if not split_codings:
 		sarsaParams["tc_indices"] = [np.arange(sarsaParams["vec_size"])]
 	else:
-		sarsaParams["tc_indices"] = [np.arange(4)] + [[i] for i in xrange(4, sarsaParams["vec_size"])]
+		sarsaParams["tc_indices"] = [np.arange(4)] + [[i] for i in xrange(4, sarsaParams["vec_size"] + len(sarsaParams["extended_maxes"]))]
 
 		# Okay, index of last_action is 2 after the last global datum in the feature vector.
 		# combine_with_last_action, strip_last_action, use_path_measurements
@@ -221,7 +226,7 @@ def marlParams(
 
 	return sarsaParams
 
-for possible_quantiser in quantisers:
+for possible_quantiser in pquantisers:
 	params = {
 		#"P_good": 1.0,
 		"n_teams": 2,
@@ -264,9 +269,10 @@ for possible_quantiser in quantisers:
 	action_timing_measures = []
 	update_timing_measures = []
 
-	state_range = learner.state_range
+	state_range = [list(np.array(x)/2.0) for x in learner.state_range]
 
 	if possible_quantiser is not None:
+		print(possible_quantiser)
 		(name, qdt, q) = possible_quantiser
 		outname = name
 		learner = learner.as_quantised(q, dt=qdt)
@@ -274,6 +280,7 @@ for possible_quantiser in quantisers:
 		outname = "f32"
 
 	last_pair_storage = {}
+	print(state_range)
 
 	for i in range(iters_to_run):
 		s1 = np.random.uniform(
@@ -284,7 +291,7 @@ for possible_quantiser in quantisers:
 			state_range[0],
 			state_range[1],
 		)
-		a = np.random.uniform(0, learner.actions)
+		a = int(np.random.uniform(0, len(learner.actions)))
 		r = 1.0
 
 
@@ -298,6 +305,7 @@ for possible_quantiser in quantisers:
 		t_before_act = time.time()
 
 		# do the state conversion work in here
+		# this includes tile coding
 		s1 = learner.to_state(s1)
 
 		(new_ac, vals, new_z) = learner.update(
@@ -325,11 +333,13 @@ for possible_quantiser in quantisers:
 		action_timing_measures.append((t_mid["time"] - t_before_act) * 1e6)
 		update_timing_measures.append(((t_after - t_before_act) + (lkup_end - lkup_start)) * 1e6)
 
-	os.makedirs(results_dir, exist_ok=True)
+	if not os.path.exists(results_dir):
+		os.makedirs(results_dir)
+
 
 	files = [("ComputeAndWriteout", action_timing_measures), ("UpdateAll", update_timing_measures)]
-	for (name_part, data_to_write) in files
-		outpath = "{}{}.{}.{}.dat".format(results_dir, outnum, machine_name, name_part)
+	for (name_part, data_to_write) in files:
+		outpath = "{}{}.{}.{}.dat".format(results_dir, outname, machine_name, name_part)
 		with open(outpath, "w") as of:
 			for val in data_to_write:
 				of.write("{:.2f}\n".format(val))
