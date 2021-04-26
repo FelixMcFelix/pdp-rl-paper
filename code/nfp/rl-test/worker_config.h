@@ -22,6 +22,7 @@ ALL FLAGS:
 */
 
 // Basic: Indep RL cores, all local.
+// USE ME FOR SINGLE(1/4)
 #ifdef _RL_CONFIG_SOLO_INDEP_RL_CORES
 #define _RL_CORE_OLD_POLICY_WORK
 #define _RL_WORKER_DISABLED
@@ -39,6 +40,7 @@ ALL FLAGS:
 
 // RL core reaches workers as CTXs on same core.
 // Only one master == CTX 0.
+// USE ME FOR PARALLEL(1)
 #ifdef _RL_CONFIG_SOLO_LOCAL_WORK
 #define _RL_CORE_SLAVE_CTXES
 #define _RL_WORKER_DISABLED
@@ -49,6 +51,7 @@ ALL FLAGS:
 // RL core reaches workers as CTXs on same core, and via NNs.
 //
 // Only one master == CTX 0.
+// USE ME FOR PARALLEL(4)
 #ifdef _RL_CONFIG_SOLO_REMOTE_WORK
 #define _RL_WORKER_SLAVE_CTXES
 #define _RL_CORE_SLAVE_CTXES

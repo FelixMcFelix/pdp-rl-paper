@@ -2,7 +2,7 @@
 *
 * Returns length of tile coded list.
 */
-__intrinsic uint16_t tile_code(__addr40 __declspec(emem) tile_t *state, __addr40 __declspec(ctm) struct rl_config *cfg, __addr40 __declspec(emem) uint32_t *output) {
+__intrinsic uint16_t tile_code(__addr40 __declspec(emem) tile_t *state, __declspec(cls) struct rl_config *cfg, __declspec(ctm) uint32_t *output) {
 	uint16_t tiling_set_idx;
 	uint16_t out_idx = 0;
 
@@ -73,7 +73,7 @@ __intrinsic uint16_t tile_code(__addr40 __declspec(emem) tile_t *state, __addr40
 * Length written into act_list is guaranteed to be equal to cfg->num_actions.
 * Note, that act_list must be at least of size MAX_ACTIONS.
 */
-__intrinsic void action_preferences(__addr40 __declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 __declspec(ctm) struct rl_config *cfg, tile_t *act_list) {
+__intrinsic void action_preferences(__declspec(ctm) uint32_t *tile_indices, uint16_t tile_hit_count, __declspec(cls) struct rl_config *cfg, tile_t *act_list) {
 	#define _NUM_U64S_TO_READ (4)
 	#define _TILES_TO_READ (_NUM_U64S_TO_READ * TILES_IN_U64)
 
@@ -141,7 +141,7 @@ __intrinsic void action_preferences(__addr40 __declspec(emem) uint32_t *tile_ind
 }
 
 // This is guaranteed to be sorted!
-__intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+__intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __declspec(cls) struct rl_config *cfg, uint16_t action, tile_t delta) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
 	uint16_t j = 0;

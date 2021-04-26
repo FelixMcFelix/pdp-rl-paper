@@ -154,7 +154,7 @@ __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 }
 
 void state_packet_delegate(
-	__declspec(ctm) struct rl_config *cfg,
+	__declspec(cls) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	mem_ring_addr_t r_out_addr,
 	uint16_t dim_count,
@@ -165,8 +165,6 @@ void state_packet_delegate(
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 	struct work to_do = {0};
-
-	__declspec(emem) volatile tile_t state[RL_DIMENSION_MAX];
 
 	uint32_t t0;
 	uint32_t t1;
@@ -220,6 +218,7 @@ void state_packet_delegate(
 	}
 
 	if (!cfg->disable_action_writeout) {
+		// __critical_path();
 		workq_write_register = action_item;
 		mem_workq_add_work(
 			RL_OUT_RING_NUMBER,
@@ -275,6 +274,8 @@ void state_packet_delegate(
 		//nani = (((uint64_t) reward_found) << 32) | state_added;
 		//mem_write64(&nani, &really_really_bad_p, sizeof(uint64_t));
 		if ((cfg->force_update_to_happen == BHAV_ALWAYS) || updating_on_this_cycle) {
+			// __critical_path();
+
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 
 			tile_t value_of_chosen_action = atomic_writeback_prefs[chosen_action];
@@ -333,10 +334,11 @@ __declspec(export, emem) volatile uint32_t vis_indices[RL_MAX_TILE_HITS] = {0};
 
 __intrinsic void heavy_first_work_allocation(
 	__addr40 __declspec(emem) uint32_t *indices,
-	__declspec(ctm) struct rl_config *cfg
+	__declspec(cls) struct rl_config *cfg
 ) {
 	// FIXME: in future, this could be made to rely upon larger CT/runtime bounds.
-	uint32_t class_costs[4] = {6, 10, 13, 19};
+	// uint32_t class_costs[4] = {6, 10, 13, 19};
+	uint32_t class_costs[4] = {5, 8, 13, 16};
 	uint32_t available_ctxs[4] = {7, 8, 8, 8};
 	uint32_t first_ctx[4] = {0, 7, 15, 23};
 	uint32_t first_missing_ctx[4] = {7, 15, 23, 31};
@@ -534,7 +536,7 @@ main() {
 		really_really_bad = total_num_workers;
 
 		pass_work_on(to_do, __signal_number(&internal_handout_sig));
-		nani = receive_worker_acks(total_num_workers);;
+		nani = receive_worker_acks(total_num_workers);
 
 		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 

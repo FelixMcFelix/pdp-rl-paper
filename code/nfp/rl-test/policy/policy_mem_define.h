@@ -9,6 +9,6 @@ __declspec(export, imem, aligned(8))tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 
 // Maybe keep one of these locally, too?
 // probably should do this holy shit.
-__declspec(export, ctm) struct rl_config cfg = {0};
+__declspec(export, cls) struct rl_config cfg = {0};
 
 #endif /* !_P_MEM_DEF_H_ */

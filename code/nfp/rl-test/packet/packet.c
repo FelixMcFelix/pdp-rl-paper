@@ -50,9 +50,10 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 // #define REWARD_ENTRIES 0x10
 // CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
 
-void setup_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void setup_packet(__declspec(cls) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
 	int cursor = 0;
+	int i = 0;
 	__declspec(xfer_read_reg) union two_u16s word;
 	__declspec(xfer_read_reg) union four_u16s bigword;
 
@@ -182,19 +183,27 @@ void setup_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer
 
 	// n x tile_t maxes
 	// n x tile_t mins
-	ua_memcpy_mem40_mem40(
-		&(cfg->maxes), 0,
-		pkt->packet_payload + cursor, 0,
-		cfg->num_dims * sizeof(tile_t)
-	);
+	// FIXME: BROKEN BY CLS
+	// ua_memcpy_mem40_mem40(
+	// 	(__addr40 void*) &(cfg->maxes), 0,
+	// 	pkt->packet_payload + cursor, 0,
+	// 	cfg->num_dims * sizeof(tile_t)
+	// );
+	for (i=0; i<cfg->num_dims; i++) {
+		cfg->maxes[i] = ((__declspec(emem) __addr40 tile_t *) (pkt->packet_payload + cursor))[i];
+	}
 
 	cursor += cfg->num_dims * sizeof(tile_t);
 
-	ua_memcpy_mem40_mem40(
-		&(cfg->mins), 0,
-		pkt->packet_payload + cursor, 0,
-		cfg->num_dims * sizeof(tile_t)
-	);
+	// FIXME: BROKEN BY CLS
+	// ua_memcpy_mem40_mem40(
+	// 	(__addr40 void*) &(cfg->mins), 0,
+	// 	pkt->packet_payload + cursor, 0,
+	// 	cfg->num_dims * sizeof(tile_t)
+	// );
+	for (i=0; i<cfg->num_dims; i++) {
+		cfg->mins[i] = ((__declspec(emem) __addr40 tile_t *) (pkt->packet_payload + cursor))[i];
+	}
 
 	cfg->epsilon_decay_freq_cnt = 0;
 
@@ -220,7 +229,7 @@ void setup_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer
 	}
 }
 
-void tilings_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void tilings_packet(__declspec(cls) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	// tiling information.
 	// rest of packet body is, repeated till end:
 	//  n_dims (u16)
@@ -229,6 +238,7 @@ void tilings_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xf
 	//  n x u16 (dimensions in tiling)
 	__declspec(xfer_read_reg) union two_u16s word;
 
+	int i = 0;
 	int cursor = 0;
 	int num_tilings = 0;
 	enum tile_location loc = TILE_LOCATION_T1;
@@ -269,11 +279,15 @@ void tilings_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xf
 				cursor += sizeof(uint8_t);
 
 				// dims (num_dims * uint16_t)
-				ua_memcpy_mem40_mem40(
-					&(cfg->tiling_sets[num_tilings].dims), 0,
-					pkt->packet_payload + cursor, 0,
-					word.ints[0] * sizeof(uint16_t)
-				);
+				// FIXME: BROKEN BY CLS
+				// ua_memcpy_mem40_mem40(
+				// 	(__addr40 void*) &(cfg->tiling_sets[num_tilings].dims), 0,
+				// 	pkt->packet_payload + cursor, 0,
+				// 	word.ints[0] * sizeof(uint16_t)
+				// );
+				for (i=0; i<word.ints[0]; i++) {
+					cfg->tiling_sets[num_tilings].dims[i] = ((__declspec(emem) __addr40 uint16_t *) (pkt->packet_payload + cursor))[i];
+				}
 				cursor += word.ints[0] * sizeof(uint16_t);
 
 				tiles_in_tiling *= cfg->tilings_per_set;
@@ -322,7 +336,7 @@ void tilings_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xf
 }
 
 void policy_block_copy(
-	__addr40 _declspec(ctm) struct rl_config *cfg,
+	__declspec(cls) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	uint32_t tile
 ) {
@@ -373,7 +387,7 @@ void policy_block_copy(
 
 #ifdef _RL_CORE_OLD_POLICY_WORK
 void state_packet(
-	__addr40 _declspec(ctm) struct rl_config *cfg,
+	__declspec(cls) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	mem_ring_addr_t r_out_addr,
 	uint16_t dim_count
@@ -381,7 +395,7 @@ void state_packet(
 	__declspec(write_reg) struct rl_answer_item workq_write_register;
 	struct rl_answer_item action_item;
 
-	__declspec(emem) uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
+	__declspec(ctm) uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
 	uint16_t tc_count;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
@@ -558,7 +572,7 @@ void state_packet(
 }
 #endif /* _RL_CORE_OLD_POLICY_WORK */
 
-void reward_packet(__addr40 _declspec(ctm) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
+void reward_packet(__declspec(cls) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
 	// Switch on self->reward_key
 	// if shared, place into key 0 I guess?
 	uint32_t loc = 0;
