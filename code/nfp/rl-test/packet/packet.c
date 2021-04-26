@@ -386,7 +386,9 @@ void state_packet(
 	uint16_t chosen_action;
 	uint32_t rng_draw;
 
-	__declspec(emem) tile_t prefs[MAX_ACTIONS] = {0};
+	// tile_t state[RL_DIMENSION_MAX];
+
+	tile_t prefs[MAX_ACTIONS] = {0};
 
 	uint32_t t0;
 	uint32_t t1;
@@ -473,9 +475,12 @@ void state_packet(
 
 	if (cfg->do_updates) {
 		// This dummies the access cost.
-		// For some reason, it bugs out if struct size is lte 32bit?
+		// // For some reason, it bugs out if struct size is lte 32bit?
 		uint64_t reward_key = fat_select_key(cfg->reward_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
 		uint64_t state_key = fat_select_key(cfg->state_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+
+		// uint64_t reward_key = select_key(cfg->reward_key, state);
+		// uint64_t state_key = select_key(cfg->state_key, state);
 
 		int32_t state_added = 0;
 
