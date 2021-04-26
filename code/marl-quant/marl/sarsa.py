@@ -303,8 +303,8 @@ class SarsaLearner:
 
 	def to_state(self, *args):
 		if self.quantiser is not None:
-			in_args = [self.quantiser.into(v) for v in args]
-			return to_state_quanted(*in_args)
+			in_args = [np.array([self.quantiser.into(v) for v in x]) for x in args]
+			return self.to_state_quanted(*in_args)
 		else:
 			return tuple(self.tc(*args))
 

@@ -281,6 +281,7 @@ for possible_quantiser in pquantisers:
 
 	last_pair_storage = {}
 	print(state_range)
+	print(learner.tc_indices)
 
 	for i in range(iters_to_run):
 		s1 = np.random.uniform(
@@ -301,7 +302,7 @@ for possible_quantiser in pquantisers:
 		s2 = learner.to_state(s2)
 		last_pair_storage[i] = (s2, a, None)
 
-		qs1 = [self.quantiser.into(v) for v in args]
+		qs1 = np.array([learner.quantiser.into(v) for v in s1]) if learner.quantiser is not None else s1
 
 		# ------------
 		t_before_act = time.time()
