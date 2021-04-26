@@ -303,11 +303,13 @@ class SarsaLearner:
 
 	def to_state(self, *args):
 		if self.quantiser is not None:
-			out = [self.quantiser.into(v) for v in self.tc(*args)]
+			in_args = [self.quantiser.into(v) for v in args]
+			return to_state_quanted(*in_args)
 		else:
-			out = self.tc(*args)
+			return tuple(self.tc(*args))
 
-		return tuple(out)
+	def to_state_quanted(self, *args):
+		return tuple(self.tc(*args))
 
 	def as_quantised(self, quantiser, dt=np.dtype(int)):
 		out = copy.deepcopy(self)

@@ -301,12 +301,14 @@ for possible_quantiser in pquantisers:
 		s2 = learner.to_state(s2)
 		last_pair_storage[i] = (s2, a, None)
 
+		qs1 = [self.quantiser.into(v) for v in args]
+
 		# ------------
 		t_before_act = time.time()
 
 		# do the state conversion work in here
 		# this includes tile coding
-		s1 = learner.to_state(s1)
+		s1 = learner.to_state_quanted(qs1)
 
 		(new_ac, vals, new_z) = learner.update(
 			s1,

@@ -378,12 +378,13 @@ def marlExperiment(
 				# TODO: work to allow selection of 0--4
 				sarsaParams[prop_name] = [old[i-4] for i in restrict]
 		else:
-			sarsaParams["vec_size"] += len(sarsaParams["extended_maxes"])
+			# sarsaParams["vec_size"] += len(sarsaParams["extended_maxes"])
+			pass
 
 		if not split_codings:
-			sarsaParams["tc_indices"] = [np.arange(sarsaParams["vec_size"])]
+			sarsaParams["tc_indices"] = [np.arange(sarsaParams["vec_size"] + len(sarsaParams["extended_maxes"]))]
 		else:
-			sarsaParams["tc_indices"] = [np.arange(4)] + [[i] for i in xrange(4, sarsaParams["vec_size"])]
+			sarsaParams["tc_indices"] = [np.arange(4)] + [[i] for i in xrange(4, sarsaParams["vec_size"] + len(sarsaParams["extended_maxes"]))]
 
 			# Okay, index of last_action is 2 after the last global datum in the feature vector.
 			# combine_with_last_action, strip_last_action, use_path_measurements
@@ -1688,7 +1689,7 @@ def marlExperiment(
 			#updateUpstreamRoute(node)
 
 			# Assume initial state is all zeroes (new network)
-			sarsa.bootstrap(sarsa.to_state(np.zeros(sarsaParams["vec_size"])))
+			sarsa.bootstrap(sarsa.to_state(np.zeros(sarsaParams["vec_size"] + len(sarsaParams["extended_maxes"]))))
 
 		# Update master link's bandwidth limit after hosts init.
 		capacity = calc_max_capacity(len(all_hosts))/float(len(dests))
