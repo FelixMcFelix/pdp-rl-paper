@@ -50,7 +50,7 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 // #define REWARD_ENTRIES 0x10
 // CAMHT_DECLARE(reward_map, REWARD_ENTRIES, union pad_tile)
 
-void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void setup_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	int dim;
 	int cursor = 0;
 	__declspec(xfer_read_reg) union two_u16s word;
@@ -220,7 +220,7 @@ void setup_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfe
 	}
 }
 
-void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
+void tilings_packet(__addr40 _declspec(ctm) struct rl_config *cfg, __declspec(xfer_read_reg) struct rl_work_item *pkt) {
 	// tiling information.
 	// rest of packet body is, repeated till end:
 	//  n_dims (u16)
@@ -322,7 +322,7 @@ void tilings_packet(__addr40 _declspec(emem) struct rl_config *cfg, __declspec(x
 }
 
 void policy_block_copy(
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__addr40 _declspec(ctm) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	uint32_t tile
 ) {
@@ -373,7 +373,7 @@ void policy_block_copy(
 
 #ifdef _RL_CORE_OLD_POLICY_WORK
 void state_packet(
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__addr40 _declspec(ctm) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	mem_ring_addr_t r_out_addr,
 	uint16_t dim_count
@@ -558,7 +558,7 @@ void state_packet(
 }
 #endif /* _RL_CORE_OLD_POLICY_WORK */
 
-void reward_packet(__addr40 _declspec(emem) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
+void reward_packet(__addr40 _declspec(ctm) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
 	// Switch on self->reward_key
 	// if shared, place into key 0 I guess?
 	uint32_t loc = 0;

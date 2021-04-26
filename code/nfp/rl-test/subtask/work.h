@@ -34,8 +34,8 @@ struct action_update {
 
 union work_body {
 	uint32_t worker_count;
-	__addr40 _declspec(emem) struct rl_config *cfg;
-	__addr40 _declspec(emem) tile_t *state; // len not needed: derived from config.
+	__declspec(ctm) struct rl_config *cfg;
+	__addr40 __declspec(emem) tile_t *state; // len not needed: derived from config.
 	struct work_alloc alloc;
 	struct action_update update;
 };

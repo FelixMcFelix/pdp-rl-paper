@@ -27,7 +27,7 @@ __declspec(export, emem) tile_t life_sucks[4] = {0};
 
 uint32_t tile_code_with_cfg_single(
 	__addr40 _declspec(emem) tile_t *state,
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__addr40 _declspec(ctm) struct rl_config *cfg,
 	uint8_t bias_tile_exists,
 	uint8_t work_idx
 ) {
@@ -203,7 +203,7 @@ cls_test_sub64(__xrw void *data, __cls void *addr, size_t size)
 
 void action_preferences_with_cfg_single(
 	uint32_t tile_index,
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__addr40 _declspec(ctm) struct rl_config *cfg,
 	enum tile_location loc
 ) {
 	#define _NUM_U64S_TO_READ (4)
@@ -341,7 +341,7 @@ void action_preferences_with_cfg_single(
 	#undef _NUM_U64S_TO_READ
 }
 
-__intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
+__intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(ctm) struct rl_config *cfg, uint16_t action, tile_t delta) {
 	enum tile_location loc = TILE_LOCATION_T1;
 	uint16_t i = 0;
 
@@ -375,7 +375,7 @@ __intrinsic void update_action_preferences_with_cfg(uint32_t *tile_indices, uint
 
 __intrinsic void update_action_preference_with_cfg_single(
 	uint32_t tile_index,
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__addr40 _declspec(ctm) struct rl_config *cfg,
 	uint16_t action,
 	tile_t delta,
 	enum tile_location loc
@@ -466,7 +466,7 @@ __declspec (export emem) uint32_t otherr_write_space[31] = {0};*/
 __declspec (export emem) uint64_t nntf = 0;
 
 void work(uint8_t is_master, unsigned int parent_sig) {
-	__addr40 _declspec(emem) struct rl_config *cfg;
+	__declspec(ctm) struct rl_config *cfg;
 
 	uint8_t active_pref_space = 0;
 
@@ -493,7 +493,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint32_t b_t1;
 
 	enum tile_location precache_locs[RL_MAX_PRECACHE] = {0};
-	uint16_t fucking_hell[RL_MAX_PRECACHE] = {0};
 
 	#ifndef NO_FORWARD
 	__assign_relative_register(&worker_in_sig, WORKER_SIGNUM);
@@ -681,7 +680,6 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 						: (work_idxes[iter] / cfg->tilings_per_set);
 
 					precache_locs[iter] = cfg->tiling_sets[tiling_set_idx].location;
-					fucking_hell[iter] = work_idxes[iter];
 				}
 
 				// __asm {

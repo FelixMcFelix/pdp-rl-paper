@@ -136,7 +136,7 @@
                     "tool": "p4compiler"
                 }, 
                 ".\\out\\app_master.list\\app_master.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\lib\\hashmap\\src\\camp_hash.c", 
@@ -293,7 +293,7 @@
                     "tool": "assembler"
                 }, 
                 ".\\out\\flowcache_timeout_emu0.list\\flowcache_timeout_emu0.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\apps\\common\\src\\fc.c", 
@@ -352,7 +352,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\flowcache_timeout_emu1.list\\flowcache_timeout_emu1.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\apps\\common\\src\\fc.c", 
@@ -527,7 +527,7 @@
                     "tool": "assembler"
                 }, 
                 ".\\out\\nfd_pcie0_notify.list\\nfd_pcie0_notify.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\blocks\\blm\\libblm.c", 
@@ -583,7 +583,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\nfd_pcie0_pci_in_gather.list\\nfd_pcie0_pci_in_gather.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\blocks\\blm\\libblm.c", 
@@ -639,7 +639,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\nfd_pcie0_pci_in_issue0.list\\nfd_pcie0_pci_in_issue0.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\ng_nfd\\me\\blocks\\vnic\\pci_in_me1.c", 
@@ -694,7 +694,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\nfd_pcie0_pci_in_issue1.list\\nfd_pcie0_pci_in_issue1.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\ng_nfd\\me\\blocks\\vnic\\pci_in_me1.c", 
@@ -749,7 +749,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\nfd_pcie0_pci_out_me0.list\\nfd_pcie0_pci_out_me0.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\ng_nfd\\me\\blocks\\vnic\\pci_out_me0.c", 
@@ -930,7 +930,7 @@
                     "tool": "assembler"
                 }, 
                 ".\\out\\nfd_svc.list\\nfd_svc.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\ng_nfd\\me\\blocks\\vnic\\svc_me.c", 
@@ -990,7 +990,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\pif_app_nfd.list\\pif_app_nfd.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\p4\\components\\nfp_pif\\me\\apps\\common\\src\\fc.c", 
@@ -1087,7 +1087,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\rl_app.list\\rl_app.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
@@ -1156,7 +1156,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\rl_worker.list\\rl_worker.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
@@ -1225,7 +1225,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\rl_worker_alt.list\\rl_worker_alt.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
@@ -1294,7 +1294,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\rl_worker_cap.list\\rl_worker_cap.list": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
@@ -1363,7 +1363,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\rl-test": {
-                    "build_required": false, 
+                    "build_required": true, 
                     "list_assignments": {
                         "i32.me0": [
                             "pif_app_nfd.list"

@@ -71,218 +71,13 @@ volatile __declspec(shared) struct work local_ctx_work = {0};
 
 #include "subtask/internal_writeback.h"
 
-/** Convert a state vector into a list of tile indices.
-*
-* Returns length of tile coded list.
-*/
-__intrinsic uint16_t tile_code(__addr40 __declspec(emem) tile_t *state, __addr40 __declspec(emem) struct rl_config *cfg, __addr40 __declspec(emem) uint32_t *output) {
-	uint16_t tiling_set_idx;
-	uint16_t out_idx = 0;
-
-	// FIXME: misses out special casing for bias tile?
-
-	// Tiling sets: each relies upon its own dimension list.
-	// Each of these is one entry in a tiling packet.
-	for (tiling_set_idx = 0; tiling_set_idx < cfg->num_tilings; ++tiling_set_idx) {
-		uint16_t tiling_idx;
-		uint32_t local_tile_base = cfg->tiling_sets[tiling_set_idx].start_tile;
-
-		if (cfg->tiling_sets[tiling_set_idx].num_dims == 0) {
-			// This is a bias tile.
-			// Forcibly select it!.
-			output[out_idx++] = local_tile_base;
-
-			continue;
-		}
-
-		// Repeat the selected tiling set, changing shift.
-		// Each of these is a *copy* of the above loop, shifted along by the relevant indices.
-		for (tiling_idx = 0; tiling_idx < cfg->tilings_per_set; ++tiling_idx) {
-			uint16_t dim_idx;
-			// We can either divide the tile base, and mult all the tile indices later.
-			// Or... we could do it here, and save the trouble!
-			// (ordinarily, this would start at 1 for "true tile indices" (action-free))
-			uint32_t width_product = cfg->num_actions;
-			uint32_t local_tile = local_tile_base;
-
-			// These goes over each dimension in the top-level loop
-			for (dim_idx = 0; dim_idx < cfg->tiling_sets[tiling_set_idx].num_dims; ++dim_idx) {
-				uint16_t active_dim = cfg->tiling_sets[tiling_set_idx].dims[dim_idx];
-				uint8_t reduce_tile;
-				tile_t val = state[active_dim];
-
-				// This is what varies per tiling in a set.
-				tile_t shift = tiling_idx * cfg->shift_amt[active_dim];
-
-				tile_t max = cfg->adjusted_maxes[active_dim] - shift;
-				tile_t min = cfg->mins[active_dim] - shift;
-
-				// to get tile in dim... rescale dimension, divide by window.
-				val = (val < max) ? val : max;
-				reduce_tile = val == max;
-
-				// WE NEED TO CAST VAL AS A UTILE *BEFORE* USE
-				// OTHERWISE DIVISION WILL BE WRONG DUE
-				// TO POTENTIAL OVERFLOW
-				val = (val > min) ? val - min : 0;
-
-				// emergency_vals[dim_idx] = val;
-
-				local_tile +=
-					width_product
-					* (( ((utile_t)val) / cfg->width[active_dim]) - (reduce_tile ? 1 : 0));
-				width_product *= cfg->tiles_per_dim;
-			}
-
-			output[out_idx++] = local_tile;
-			local_tile_base += cfg->tiling_sets[tiling_set_idx].tiling_size;
-		}
-	}
-	return out_idx;
-}
-
-/** Convert a tile list into a list of action preferences.
-*
-* Length written into act_list is guaranteed to be equal to cfg->num_actions.
-* Note, that act_list must be at least of size MAX_ACTIONS.
-*/
-__intrinsic void action_preferences(__addr40 __declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 __declspec(emem) struct rl_config *cfg, tile_t *act_list) {
-	#define _NUM_U64S_TO_READ (4)
-	#define _TILES_TO_READ (_NUM_U64S_TO_READ * TILES_IN_U64)
-
-	__declspec(xfer_read_reg) tile_t read_words[_TILES_TO_READ];
-	__declspec(xfer_read_write_reg) uint32_t xfer_pref = 0;
-	enum tile_location loc = TILE_LOCATION_T1;
-	uint16_t i = 0;
-	uint16_t j = 0;
-	uint16_t act_count = cfg->num_actions;
-
-	uint8_t read_word_index = 0;
-
-	for (i = 0; i < tile_hit_count; i++) {
-		uint32_t target = tile_indices[i];
-		uint32_t loc_base = cfg->last_tier_tile[loc];
-		uint32_t base;
-
-		while (target >= loc_base) {
-			loc++;
-			loc_base = cfg->last_tier_tile[loc];
-		}
-
-		// find location of tier in memory.
-		switch (loc) {
-			case TILE_LOCATION_T1:
-				base = target;
-				break;
-			case TILE_LOCATION_T2:
-				base = target - cfg->last_tier_tile[loc-1];
-				break;
-			case TILE_LOCATION_T3:
-				base = target - cfg->last_tier_tile[loc-1];
-				break;
-		}
-
-		while (j < act_count) {
-			if (j == 0 || read_word_index >= _TILES_TO_READ) {
-				switch (loc) {
-					case TILE_LOCATION_T1:
-						cls_read(&read_words[0], &t1_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
-						break;
-					case TILE_LOCATION_T2:
-						mem_read64(&read_words[0], &t2_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
-						break;
-					case TILE_LOCATION_T3:
-						mem_read64(&read_words[0], &t3_tiles[base + j], _NUM_U64S_TO_READ * sizeof(uint64_t));
-						break;
-				}
-				read_word_index = 0;
-			}
-
-			//old-but-new way
-			for (
-				read_word_index = 0;
-				read_word_index < _TILES_TO_READ && j < act_count;
-				read_word_index++, j++
-			) {
-				act_list[j] += read_words[read_word_index];
-			}
-		}
-	}
-
-	#undef _TILES_TO_READ
-	#undef _NUM_U64S_TO_READ
-}
-
-// This is guaranteed to be sorted!
-__intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *tile_indices, uint16_t tile_hit_count, __addr40 _declspec(emem) struct rl_config *cfg, uint16_t action, tile_t delta) {
-	enum tile_location loc = TILE_LOCATION_T1;
-	uint16_t i = 0;
-	uint16_t j = 0;
-	uint16_t act_count = cfg->num_actions;
-
-	for (i = 0; i < tile_hit_count; i++) {
-		uint32_t target = tile_indices[i];
-		uint32_t loc_base = cfg->last_tier_tile[loc];
-		uint32_t base;
-
-		while (target >= loc_base) {
-			loc++;
-			loc_base = cfg->last_tier_tile[loc];
-		}
-
-		// find location of tier in memory.
-		switch (loc) {
-			case TILE_LOCATION_T1:
-				base = target;
-				t1_tiles[base + action] += delta;
-				break;
-			case TILE_LOCATION_T2:
-				base = target - cfg->last_tier_tile[loc-1];
-				t2_tiles[base + action] += delta;
-				break;
-			case TILE_LOCATION_T3:
-				base = target - cfg->last_tier_tile[loc-1];
-				t3_tiles[base + action] += delta;
-				break;
-		}
-	}
-}
-
-// Selects the state-action / reward key from a given state vector.
-__intrinsic tile_t select_key(struct key_source key_src, tile_t *state_vec) {
-	switch(key_src.kind) {
-		case KEY_SRC_SHARED:
-			break;
-		case KEY_SRC_FIELD:
-			return state_vec[key_src.body.field_id];
-		case KEY_SRC_VALUE:
-			return key_src.body.value;
-	}
-
-	// Assumes shared in usual case.
-	return 0;
-}
-
-__intrinsic tile_t fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_t *state_vec) {
-	switch(key_src.kind) {
-		case KEY_SRC_SHARED:
-			break;
-		case KEY_SRC_FIELD:
-			return state_vec[key_src.body.field_id];
-		case KEY_SRC_VALUE:
-			return key_src.body.value;
-	}
-
-	// Assumes shared in usual case.
-	return 0;
-}
-
 // C FILE INCLUDES
 // NEEDED DUE TO EXPORT DIRECTIVES OF TILING ON SAME CORE
 
 #define NO_FORWARD
 
 // WARNING
+#include "rl-prims.c"
 #include "packet/packet.c"
 #include "subtask/internal_writeback.c"
 #include "worker/worker_body.c"
@@ -316,7 +111,7 @@ uint32_t aggregate_acks(struct worker_ack *aggregate, uint32_t new_i) {
 
 /* Returns the number of acknowledgements received in this call.
 */
-uint32_t receive_worker_acks(struct worker_ack *aggregate, uint32_t needed_acks) {
+__intrinsic uint32_t receive_worker_acks(uint32_t needed_acks) {
 	uint32_t handled = 0;
 
 	// TODO: update these for pipeline mode?
@@ -359,7 +154,7 @@ __intrinsic void pass_work_on(struct work to_do, uint8_t sig_no) {
 }
 
 void state_packet_delegate(
-	__addr40 _declspec(emem) struct rl_config *cfg,
+	__declspec(ctm) struct rl_config *cfg,
 	__declspec(xfer_read_reg) struct rl_work_item *pkt,
 	mem_ring_addr_t r_out_addr,
 	uint16_t dim_count,
@@ -367,16 +162,11 @@ void state_packet_delegate(
 ) {
 	__declspec(write_reg) struct rl_answer_item workq_write_register;
 	struct rl_answer_item action_item;
-	__declspec(emem) volatile struct value_set vals = {0};
 	uint16_t chosen_action;
 	uint32_t rng_draw;
-
-	struct worker_ack aggregate = {0};
 	struct work to_do = {0};
 
 	__declspec(emem) volatile tile_t state[RL_DIMENSION_MAX];
-
-	__declspec(emem) volatile tile_t prefs[MAX_ACTIONS] = {0};
 
 	uint32_t t0;
 	uint32_t t1;
@@ -397,9 +187,6 @@ void state_packet_delegate(
 	to_do.body.state = (__declspec(emem) __addr40 tile_t *)pkt->packet_payload;
 
 	pass_work_on(to_do, __signal_number(&internal_handout_sig));
-	aggregate.type = ACK_VALUE_SET;
-	aggregate.body.value_set = &vals;
-
 	// copy state into writeback here?
 	if (!cfg->disable_action_writeout) {
 		action_item.len = dim_count;
@@ -414,7 +201,7 @@ void state_packet_delegate(
 		);
 	}
 
-	receive_worker_acks(&aggregate, worker_ct);
+	receive_worker_acks(worker_ct);
 	
 	// choose action
 	rng_draw = local_csr_read(local_csr_pseudo_random_number);
@@ -426,7 +213,7 @@ void state_packet_delegate(
 		// Choose maximum.
 		chosen_action = 0;
 		for (i=0; i<cfg->num_actions; i++) {
-			if (vals.prefs[i] > vals.prefs[chosen_action]) {
+			if (atomic_writeback_prefs[i] > atomic_writeback_prefs[chosen_action]) {
 				chosen_action = i;
 			}
 		}
@@ -490,7 +277,7 @@ void state_packet_delegate(
 		if ((cfg->force_update_to_happen == BHAV_ALWAYS) || updating_on_this_cycle) {
 			tile_t matched_reward = reward_map_key_tbl[reward_found].data;
 
-			tile_t value_of_chosen_action = prefs[chosen_action];
+			tile_t value_of_chosen_action = atomic_writeback_prefs[chosen_action];
 
 			tile_t adjustment = cfg->alpha;
 			tile_t dt;
@@ -509,15 +296,14 @@ void state_packet_delegate(
 
 			pass_work_on(to_do, __signal_number(&internal_handout_sig));
 
-			aggregate.type = ACK_NO_BODY;
-			receive_worker_acks(&aggregate, worker_ct);
+			receive_worker_acks(worker_ct);
 		}
 
 		// TODO: figure out "broken-math" version of this (indiv tile shifts)
 
 		// store the tile list, chosen action, and its value.
 		state_action_pairs[state_found].action = chosen_action;
-		state_action_pairs[state_found].val = prefs[chosen_action];
+		state_action_pairs[state_found].val = atomic_writeback_prefs[chosen_action];
 
 		// dst, src, size
 		ua_memcpy_mem40_mem40(
@@ -537,7 +323,7 @@ void state_packet_delegate(
 
 	i=0;
 	for (i=0; i < cfg->num_actions; i++) {
-		global_prefs[i] = prefs[i];
+		global_prefs[i] = atomic_writeback_prefs[i];
 	}
 }
 
@@ -547,7 +333,7 @@ __declspec(export, emem) volatile uint32_t vis_indices[RL_MAX_TILE_HITS] = {0};
 
 __intrinsic void heavy_first_work_allocation(
 	__addr40 __declspec(emem) uint32_t *indices,
-	__addr40 __declspec(emem) struct rl_config *cfg
+	__declspec(ctm) struct rl_config *cfg
 ) {
 	// FIXME: in future, this could be made to rely upon larger CT/runtime bounds.
 	uint32_t class_costs[4] = {6, 10, 13, 19};
@@ -738,7 +524,7 @@ main() {
 		struct work to_do = {0};
 
 		aggregate.type = ACK_WORKER_COUNT;
-		receive_worker_acks(&aggregate, 1);
+		receive_worker_acks(1);
 
 		total_num_workers = atomic_writeback_prefs[0];
 
@@ -748,7 +534,7 @@ main() {
 		really_really_bad = total_num_workers;
 
 		pass_work_on(to_do, __signal_number(&internal_handout_sig));
-		nani = receive_worker_acks(&aggregate, total_num_workers);;
+		nani = receive_worker_acks(total_num_workers);;
 
 		mem_write64(&nani, &really_really_bad, sizeof(uint64_t));
 
@@ -855,7 +641,7 @@ main() {
 				// to_do.body.cfg = (__addr40 _declspec(emem) struct rl_config *) (((uint64_t)&cfg) << 32 | ((uint64_t)&cfg) >> 32);
 				pass_work_on(to_do, __signal_number(&internal_handout_sig));
 				aggregate.type = ACK_NO_BODY;
-				receive_worker_acks(&aggregate, total_num_workers);
+				receive_worker_acks(total_num_workers);
 
 				#ifdef WORK_ALLOC_RANDOMISE
 				// init index list.
@@ -897,7 +683,7 @@ main() {
 				to_do.body.alloc.work_indices = &indices;
 				pass_work_on(to_do, __signal_number(&internal_handout_sig));
 				aggregate.type = ACK_NO_BODY;
-				receive_worker_acks(&aggregate, total_num_workers);
+				receive_worker_acks(total_num_workers);
 
 				for (i=0; i<RL_MAX_TILE_HITS; ++i) {
 					vis_indices[i] = indices[i];
