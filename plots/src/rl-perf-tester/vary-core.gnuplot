@@ -32,9 +32,9 @@ DashStyles[5] = 5
 DashStyles[6] = 6
 
 array Singles[3]
-Singles[1] = 519.373
-Singles[2] = 545.933
-Singles[3] = 576.760
+Singles[1] = 253.653
+Singles[2] = 279.213
+Singles[3] = 312.293
 
 myTitle(i) = sprintf("Parallel (%d-bit)", BitDepths[i + 1])
 singleTitle(i) = sprintf("Single (%d-bit)", BitDepths[i + 1])
