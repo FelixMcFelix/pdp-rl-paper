@@ -8,7 +8,7 @@ from spf import *
 import time
 
 machine_name = platform.node()
-results_dir = "../../../results/host-rl-perf-tput/raw"
+results_dir = "../../../results/host-rl-perf-tput/raw/"
 pquantisers = [
 	None,
 	("i8", np.dtype("i1"), Quantiser.binary(5)),
@@ -229,7 +229,7 @@ def marlParams(
 
 	return sarsaParams
 
-args = sys.argv()
+args = sys.argv
 task_ct = int(args[1])
 task_i = int(args[2])
 quantiser_i = int(args[3])
@@ -314,22 +314,14 @@ do_not_update = act_or_update == 0
 while t < end:
 	t_before = time.time()
 
-	s1 = q_states[i % len(q_states)]
+	s1 = learner.to_state_quanted(q_states[i % len(q_states)])
 
-	# this can be assumed to be done.
-	s2 = learner.to_state(s2)
-	last_pair_storage[i] = (s2, a, None)
-
-	last_act = None
+	last_act = (0, 0, None)
 
 	if not do_not_update:
 		last_act = coded_q_states[(i + 1) % len(q_states)]
 
 	# ------------
-
-	# do the state conversion work in here
-	# this includes tile coding
-	s1 = learner.to_state_quanted(qs1)
 
 	(new_ac, vals, new_z) = learner.update(
 		s1,
@@ -371,9 +363,9 @@ if act_or_update == 0:
 else:
 	name_part = "UpdateAll"
 
-for (name_part, data_to_write) in files:
-	# throughput can just be measured by counting rows (lmao)
-	outpath = "{}{}.{}.{}.{}({}).{}.dat".format(results_dir, outname, machine_name, name_part, task_ct, task_i, repetition)
-	with open(outpath, "w") as of:
-		for val in timing_measures:
-			of.write("{:.2f}\n".format(val))
+# throughput can just be measured by counting rows (lmao)
+outpath = "{}{}.{}.{}.{}({}).{}.dat".format(results_dir, outname, machine_name, name_part, task_ct, task_i, repetition)
+with open(outpath, "w") as of:
+	for val in timing_measures:
+		of.write("{:.2f}\n".format(val))
+

@@ -9,7 +9,7 @@ do
 		do
 			for attempt in `seq 0 0`;
 			do
-				for task_i in $(seq 0 $(expr $(concurrent_task_limit) - 1));
+				for task_i in $(seq 0 $(expr $concurrent_task_limit - 1));
 				do
 					python2 $SCRIPT $concurrent_task_limit $task_i $quantiser_choice $do_update $attempt &
 				done

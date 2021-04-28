@@ -212,8 +212,9 @@ class SarsaLearner:
 		# because of updates in parallel, we need to grab the current values.
 		# The update depends not on the value they once had, but only on the *current value* and the target (R).
 		# Otherwise, we're moving from an old start to the new target...
-		all_tile_action_vals = self._get_state_values(last_state)
-		last_values = np.array([av[last_action] for av in all_tile_action_vals])
+		if not do_not_update:
+			all_tile_action_vals = self._get_state_values(last_state)
+			last_values = np.array([av[last_action] for av in all_tile_action_vals])
 
 		## slight complication -- interaction between last & next?
 		# i.e. full -> reduced -> reduced -> full
