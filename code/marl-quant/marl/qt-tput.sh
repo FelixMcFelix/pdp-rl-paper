@@ -7,7 +7,7 @@ do
 	do
 		for do_update in `seq 0 1`;
 		do
-			for attempt in `seq 0 0`;
+			for attempt in `seq 0 9`;
 			do
 				for task_i in $(seq 0 $(expr $concurrent_task_limit - 1));
 				do
