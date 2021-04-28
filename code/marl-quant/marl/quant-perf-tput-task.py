@@ -3,11 +3,12 @@ import os
 import platform
 from quantiser import *
 from sarsa import SarsaLearner, QLearner
+import sys
 from spf import *
 import time
 
 machine_name = platform.node()
-results_dir = "../../../results/host-rl-perf/"
+results_dir = "../../../results/host-rl-perf-tput/raw"
 pquantisers = [
 	None,
 	("i8", np.dtype("i1"), Quantiser.binary(5)),
@@ -15,8 +16,9 @@ pquantisers = [
 	("i32", np.dtype("i4"), Quantiser.binary(24)),
 ]
 
-warmup_len = 1000
-iters_to_run = 5000
+warmup_len = 2.0
+iters_to_run = 10.0
+cooldown_len = 2.0
 
 # Hacked config code taken from marl.py...
 
@@ -227,124 +229,151 @@ def marlParams(
 
 	return sarsaParams
 
-for possible_quantiser in pquantisers:
-	params = {
-		#"P_good": 1.0,
-		"n_teams": 2,
-		"n_inters": 2,
-		"n_learners": 3,
+args = sys.argv()
+task_ct = int(args[1])
+task_i = int(args[2])
+quantiser_i = int(args[3])
+act_or_update = int(args[4])
+repetition = int(args[5])
 
-		"alpha": 0.05,
-		"epsilon": 0.2,
-		"discount": 0.0,
-		"dt": 0.05,
+possible_quantiser = pquantisers[quantiser_i]
 
-		"ecmp_servers": 2,
+params = {
+	#"P_good": 1.0,
+	"n_teams": 2,
+	"n_inters": 2,
+	"n_learners": 3,
 
-		"explore_episodes": 0.8,
-		"episodes": 10,
-		"episode_length": 10000,
-		"separate_episodes": True,
+	"alpha": 0.05,
+	"epsilon": 0.2,
+	"discount": 0.0,
+	"dt": 0.05,
 
-		"rf": "marl",
-		"use_controller": True,
-		"actions_target_flows": True,
-		"trs_maxtime": 0.001,
+	"ecmp_servers": 2,
 
-		"split_codings": True,
-		"feature_max": 20,
+	"explore_episodes": 0.8,
+	"episodes": 10,
+	"episode_length": 10000,
+	"separate_episodes": True,
 
-		# new shiny quantisation stuff.
-		"do_quant_testing": True,
-		"quantisers": [possible_quantiser],
-		"quant_results_needed": 10000,
-		"quant_iter_start": 1000,
-	}
+	"rf": "marl",
+	"use_controller": True,
+	"actions_target_flows": True,
+	"trs_maxtime": 0.001,
 
-	params["host_range"] = [(16, 16)]
-	params["dt"] = 0.05
+	"split_codings": True,
+	"feature_max": 20,
 
-	sarsaParams = marlParams(**params)
-	learner = SarsaLearner(**sarsaParams)
+	# new shiny quantisation stuff.
+	"do_quant_testing": True,
+	"quantisers": [possible_quantiser],
+	"quant_results_needed": 10000,
+	"quant_iter_start": 1000,
+}
 
-	action_timing_measures = []
-	update_timing_measures = []
+params["host_range"] = [(16, 16)]
+params["dt"] = 0.05
 
-	state_range = [list(np.array(x)/2.0) for x in learner.state_range]
+sarsaParams = marlParams(**params)
+learner = SarsaLearner(**sarsaParams)
 
-	if possible_quantiser is not None:
-		print(possible_quantiser)
-		(name, qdt, q) = possible_quantiser
-		outname = name
-		learner = learner.as_quantised(q, dt=qdt)
-	else:
-		outname = "f32"
+timing_measures = []
 
-	last_pair_storage = {}
-	print(state_range)
-	print(learner.tc_indices)
+state_range = [list(np.array(x)/2.0) for x in learner.state_range]
 
-	for i in range(warmup_len + iters_to_run):
-		s1 = np.random.uniform(
-			state_range[0],
-			state_range[1],
-		)
-		s2 = np.random.uniform(
-			state_range[0],
-			state_range[1],
-		)
-		a = int(np.random.uniform(0, len(learner.actions)))
-		r = 1.0
+if possible_quantiser is not None:
+	(name, qdt, q) = possible_quantiser
+	outname = name
+	learner = learner.as_quantised(q, dt=qdt)
+else:
+	outname = "f32"
 
+states = [np.random.uniform(state_range[0],state_range[1]) for i in xrange(1000)]
+q_states = [(np.array([learner.quantiser.into(v) for v in s1]) if learner.quantiser is not None else s1) for s1 in states]
 
-		t_mid = {}
+# there will
+coded_q_states = {i: (learner.to_state(q_states[i]), int(np.random.uniform(0, len(learner.actions))), None) for i in range(len(q_states))}
+r = 1.0
 
-		# this can be assumed to be done.
-		s2 = learner.to_state(s2)
-		last_pair_storage[i] = (s2, a, None)
+last_pair_storage = {}
 
-		qs1 = np.array([learner.quantiser.into(v) for v in s1]) if learner.quantiser is not None else s1
+start_recording = False
+end_recording = False
 
-		# ------------
-		t_before_act = time.time()
+start = time.time()
+t = start
+end = t + warmup_len + iters_to_run + cooldown_len
 
-		# do the state conversion work in here
-		# this includes tile coding
-		s1 = learner.to_state_quanted(qs1)
+start_rec_time = start + warmup_len
+end_rec_time = start_rec_time  + iters_to_run
 
-		(new_ac, vals, new_z) = learner.update(
-			s1,
-			r,
-			subs_last_act=(s2, a, None),
-			decay=True,
-			delta_space=None,
-			action_narrowing=None,
-			update_narrowing=None,
-			time_write_space=t_mid
-		)
+i = 0
 
-		last_pair_storage[i] = (s1, new_ac, new_z)
+do_not_update = act_or_update == 0
 
-		t_after = time.time()
-		# ------------
+while t < end:
+	t_before = time.time()
 
-		lkup_start = time.time()
-		test_val = last_pair_storage[i]
-		lkup_end = time.time()
+	s1 = q_states[i % len(q_states)]
 
-		# TODO: need to add in state-action lookup time somehow
+	# this can be assumed to be done.
+	s2 = learner.to_state(s2)
+	last_pair_storage[i] = (s2, a, None)
 
-		if i >= warmup_len:
-			action_timing_measures.append((t_mid["time"] - t_before_act) * 1e6)
-			update_timing_measures.append(((t_after - t_before_act) + (lkup_end - lkup_start)) * 1e6)
+	last_act = None
 
-	if not os.path.exists(results_dir):
-		os.makedirs(results_dir)
+	if not do_not_update:
+		last_act = coded_q_states[(i + 1) % len(q_states)]
 
+	# ------------
 
-	files = [("ComputeAndWriteout", action_timing_measures), ("UpdateAll", update_timing_measures)]
-	for (name_part, data_to_write) in files:
-		outpath = "{}{}.{}.{}.dat".format(results_dir, outname, machine_name, name_part)
-		with open(outpath, "w") as of:
-			for val in data_to_write:
-				of.write("{:.2f}\n".format(val))
+	# do the state conversion work in here
+	# this includes tile coding
+	s1 = learner.to_state_quanted(qs1)
+
+	(new_ac, vals, new_z) = learner.update(
+		s1,
+		r,
+		subs_last_act=last_act,
+		decay=True,
+		delta_space=None,
+		action_narrowing=None,
+		update_narrowing=None,
+		do_not_update=do_not_update
+	)
+
+	last_pair_storage[i % len(q_states)] = (s1, new_ac, new_z)
+
+	t_after = time.time()
+	# ------------
+
+	# TODO: need to add in state-action lookup time somehow
+
+	if start_recording and not end_recording:
+		timing_measures.append((t_after - t_before) * 1e6)
+
+	i += 1
+	t = time.time()
+	start_recording = t >= start_rec_time
+	end_recording = t >= end_rec_time
+
+if not os.path.exists(results_dir):
+	os.makedirs(results_dir)
+
+# task_ct = int(args[1])
+# task_i = int(args[2])
+# quantiser_i = int(args[3])
+# act_or_update = int(args[4])
+# repetition = int(args[5])
+
+if act_or_update == 0:
+	name_part = "ComputeAndWriteout"
+else:
+	name_part = "UpdateAll"
+
+for (name_part, data_to_write) in files:
+	# throughput can just be measured by counting rows (lmao)
+	outpath = "{}{}.{}.{}.{}({}).{}.dat".format(results_dir, outname, machine_name, name_part, task_ct, task_i, repetition)
+	with open(outpath, "w") as of:
+		for val in timing_measures:
+			of.write("{:.2f}\n".format(val))

@@ -394,6 +394,8 @@ Finally, the choice of single-step algorithms (as opposed to $n$-step or Monte C
 Interesting thing I realised from \textcite{DBLP:conf/sigcomm/NeugebauerAZAL018}: GPU and NIC might cause IOMMU contention? Making line-rate offload of DDN to GPU impractical. Unsure if I want to twin this with later measurements/plots.
 
 \section{Design and Implementation}\label{sec:design}
+?? Can we say ``in-situ'' anywhere? I like that term.
+
 Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{} (\approach)}.
 At a high level, \approachshort{} is designed to use the auxiliary compute exposed by general SmartNIC devices to offer low-latency online learning, scaling according to available on-chip resources at build time.
 
@@ -887,7 +889,7 @@ Thread local storage in CLS for compute/register spilling scales with the number
 Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-island CLS, due to the extra resources needed to maintain, operate on, and cache tile lists for optimal processing.
 
 \begin{table}
-\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources}}
+\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources} ??NEEDS REWORKED}
 \resizebox{\linewidth}{!}{
 \begin{tabular}{@{}cSSSSSSSSSS@{}}
 	\toprule Firmware & \multicolumn{2}{c}{EMEM} & \multicolumn{2}{c}{EMEM Cache} & \multicolumn{2}{c}{IMEM} & \multicolumn{2}{c}{i5.CLS} & \multicolumn{2}{c}{i5.CTM}\\

@@ -204,7 +204,8 @@ class SarsaLearner:
 		# FIXME: reconcile effect of narrowings upon learning rate when using 'intended' maths.
 		action_narrowing=None,
 		update_narrowing=None,
-		time_write_space=None
+		time_write_space=None,
+		do_not_update=False
 	):
 		(last_state, last_action, last_z) = (self.last_act if subs_last_act is None else subs_last_act)
 
@@ -227,6 +228,9 @@ class SarsaLearner:
 		# but we need ALL values to be made available when we are handling "transitions"
 		# between narrowed/unnarrowed regions of the markov chain.
 		(new_action, new_values, argmax_values, ac_values) = self.select_action(state, action_narrowing)
+
+		if do_not_update:
+			return (new_action, ac_values, None)
 
 		if time_write_space is not None:
 			time_write_space["time"] = time.time()
