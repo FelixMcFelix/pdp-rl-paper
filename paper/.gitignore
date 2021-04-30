@@ -42,6 +42,7 @@
 # algorithms
 *.alg
 *.loa
+*.cut
 
 # achemso
 acs-*.bib

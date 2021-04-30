@@ -66,7 +66,7 @@ for bits in bitdepths:
 
 			indiv_tputs /= 1.0e3
 
-			tputs.append("{:.3f} \\pm {:.3f}".format(np.mean(indiv_tputs), np.var(indiv_tputs)))
+			tputs.append("{:.3f} \\pm {:.3f}".format(np.mean(indiv_tputs), np.std(indiv_tputs)))
 
 		for os in tputs + latencies:
 			out += " & {}".format(os)
