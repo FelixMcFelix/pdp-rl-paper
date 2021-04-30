@@ -99,6 +99,7 @@ if __name__ == "__main__":
 	deps.append(quant_widths)
 
 	params["train_using_quant"] = Quantiser.binary(quantw)
+	params["train_using_quant_dt"] = quant_dtype_for_frac_len(quantw)
 
 	discount = expt_part(discounts, deps)
 	deps.append(discounts)

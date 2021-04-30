@@ -76,6 +76,7 @@ impl FloatKeySource {
 
 impl ProtoSetup {
 	pub fn instantiate<T: Tile>(&self, sanitise_bounds: bool) -> Setup<T> {
+		// IDEA: 1 "sign bit", dedidate 2/3 of remaining to fractional part.
 		let quantiser_shift = self
 			.quantiser_shift
 			.unwrap_or_else(|| (2 * ((T::size_of() * 8) - 1) / 3).try_into().unwrap());

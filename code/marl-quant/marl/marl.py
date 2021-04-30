@@ -166,10 +166,12 @@ def marlExperiment(
 		# New stuff here. wrt. Quantisation.
 		do_quant_testing = False,
 		quantisers = [],
+		quantiser_dts = [],
 		quant_results_needed = 10000,
 		quant_iter_start = None,
 
 		train_using_quant = None,
+		train_using_quant_dt = None,
 
 		sarsa_pairs_to_export = None,
 	):
@@ -343,6 +345,7 @@ def marlExperiment(
 		"broken_math": broken_math,
 		"always_include_bias": always_include_bias,
 		"quantiser": train_using_quant,
+		"quantiser_dt": train_using_quant_dt,
 	}
 
 	if actions_target_flows:
@@ -2560,7 +2563,7 @@ def marlExperiment(
 							# turn the finalised policy into a bunch of new policies.
 							if do_quant_testing and do_quantisation and len(agent_0_quant_holders) == 0:
 								print "Made q-policies"
-								agent_0_quant_holders = [s.as_quantised(quan) for quan in quantisers]
+								agent_0_quant_holders = [s.as_quantised(quan, dt=qdt) for (quan, qdt) in zip(quantisers, quantiser_dts)]
 								print "who have epslions", [p._curr_epsilon  for p in agent_0_quant_holders]
 
 							tx_vec = total_vec if r is None else [total_vec[i] for i in r]
@@ -2616,13 +2619,14 @@ def marlExperiment(
 								if do_quantisation:
 									for (mod_sarsa, quantiser) in zip(agent_0_quant_holders, quantisers):
 										# convert state vector into right base.
-										new_state = [quantiser.into(a) for a in state]
+										# new_state = [quantiser.into(a) for a in state]
+										new_state = mod_sarsa.to_state(np.array(tx_vec))
 
 										# do work.
 										(choice, _, _) = mod_sarsa.update(
 											state,
 											l_rewards[dest_from_ip[ip_pair[1]]],
-											([quantiser.into(a) for a in st], dat[1], z), # z SHOULD be none.
+											(st, dat[1], z), # z SHOULD be none.
 											decay=False, # no trace decay. good.
 											delta_space=dm, # this is some logging thing I guess? Cannot recall.
 											action_narrowing=None if not allow_action_narrowing else narrowing_in_use[1],

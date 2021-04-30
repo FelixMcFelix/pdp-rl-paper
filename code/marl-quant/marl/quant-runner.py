@@ -91,9 +91,12 @@ if __name__ == "__main__":
 		# new shiny quantisation stuff.
 		"do_quant_testing": True,
 		"quantisers": [Quantiser.binary(i) for i in xrange(32)],
+		"quantiser_dts": [quant_dtype_for_frac_len(q_sz) for i in xrange(32)],
 		"quant_results_needed": 10000,
 		"quant_iter_start": 1000,
 	}
+
+	# quant_dtype_for_frac_len(q_sz)
 
 	deps = []
 
