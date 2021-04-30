@@ -1,3 +1,5 @@
+import numpy as np
+
 class Quantiser:
 	"""docstring for Quantiser"""
 	def __init__(self, num, denom):
