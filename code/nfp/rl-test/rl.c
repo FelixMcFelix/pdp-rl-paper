@@ -27,7 +27,7 @@ _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER g
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
 __declspec(export, emem) struct rl_pkt_store rl_pkts;
-volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
+volatile __declspec(export, emem, addr40, aligned(sizeof(uint64_t))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
 // ring head and tail on i25 or emem1
 volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned int))) uint32_t rl_out_workq[512*1024] = {0};
@@ -35,7 +35,7 @@ _NFP_CHIPRES_ASM(.alloc_resource rl_out_workq_rnum emem0_queues+RL_OUT_RING_NUMB
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
 __declspec(export, emem) struct rl_pkt_store rl_actions;
-volatile __declspec(export, emem, addr40, aligned(sizeof(unsigned int))) uint8_t rl_out_state_buffer[RL_DIMENSION_MAX * sizeof(tile_t) * RL_PKT_STORE_COUNT] = {0};
+volatile __declspec(export, emem, addr40, aligned(sizeof(uint64_t))) uint8_t rl_out_state_buffer[ALIGNED_OUT_STATE_SZ * RL_PKT_STORE_COUNT] = {0};
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
 
@@ -192,9 +192,16 @@ void state_packet_delegate(
 		action_item.state = (__declspec(emem) __addr40 tile_t *)rl_pkt_get_slot(&rl_actions);
 
 		// do the memecopy
-		ua_memcpy_mem40_mem40(
-			(void*)action_item.state, 0,
-			(void*)pkt->packet_payload, 0,
+		// this is EMEM to EMEM, both u64-aligned.
+		// ua_memcpy_mem40_mem40(
+		// 	(void*)action_item.state, 0,
+		// 	(void*)pkt->packet_payload, 0,
+		// 	dim_count * sizeof(tile_t)
+		// );
+
+		memcpy_mem40_mem40_al8(
+			(__declspec(emem) __addr40 uint64_t *) action_item.state,
+			(__declspec(emem) __addr40 uint64_t *) pkt->packet_payload,
 			dim_count * sizeof(tile_t)
 		);
 	}
@@ -306,10 +313,17 @@ void state_packet_delegate(
 		state_action_pairs[state_found].action = chosen_action;
 		state_action_pairs[state_found].val = atomic_writeback_prefs[chosen_action];
 
+		// src is u64-aligned, EMEM.
 		// dst, src, size
-		ua_memcpy_mem40_mem40(
-			&(state_action_pairs[state_found].state[0]), 0,
-			(void*)pkt->packet_payload, 0,
+		// ua_memcpy_mem40_mem40(
+		// 	&(state_action_pairs[state_found].state[0]), 0,
+		// 	(void*)pkt->packet_payload, 0,
+		// 	dim_count * sizeof(tile_t)
+		// );
+
+		memcpy_mem40_mem40_al8(
+			(__declspec(emem) __addr40 uint64_t *) &(state_action_pairs[state_found].state[0]),
+			(__declspec(emem) __addr40 uint64_t *) pkt->packet_payload,
 			dim_count * sizeof(tile_t)
 		);
 	}

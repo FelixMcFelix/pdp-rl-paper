@@ -55,6 +55,9 @@ enum tile_location {
 #define MAX_CTM_SIZE MAX_CTM_TILES*ACTION_SET_SIZE
 #define MAX_IMEM_SIZE MAX_IMEM_TILES*ACTION_SET_SIZE
 
+#define OUT_STATE_SZ (RL_DIMENSION_MAX * sizeof(tile_t))
+#define ALIGNED_OUT_STATE_SZ ((((RL_DIMENSION_MAX * sizeof(tile_t)) + 7) / 8) * 8)
+
 // FIXME: reorder these get decent field alignment & small size.
 
 // 8 byte, 4-b abigned
@@ -206,7 +209,7 @@ struct state_action_pair {
 	uint32_t tiles[RL_MAX_TILE_HITS];
 	uint16_t len;
 	#else
-	tile_t state[RL_DIMENSION_MAX];
+	__declspec(aligned(8)) tile_t state[RL_DIMENSION_MAX];
 	#endif /* _RL_CORE_OLD_POLICY_WORK */
 };
 

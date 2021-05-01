@@ -36,7 +36,7 @@ volatile __emem_n(0) __declspec(import, addr40, aligned(512*1024*sizeof(unsigned
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
 __declspec(import, emem) struct rl_pkt_store rl_actions;
-volatile __declspec(import, emem, addr40, aligned(sizeof(unsigned int))) uint8_t rl_out_state_buffer[RL_DIMENSION_MAX * sizeof(tile_t) * RL_PKT_STORE_COUNT] = {0};
+volatile __declspec(import, emem, addr40, aligned(sizeof(unsigned int))) uint8_t rl_out_state_buffer[ALIGNED_OUT_STATE_SZ * RL_PKT_STORE_COUNT] = {0};
 
 volatile __declspec(import, emem) uint64_t really_really_bad;
 

@@ -1,3 +1,22 @@
+__intrinsic void memcpy_mem40_mem40_al8(
+	__declspec(emem) __addr40 uint64_t *dest,
+	__declspec(emem) __addr40 uint64_t *src,
+	int32_t n
+)
+{
+    uint64_t  p= (uint64_t)dest;
+    uint64_t  q= (uint64_t)src;
+
+    while (n >= 8) {
+        *(__mem uint64_t *) p = *(__mem uint64_t *) q;
+
+	    p += 8;
+	    q += 8;
+
+        n -= 8;
+    }
+}
+
 /** Convert a state vector into a list of tile indices.
 *
 * Returns length of tile coded list.

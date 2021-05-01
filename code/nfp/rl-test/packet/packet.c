@@ -395,7 +395,8 @@ void state_packet(
 	__declspec(write_reg) struct rl_answer_item workq_write_register;
 	struct rl_answer_item action_item;
 
-	__declspec(ctm) uint32_t tc_indices[RL_MAX_TILE_HITS] = {0};
+	#define _U8_ALD_RL_M_HITS (((RL_MAX_TILE_HITS + 7) / 8) * 8)
+	__declspec(ctm, aligned(8)) uint32_t tc_indices[_U8_ALD_RL_M_HITS] = {0};
 	uint16_t tc_count;
 	uint16_t chosen_action;
 	uint32_t rng_draw;
@@ -463,9 +464,14 @@ void state_packet(
 		action_item.state = (__declspec(emem) __addr40 tile_t *)rl_pkt_get_slot(&rl_actions);
 
 		// do the memecopy
-		ua_memcpy_mem40_mem40(
-			(void*)action_item.state, 0,
-			(void*)pkt->packet_payload, 0,
+		// ua_memcpy_mem40_mem40(
+		// 	(void*)action_item.state, 0,
+		// 	(void*)pkt->packet_payload, 0,
+		// 	dim_count * sizeof(tile_t)
+		// );
+		memcpy_mem40_mem40_al8(
+			(__declspec(emem) __addr40 uint64_t *)action_item.state,
+			(__declspec(emem) __addr40 uint64_t *)pkt->packet_payload,
 			dim_count * sizeof(tile_t)
 		);
 		workq_write_register = action_item;
@@ -550,10 +556,15 @@ void state_packet(
 		state_action_pairs[state_found].len = tc_count;
 
 		// dst, src, size
-		ua_memcpy_mem40_mem40(
-			&(state_action_pairs[state_found].tiles[0]), 0,
-			(void*)tc_indices, 0,
-			tc_count * sizeof(tile_t)
+		// ua_memcpy_mem40_mem40(
+		// 	&(state_action_pairs[state_found].tiles[0]), 0,
+		// 	(void*)tc_indices, 0,
+		// 	tc_count * sizeof(tile_t)
+		// );
+		memcpy_mem40_mem40_al8(
+			(__declspec(emem) __addr40 uint64_t *) &(state_action_pairs[state_found].tiles[0]),
+			(__declspec(emem) __addr40 uint64_t *) tc_indices,
+			tc_count * sizeof(uint32_t)
 		);
 	}
 
