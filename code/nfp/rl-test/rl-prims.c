@@ -7,8 +7,65 @@ __intrinsic void memcpy_mem40_mem40_al8(
     uint64_t  p= (uint64_t)dest;
     uint64_t  q= (uint64_t)src;
 
-    while (n >= 8) {
-        *(__mem uint64_t *) p = *(__mem uint64_t *) q;
+    while (n > 0) {
+        *(__emem __addr40 uint64_t *) p = *(__emem __addr40 uint64_t *) q;
+
+	    p += 8;
+	    q += 8;
+
+        n -= 8;
+    }
+}
+
+__intrinsic void memcpy_emem_mem40_al8(
+	__declspec(emem) uint64_t *dest,
+	__declspec(emem) __addr40 uint64_t *src,
+	int32_t n
+)
+{
+    uint64_t  p= (uint64_t)dest;
+    uint64_t  q= (uint64_t)src;
+
+    while (n > 0) {
+        *(__emem uint64_t *) p = *(__mem __addr40 uint64_t *) q;
+
+	    p += 8;
+	    q += 8;
+
+        n -= 8;
+    }
+}
+
+__intrinsic void memcpy_mem40_ctm40_al8(
+	__declspec(emem) __addr40 uint64_t *dest,
+	__declspec(ctm) __addr40 uint64_t *src,
+	int32_t n
+)
+{
+    uint64_t  p= (uint64_t)dest;
+    uint64_t  q= (uint64_t)src;
+
+    while (n > 0) {
+        *(__emem __addr40 uint64_t *) p = *(__ctm __addr40 uint64_t *) q;
+
+	    p += 8;
+	    q += 8;
+
+        n -= 8;
+    }
+}
+
+__intrinsic void memcpy_emem_ctm_al8(
+	__declspec(emem) uint64_t *dest,
+	__declspec(ctm) uint64_t *src,
+	int32_t n
+)
+{
+    uint64_t  p= (uint64_t)dest;
+    uint64_t  q= (uint64_t)src;
+
+    while (n > 0) {
+        *(__emem uint64_t *) p = *(__ctm uint64_t *) q;
 
 	    p += 8;
 	    q += 8;
@@ -166,6 +223,8 @@ __intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *ti
 	uint16_t j = 0;
 	uint16_t act_count = cfg->num_actions;
 
+	// really_really_bad = 0;
+
 	for (i = 0; i < tile_hit_count; i++) {
 		uint32_t target = tile_indices[i];
 		uint32_t loc_base = cfg->last_tier_tile[loc];
@@ -179,14 +238,18 @@ __intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *ti
 		// find location of tier in memory.
 		switch (loc) {
 			case TILE_LOCATION_T1:
+				// really_really_bad += 1;
 				base = target;
 				t1_tiles[base + action] += delta;
 				break;
 			case TILE_LOCATION_T2:
+				// really_really_bad += 256;
 				base = target - cfg->last_tier_tile[loc-1];
 				t2_tiles[base + action] += delta;
 				break;
 			case TILE_LOCATION_T3:
+				// __asm ctx_arb[bpt];
+				// really_really_bad += 65536;
 				base = target - cfg->last_tier_tile[loc-1];
 				t3_tiles[base + action] += delta;
 				break;

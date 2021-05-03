@@ -434,9 +434,9 @@ void state_packet(
 	// );
 
 	tc_count = tile_code((__declspec(emem) __addr40 tile_t *)pkt->packet_payload, cfg, tc_indices);
-	global_tc_count = tc_count;
+	/*global_tc_count = tc_count;
 
-	/*for (i=0; i<tc_count; i++) {
+	for (i=0; i<tc_count; i++) {
 		global_tc_indices[i] = tc_indices[i];
 	}*/
 
@@ -561,9 +561,9 @@ void state_packet(
 		// 	(void*)tc_indices, 0,
 		// 	tc_count * sizeof(tile_t)
 		// );
-		memcpy_mem40_mem40_al8(
-			(__declspec(emem) __addr40 uint64_t *) &(state_action_pairs[state_found].tiles[0]),
-			(__declspec(emem) __addr40 uint64_t *) tc_indices,
+		memcpy_emem_ctm_al8(
+			(__declspec(emem) uint64_t *) &(state_action_pairs[state_found].tiles[0]),
+			(__declspec(emem) uint64_t *) tc_indices,
 			tc_count * sizeof(uint32_t)
 		);
 	}

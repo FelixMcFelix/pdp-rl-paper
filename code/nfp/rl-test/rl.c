@@ -1,5 +1,6 @@
 #include <memory.h>
 #include <nfp.h>
+#include <nfp/cls.h>
 #include <nfp/me.h>
 //#include <nfp_mem_ring.h>
 //#include <nfp_mem_workq.h>
@@ -26,7 +27,7 @@ volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned
 _NFP_CHIPRES_ASM(.alloc_resource rl_mem_workq_rnum emem0_queues+RL_RING_NUMBER global 1)
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
-__declspec(export, emem) struct rl_pkt_store rl_pkts;
+__declspec(export, emem, aligned(sizeof(uint64_t))) struct rl_pkt_store rl_pkts;
 volatile __declspec(export, emem, addr40, aligned(sizeof(uint64_t))) uint8_t inpkt_buffer[RL_PKT_MAX_SZ * RL_PKT_STORE_COUNT] = {0};
 
 // ring head and tail on i25 or emem1
@@ -34,7 +35,7 @@ volatile __emem_n(0) __declspec(export, addr40, aligned(512*1024*sizeof(unsigned
 _NFP_CHIPRES_ASM(.alloc_resource rl_out_workq_rnum emem0_queues+RL_OUT_RING_NUMBER global 1)
 //_NFP_CHIPRES_ASM(.init_mu_ring rl_mem_workq_rnum rl_mem_workq)
 
-__declspec(export, emem) struct rl_pkt_store rl_actions;
+__declspec(export, emem, aligned(sizeof(uint64_t))) struct rl_pkt_store rl_actions;
 volatile __declspec(export, emem, addr40, aligned(sizeof(uint64_t))) uint8_t rl_out_state_buffer[ALIGNED_OUT_STATE_SZ * RL_PKT_STORE_COUNT] = {0};
 
 volatile __declspec(export, emem) uint64_t really_really_bad = 0;
@@ -53,7 +54,7 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 // Need to use this due to size limits on struct in CAMHT def, even
 // if key is different.
 // #define SA_ENTRIES 0x20000
-#define SA_ENTRIES 0x10
+#define SA_ENTRIES 0x1000
 CAMHT_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 
 __declspec(export, emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
@@ -188,7 +189,6 @@ void state_packet_delegate(
 	// copy state into writeback here?
 	if (!cfg->disable_action_writeout) {
 		action_item.len = dim_count;
-		action_item.action = chosen_action;
 		action_item.state = (__declspec(emem) __addr40 tile_t *)rl_pkt_get_slot(&rl_actions);
 
 		// do the memecopy
@@ -199,9 +199,15 @@ void state_packet_delegate(
 		// 	dim_count * sizeof(tile_t)
 		// );
 
+		// memcpy_emem_mem40_al8(
+		// 	(__declspec(emem) uint64_t *) &(state_action_pairs[state_found].state[0]),
+		// 	(__declspec(emem) __addr40 uint64_t *) pkt->packet_payload,
+		// 	dim_count * sizeof(tile_t)
+		// );
+
 		memcpy_mem40_mem40_al8(
-			(__declspec(emem) __addr40 uint64_t *) action_item.state,
-			(__declspec(emem) __addr40 uint64_t *) pkt->packet_payload,
+			(__declspec(mem) __addr40 uint64_t *) action_item.state,
+			(__declspec(mem) __addr40 uint64_t *) pkt->packet_payload,
 			dim_count * sizeof(tile_t)
 		);
 	}
@@ -223,6 +229,8 @@ void state_packet_delegate(
 			}
 		}
 	}
+
+	action_item.action = chosen_action;
 
 	if (!cfg->disable_action_writeout) {
 		// __critical_path();
@@ -321,11 +329,13 @@ void state_packet_delegate(
 		// 	dim_count * sizeof(tile_t)
 		// );
 
-		memcpy_mem40_mem40_al8(
-			(__declspec(emem) __addr40 uint64_t *) &(state_action_pairs[state_found].state[0]),
+		memcpy_emem_mem40_al8(
+			(__declspec(emem) uint64_t *) &(state_action_pairs[state_found].state[0]),
 			(__declspec(emem) __addr40 uint64_t *) pkt->packet_payload,
 			dim_count * sizeof(tile_t)
 		);
+
+		// really_really_bad = state_found;
 	}
 
 	// NOTE: alpha, gamma, policy must all have same base!
@@ -504,7 +514,7 @@ main() {
 		init_rl_pkt_store(&rl_pkts, inpkt_buffer, RL_PKT_MAX_SZ);
 		r_addr = mem_workq_setup(RL_RING_NUMBER, rl_mem_workq, 512 * 1024);
 
-		init_rl_pkt_store(&rl_actions, rl_out_state_buffer, RL_DIMENSION_MAX * sizeof(tile_t));
+		init_rl_pkt_store(&rl_actions, rl_out_state_buffer, ALIGNED_OUT_STATE_SZ);
 		r_out_addr = mem_workq_setup(RL_OUT_RING_NUMBER, rl_out_workq, 512 * 1024);
 
 		// init RNG
@@ -628,6 +638,7 @@ main() {
 						&workq_dump,
 						RL_ANSWER_LEN_ALIGN
 					);
+					// sleep(1000);
 					rl_pkt_return_slot(&rl_actions, workq_dump.state);
 				}
 				break;
