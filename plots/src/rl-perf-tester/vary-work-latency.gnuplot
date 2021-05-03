@@ -1,8 +1,10 @@
 load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
+set multiplot
+
 set xlabel "Dimensions in Tiling"
-set ylabel "State$\\rightarrow$Action Latency (\\si{\\micro\\second})"
+set ylabel "State-Action Latency (\\si{\\micro\\second})"
 
 set key textcolor rgb "black"
 set tics textcolor rgb "black"
@@ -50,6 +52,37 @@ DashStyles[6] = 6
 myTitle(i) = sprintf("%s (%d-bit)", PresentationNames[(i / 3) + 1], BitDepths[(i % 3) + 1])
 file(n) = sprintf("../results/rl-perf-tester/vary-work-ct/%d/SUMMARY.%s.ComputeAndWriteout.csv", BitDepths[(i % 3) + 1], Names[(n / 3) + 1])
 
+set style arrow 1 ls 102 backhead filled
+set style arrow 2 ls 102 nohead nofilled
+set arrow from 2.0, 21 to screen 0.25, screen 0.5 lw 1 as 1
+
+set arrow arrowstyle 2
+
+set arrow from 0.9,2.5 to 3.1,2.5 front nohead as 2
+set arrow from 0.9,2.5 to 0.9,21 front nohead as 2
+set arrow from 3.1,21 to 0.9,21 front nohead as 2
+set arrow from 3.1,21 to 3.1,2.5 front nohead as 2
+
 # 2 types
 # times 3 bit depths.
+plot for [i=0:5] file(i) u 1:(column(4)/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1]
+
+
+#Multiplot time
+set origin 0.17,0.38
+set size 0.2,0.4
+set bmargin 0; set tmargin 0; set lmargin 0; set rmargin 0
+unset arrow
+set border 15
+clear
+
+set nokey
+set xlabel ""
+set ylabel ""
+unset xtics
+unset ytics
+unset grid
+set xrange [0.9:3.1]
+set yrange [2.5:21]
+
 plot for [i=0:5] file(i) u 1:(column(4)/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1]

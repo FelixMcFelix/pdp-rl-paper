@@ -1,8 +1,8 @@
 load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
-set xlabel "Cores allocated"
-set ylabel "State$\\rightarrow$Action Latency (\\si{\\micro\\second})"
+set xlabel "Worker threads allocated"
+set ylabel "State-Action Latency (\\si{\\micro\\second})"
 
 set key textcolor rgb "black"
 set tics textcolor rgb "black"

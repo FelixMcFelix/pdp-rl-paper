@@ -1,8 +1,8 @@
 load "gnuplot-palettes/inferno.pal"
 set datafile separator ","
 
-set xlabel "Cores allocated"
-set ylabel "Time (\\si{\\micro\\second})"
+set xlabel "Worker threads allocated"
+set ylabel "Policy Update Time (\\si{\\micro\\second})"
 
 set key textcolor rgb "black"
 set tics textcolor rgb "black"
