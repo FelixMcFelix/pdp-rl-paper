@@ -526,6 +526,8 @@ The new state- or tiles-action pair is then written into storage.
 
 ?? Do we need better/snappier names than just \Indfw/\Coopfw? It's awfully dry.
 
+?? Probably mention the idea of including "state keys" and "reward keys" in the input state vector.
+
 In the NFP architecture we use, physical cores (MEs) each have 8 hardware threads (contexts): all contexts on an ME share the same program and employ zero-cost context switches triggered by I/O.
 Each core then provides 8 worker threads, though in the \indfw{} case one must be dedicated to monitoring work acknowledgements.
 Two main firmware models govern how the computation-intensive parts of these tasks (tile-coding, action preference list construction, policy updates) are carried out:
@@ -769,7 +771,7 @@ Where feasible, we test \SIlist{32;16;8}{\bit} quantised arithmetic firmware ver
 All timing and throughput measurements were repeated over \num{5000} trials.
 
 Policy sizes are set to those matching a real-world DDoS control application~\parencite{DBLP:journals/tnsm/SimpsonRP20}: 20-dimension state vectors, a bias tile and 16 full tiling sets (7$\times$1-dim, 8$\times$2-dim, 1$\times$4-dim), 8 tilings per dimension set, 6 tiles per dimension, choosing between 10 actions.
-Although their more successful \emph{SPF} agent design uses 4 actions, we choose this to investigate the performance of larger agent designs.
+Although their more successful \emph{SPF} agent design uses 3 actions, we choose this to investigate the performance of larger agent designs.
 
 Studies based on \textcite{DBLP:journals/tnsm/SimpsonRP20} mirror their experimental setup (Ubuntu 18.04.2 LTS (4.4.3-040403-generic x86\_64), Intel Core i7-6700K (\SI{4.2}{\giga\hertz}), \SI{32}{\gibi\byte} RAM).
 
@@ -808,8 +810,8 @@ In particular, we stress test both decisions and policy updates of our \emph{Par
 \fakepara{Resource requirements}
 Using the maximum policy size defined above, we investigate how the memory requirements imposed by \approachshort{} vary with the number of dedicated MEs, over and above a base P4 forwarding plane.
 
-\fakepara{The impact of bit depth}
-We further investigate how bit depth affects the accuracy of policy by varying the number of bits used to represent the mantissa of action values and input state.
+%\fakepara{The impact of bit depth}
+%We further investigate how bit depth affects the accuracy of policy by varying the number of bits used to represent the mantissa of action values and input state.
 
 \subsection{Results and Discussion}\label{sec:results}
 \fakepara{Raw inference and learning performance}
@@ -828,7 +830,7 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 \begin{table}
 	\caption{Throughput and per-item compute time for an RL agent with/without policy learning. State$\rightarrow$action latency equals the offline completion cost. TODO: compare to host machine? Put completion times first? Put multi first?\label{tab:lat-tput}}
 	\resizebox{\linewidth}{!}{
-		\expandableinput ../tables/build/latency-tput
+		\expandableinput ../tables/build/latency-tput-temp
 	}
 \end{table}
 
@@ -904,14 +906,14 @@ Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-isl
 }
 \end{table}
 
-\fakepara{The impact of bit depth}
-?? \Cref{fig:quant-acc}
-?? \SI{5}{\bit} mantissa suffices for $\ge$ \SI{90}{\percent} relative accuracy, so \SI{8}{\bit} is fine (1S + 2E + 5M), \SI{16}{\bit} is better.
-
-\begin{figure}
-	\includegraphics{../plots/build/marl-quant/accuracy-binary}
-	\caption{Normalised accuracy of a converted, pre-trained floating-point tile-coded policy after conversion to $32Qn$ fixed-point.}\label{fig:quant-acc}
-\end{figure}
+%\fakepara{The impact of bit depth}
+%?? \Cref{fig:quant-acc}
+%?? \SI{5}{\bit} mantissa suffices for $\ge$ \SI{90}{\percent} relative accuracy, so \SI{8}{\bit} is fine (1S + 2E + 5M), \SI{16}{\bit} is better.
+%
+%\begin{figure}
+%	\includegraphics{../plots/build/marl-quant/accuracy-binary}
+%	\caption{Normalised accuracy of a converted, pre-trained floating-point tile-coded policy after conversion to $32Qn$ fixed-point.}\label{fig:quant-acc}
+%\end{figure}
 
 \section{Related Work}
 

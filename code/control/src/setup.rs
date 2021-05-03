@@ -135,4 +135,11 @@ impl<T: Tile> KeySource<T> {
 			KeySource::Value(v) => v.wideint(),
 		}
 	}
+
+	pub fn field(&self) -> Option<i32> {
+		match self {
+			KeySource::Field(f) => Some(f),
+			_ => None,
+		}
+	}
 }

@@ -16,6 +16,7 @@ TODO.
   * `beast1`: *Collector* in the paper.
   * `beast2`: *Collector* with a modern kernel.
   * `perlman`: *MidServer* in the paper.
+ * This does not require the OVS setup as above.
 
 # Scripts processing experimental data:
 TODO.

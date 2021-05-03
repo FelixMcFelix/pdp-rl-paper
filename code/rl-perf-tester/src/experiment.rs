@@ -421,6 +421,18 @@ pub fn generate_state<T: Tile + Clone>(setup: &Setup<T>, rng: &mut impl RngCore)
 		out.push(T::from_int(sample))
 	}
 
+	if let Some(f) = setup.state_key.field() {
+		if let Some(valid) = out.get_mut(f as usize) {
+			*valid = T::from_int(0);
+		}
+	}
+
+	if let Some(f) = setup.reward_key.field() {
+		if let Some(valid) = out.get_mut(f as usize) {
+			*valid = T::from_int(1);
+		}
+	}
+
 	out
 	//vec![T::from_int(0); setup.n_dims as usize]
 }
