@@ -206,7 +206,7 @@ struct state_action_pair {
 	tile_t val;
 	
 	#ifdef _RL_CORE_OLD_POLICY_WORK
-	uint32_t tiles[RL_MAX_TILE_HITS];
+	__declspec(aligned(8)) uint32_t tiles[RL_MAX_TILE_HITS];
 	uint16_t len;
 	#else
 	__declspec(aligned(8)) tile_t state[RL_DIMENSION_MAX];
