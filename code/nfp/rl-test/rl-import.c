@@ -62,7 +62,7 @@ __export __emem __align(SA_TABLE_SZ) struct mem_lkup_cam32_16B_table_bucket_entr
 // Need to use this due to size limits on struct in CAMHT def, even
 // if key is different.
 // #define SA_ENTRIES 0x20000
-#define SA_ENTRIES 0x10
+#define SA_ENTRIES 0x1000
 CAMHT_IN_DECLARE(state_action_map, SA_ENTRIES, uint64_t)
 
 __declspec(import, emem) struct state_action_pair state_action_pairs[SA_ENTRIES];
