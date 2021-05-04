@@ -130,7 +130,7 @@ pub fn build_setup_packet<T: Tile>(setup: &SetupConfig<T>, buf: &mut [u8]) -> Io
 		let mut body = &mut buf[cursor..];
 		let space_start = body.len();
 
-		// pack 
+		// pack
 		let force_update_coded = match &setup.setup.force_update_to_happen {
 			None => 0,
 			Some(false) => 1,
@@ -295,7 +295,7 @@ pub fn write_and_send_sparse_policy<T: Tile>(
 			let mut body = &mut buf[base_offset..];
 			let space_start = body.len();
 
-			body.write_u32::<BigEndian>(part.offset);
+			body.write_u32::<BigEndian>(part.offset).unwrap();
 
 			for tile in part.data.iter() {
 				tile.write_bytes(&mut body).unwrap();

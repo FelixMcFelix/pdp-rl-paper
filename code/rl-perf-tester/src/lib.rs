@@ -41,7 +41,7 @@ pub fn get_list() -> Vec<String> {
 	}
 }
 
-pub fn run_experiment(config: &Config, if_name: &str) {
+pub fn run_experiment(config: &Config, if_name: &str, times: &mut InstallTimes) {
 	let fws = config
 		.experiment
 		.bit_depths
@@ -65,19 +65,23 @@ pub fn run_experiment(config: &Config, if_name: &str) {
 			"16" => run_experiment_with_datatype::<i16>,
 			"32" => run_experiment_with_datatype::<i32>,
 			_ => panic!("Invalid bit depth datatype: must be 8, 16, or 32."),
-		})(config, if_name, &bit_depth, &fw);
+		})(config, if_name, &bit_depth, &fw, times);
 	}
 }
 
-fn run_experiment_with_datatype<T>(config: &Config, if_name: &str, bit_depth: &str, fw: &Firmware)
-where
+fn run_experiment_with_datatype<T>(
+	config: &Config,
+	if_name: &str,
+	bit_depth: &str,
+	fw: &Firmware,
+	times: &mut InstallTimes,
+) where
 	T: Tile + DeserializeOwned + Serialize + Debug + Default + Clone,
 {
 	let cfg_params = config
 		.experiment
 		.clone()
 		.policy_dims
-		.clone()
 		.into_iter()
 		.cartesian_product(config.experiment.core_count.clone().into_iter())
 		.cartesian_product(config.experiment.elements_to_time.iter());
@@ -124,6 +128,8 @@ where
 			// And/or strange bugs that lead to permanent early exit.
 			eprint!("\tInstalling firmware... ");
 			std::io::stderr().flush().unwrap();
+
+			let fw_t0 = Instant::now();
 			let cmd_output = Command::new(config.rtecli_path)
 				.args(&[
 					"design-load",
@@ -136,6 +142,7 @@ where
 				])
 				.output()
 				.expect("Failed to install firmware.");
+			let fw_t1 = Instant::now();
 
 			if !cmd_output.status.success() {
 				panic!(
@@ -147,6 +154,9 @@ where
 			}
 
 			eprintln!("Installed!");
+
+			let fw_install_time = fw_t1 - fw_t0;
+			times.fws.push(fw_install_time);
 
 			std::thread::sleep(std::time::Duration::from_secs(3));
 		}
@@ -178,10 +188,21 @@ where
 
 		if !config.skip_setup {
 			control::setup::<T>(&mut setup_cfg);
+			let setup_time = get_cycle_ct(config, CycleSource::ConfigRaw);
+
 			control::tilings(&mut TilingsConfig {
 				global,
 				tiling: tiling.clone(),
 				transport,
+			});
+			let tilings_time = get_cycle_ct(config, CycleSource::ConfigFull);
+
+			times.configs.push(ConfigInstallTime {
+				cfg_time: setup_time,
+				tiling_time: tilings_time,
+				dim_count,
+				core_count,
+				fw: *fw,
 			});
 		}
 
@@ -215,7 +236,7 @@ where
 			delay_target = Instant::now() + Duration::from_millis(2);
 		}
 
-		eprint!("Warmed up!\n");
+		eprintln!("Warmed up!");
 		std::io::stderr().flush().unwrap();
 		delay_target = Instant::now() + Duration::from_millis(2);
 
@@ -238,35 +259,14 @@ where
 				generate_state(&setup, &mut rng),
 			);
 
-			// measure and parse output of cycle-estimate.
-			let mem_text = Command::new(config.rtsym_path)
-				.args(&["_cycle_estimate"])
-				.output()
-				.expect("Failed to read NFP memory.");
-
-			let mut cycle_ct = 0u64;
-
-			let chunks = std::str::from_utf8(&mem_text.stdout[..])
-				.expect("RTSym output not valid UTF-8.")
-				.split_whitespace()
-				.skip(1)
-				.take(2);
-
-			for (i, hex_word) in chunks.enumerate() {
-				let without_prefix = hex_word.trim_start_matches("0x");
-				let x = u64::from_str_radix(without_prefix, 16).expect("Not a hex-formatted word!");
-
-				cycle_ct |= x << (32 * i);
-			}
-
-			samples.push(cycle_ct * 16);
+			samples.push(get_cycle_ct(config, CycleSource::WorkItem));
 
 			if let Some(t_left) = delay_target.checked_duration_since(Instant::now()) {
 				thread::sleep(t_left);
 			}
 			delay_target = Instant::now() + Duration::from_millis(2);
 		}
-		eprint!("\n");
+		eprintln!();
 
 		eprintln!("\t\tDone!");
 
@@ -292,4 +292,62 @@ where
 			eprintln!("\t\tWritten!");
 		}
 	}
+}
+
+#[derive(Default)]
+pub struct InstallTimes {
+	pub configs: Vec<ConfigInstallTime>,
+	pub fws: Vec<Duration>,
+}
+
+#[derive(Default)]
+pub struct ConfigInstallTime {
+	pub cfg_time: u64,
+	pub tiling_time: u64,
+	pub dim_count: u64,
+	pub core_count: u64,
+	pub fw: Firmware,
+}
+
+enum CycleSource {
+	WorkItem,
+	ConfigRaw,
+	ConfigFull,
+}
+
+impl CycleSource {
+	fn get_register_name(&self) -> &'static str {
+		use CycleSource::*;
+
+		match self {
+			WorkItem => "_cycle_estimate",
+			ConfigRaw => "_config_cycle_estimate",
+			ConfigFull => "_full_config_cycle_estimate",
+		}
+	}
+}
+
+fn get_cycle_ct(config: &Config, source: CycleSource) -> u64 {
+	// measure and parse output of cycle-estimate.
+	let mem_text = Command::new(config.rtsym_path)
+		.args(&[source.get_register_name()])
+		.output()
+		.expect("Failed to read NFP memory.");
+
+	let mut cycle_ct = 0u64;
+
+	let chunks = std::str::from_utf8(&mem_text.stdout[..])
+		.expect("RTSym output not valid UTF-8.")
+		.split_whitespace()
+		.skip(1)
+		.take(2);
+
+	for (i, hex_word) in chunks.enumerate() {
+		let without_prefix = hex_word.trim_start_matches("0x");
+		let x = u64::from_str_radix(without_prefix, 16).expect("Not a hex-formatted word!");
+
+		cycle_ct |= x << (32 * i);
+	}
+
+	cycle_ct * 16
 }

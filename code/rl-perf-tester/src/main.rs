@@ -1,8 +1,8 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use control::TransportConfig;
 use core::iter::Iterator;
-use rl_perf_tester::{Config, ExperimentFile, RTE_PATH, RTSYM_PATH};
-use std::{fs::File, io::BufReader};
+use rl_perf_tester::{Config, ExperimentFile, InstallTimes, OUTPUT_DIR, RTE_PATH, RTSYM_PATH};
+use std::{fs::File, io::{BufReader, Write}};
 
 fn main() {
 	let run_base = SubCommand::with_name("run")
@@ -187,6 +187,8 @@ fn run_core<'a>(
 			.set_port(port.parse().expect("Invalid destination port (u16)."));
 	}
 
+	let mut install_times = InstallTimes::default();
+
 	for raw_name in expts {
 		let name = format!("{}/{}.json", rl_perf_tester::EXPERIMENT_DIR, raw_name);
 
@@ -197,7 +199,7 @@ fn run_core<'a>(
 
 		let experiment = experiment_file.into();
 
-		let mut cfg = Config {
+		let cfg = Config {
 			transport_cfg: t_cfg,
 			experiment,
 			name: &raw_name,
@@ -214,6 +216,55 @@ fn run_core<'a>(
 			skip_retiling: sub_m.is_present("no-rand"),
 		};
 
-		rl_perf_tester::run_experiment(&mut cfg, if_name);
+		rl_perf_tester::run_experiment(&cfg, if_name, &mut install_times);
+	}
+
+	if !sub_m.is_present("no-write") {
+		// Writeout FW times.
+		// TODO: make folder for install times.
+		// TODO: make files with current date in 'em.
+		let out_dir = format!("{}/setup-times/", OUTPUT_DIR);
+		let time_str = chrono::offset::Utc::now().to_rfc3339();
+
+		let _ = std::fs::create_dir_all(&out_dir);
+
+		// fw install times.
+		let cfg_install_file = format!("{}install-{}.dat", out_dir, time_str);
+		let mut out_file =
+			File::create(cfg_install_file).expect("Unable to open file for writing results.");
+
+		for sample in install_times.fws {
+			let to_push = format!("{:.6}\n", sample.as_secs_f64());
+			out_file
+				.write_all(to_push.as_bytes())
+				.expect("Write of individual value failed.");
+		}
+
+		out_file
+			.flush()
+			.expect("Failed to flush file contents to disk.");
+
+		// cfg times
+		let cfg_time_file = format!("{}cfg-{}.dat", out_dir, time_str);
+		let mut out_file =
+			File::create(cfg_time_file).expect("Unable to open file for writing results.");
+
+		for cfg_time in install_times.configs {
+			let to_push = format!(
+				"{} {} {} {} {:?}\n",
+				cfg_time.cfg_time,
+				cfg_time.tiling_time,
+				cfg_time.dim_count,
+				cfg_time.core_count,
+				cfg_time.fw,
+			);
+			out_file
+				.write_all(to_push.as_bytes())
+				.expect("Write of individual value failed.");
+		}
+
+		out_file
+			.flush()
+			.expect("Failed to flush file contents to disk.");
 	}
 }

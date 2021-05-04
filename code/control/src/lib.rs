@@ -115,7 +115,7 @@ pub fn send_state<T: Tile>(cfg: &mut SendStateConfig, state: Vec<T>) {
 }
 
 pub fn generate_policy<T: Tile + Serialize>(cfg: &FakePolicyGeneratorConfig<T>) {
-	let mut tiles: usize = 0 as usize;
+	let mut tiles: usize = 0_usize;
 
 	let a = cfg.setup.n_actions as usize;
 	let s = cfg.setup.tilings_per_set as usize;

@@ -306,6 +306,12 @@ pub enum Firmware {
 	Balanced,
 }
 
+impl Default for Firmware {
+	fn default() -> Self {
+		Self::Balanced
+	}
+}
+
 impl Firmware {
 	pub fn fw_name(&self) -> &str {
 		use Firmware::*;
@@ -340,11 +346,18 @@ pub fn generate_tiling<T: Tile>(setup: &Setup<T>, num_work_dims: usize) -> Tilin
 	const MAX_DIMS_PER_LOC: [usize; 3] = [1, 2, 4];
 	const MAX_SETS_PER_LOC: [usize; 3] = [8, 8, 1];
 
+	let dims_to_skip: [Option<usize>; 2] = [
+		setup.state_key.field().map(|v| v as usize),
+		setup.reward_key.field().map(|v| v as usize),
+	];
+
 	let mut tilings = Vec::new();
 	let mut remaining_dims_to_spend = num_work_dims;
 
 	let mut location: u8 = 0;
 	let mut sets_in_this_location = 0;
+
+	let mut skips = 0;
 
 	while remaining_dims_to_spend > 0 && location < 3 {
 		let (tiling, dim_ct): (Tiling, usize) = match (location, sets_in_this_location) {
@@ -358,10 +371,21 @@ pub fn generate_tiling<T: Tile>(setup: &Setup<T>, num_work_dims: usize) -> Tilin
 			_ => {
 				let dims_to_use_here =
 					MAX_DIMS_PER_LOC[location as usize].min(remaining_dims_to_spend);
-				let floor = num_work_dims - remaining_dims_to_spend;
-				let dims = (floor..floor + dims_to_use_here)
-					.map(|v| v as u16 % setup.n_dims)
-					.collect();
+				let floor = num_work_dims + skips - remaining_dims_to_spend;
+
+				let mut dims = Vec::new();
+				let mut local_skips = 0;
+				for i in floor..(floor + dims_to_use_here) {
+					while dims_to_skip[..]
+						.contains(&Some((i + local_skips) & setup.n_dims as usize))
+					{
+						local_skips += 1;
+					}
+
+					dims.push((i + local_skips) as u16 % setup.n_dims)
+				}
+
+				skips += local_skips;
 
 				let tiling = Tiling {
 					dims,
@@ -423,13 +447,13 @@ pub fn generate_state<T: Tile + Clone>(setup: &Setup<T>, rng: &mut impl RngCore)
 
 	if let Some(f) = setup.state_key.field() {
 		if let Some(valid) = out.get_mut(f as usize) {
-			*valid = T::from_int(0);
+			*valid = T::from_int(3);
 		}
 	}
 
 	if let Some(f) = setup.reward_key.field() {
 		if let Some(valid) = out.get_mut(f as usize) {
-			*valid = T::from_int(1);
+			*valid = T::from_int(5);
 		}
 	}
 

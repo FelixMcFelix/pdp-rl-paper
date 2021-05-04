@@ -20,31 +20,36 @@ pub trait Tile {
 	fn size_of() -> usize;
 
 	fn from_float_with_quantiser(val: f32, quantiser: u8) -> Self
-		where Self: Sized
+	where
+		Self: Sized,
 	{
 		Tile::from_float(val * ((1 << quantiser) as f32))
 	}
 
 	fn to_float_with_quantiser(&self, quantiser: u8) -> f32
-		where Self: Sized
+	where
+		Self: Sized,
 	{
 		self.float() / ((1 << quantiser) as f32)
 	}
 
 	fn smallest_unit_float(quantiser: u8) -> f32
-		where Self: Sized
+	where
+		Self: Sized,
 	{
 		Self::from_int(1).to_float_with_quantiser(quantiser)
 	}
 
 	fn maximum_float(quantiser: u8) -> f32
-		where Self: Sized
+	where
+		Self: Sized,
 	{
 		Self::maximum_tile().to_float_with_quantiser(quantiser)
 	}
 
 	fn minimum_float(quantiser: u8) -> f32
-		where Self: Sized
+	where
+		Self: Sized,
 	{
 		Self::minimum_tile().to_float_with_quantiser(quantiser)
 	}
@@ -52,7 +57,7 @@ pub trait Tile {
 
 impl Tile for i8 {
 	fn write_bytes<T: Write>(&self, buf: &mut T) -> IoResult<usize> {
-		buf.write(&[*self as u8])?;
+		buf.write_all(&[*self as u8])?;
 
 		Ok(mem::size_of::<Self>())
 	}
@@ -171,7 +176,7 @@ impl TilingSet {
 		// Place bias tile at top, if present.
 		// Remove excess bias tiles.
 		// Bias tile must have no location.
-		let has_bias = self.tilings.iter().find(|el| el.dims.len() == 0).is_some();
+		let has_bias = self.tilings.iter().any(|el| el.dims.is_empty());
 
 		if has_bias {
 			clean.push(Default::default());
@@ -179,7 +184,7 @@ impl TilingSet {
 
 		// Sort tilings by location.
 		for el in itertools::sorted(self.tilings.drain(0..)) {
-			if el.dims.len() != 0 {
+			if !el.dims.is_empty() {
 				// All non-bias tiles must have a location.
 				assert!(el.location.is_some());
 

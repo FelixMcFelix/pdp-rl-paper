@@ -104,8 +104,8 @@ impl<T: Tile> Setup<T> {
 
 		let a = self.alpha.float() / ((1u32 << self.quantiser_shift) as f32);
 
-		assert!(e >= 0.0 && e <= 1.0);
-		assert!(a >= 0.0 && a <= 1.0);
+		assert!((0.0..=1.0).contains(&e));
+		assert!((0.0..=1.0).contains(&a));
 
 		assert!(self.tiles_per_dim >= 1);
 		assert!(self.tilings_per_set >= 1);
