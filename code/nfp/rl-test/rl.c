@@ -44,6 +44,9 @@ __declspec(export, emem) struct worker_ack xd_lmao = {0};
 
 __declspec(export, emem) struct rl_work_item test_work;
 
+volatile __declspec(export, emem) uint32_t config_cycle_estimate = 0;
+volatile __declspec(export, emem) uint32_t full_config_cycle_estimate = 0;
+
 // Testing out CAM table creation here.
 
 /*#define SA_CAM_BUCKETS 0x40000
@@ -585,6 +588,7 @@ main() {
 		struct worker_ack aggregate = {0};
 		struct work to_do = {0};
 		uint8_t new_cfg = 0;
+		uint32_t t0, t1, t2;
 
 		mem_workq_add_thread(
 			RL_RING_NUMBER,
@@ -597,6 +601,7 @@ main() {
 		// Failing that, drop the magic number...
 		switch (workq_read_register.ctldata.t4_type) {
 			case PIF_PARREP_TYPE_rct:
+				t0 = local_csr_read(local_csr_timestamp_low);
 				switch (workq_read_register.parsed_fields.config.cfg_type) {
 					case 0:
 						test_work = workq_read_register;
@@ -610,12 +615,13 @@ main() {
 					case 1:
 						tilings_packet(&cfg, &workq_read_register);
 
-						new_cfg = 1;
+						new_cfg = 2;
 						has_tiling = 1;
 						break;
 					default:
 						break;
 				}
+				t1 = local_csr_read(local_csr_timestamp_low);
 				break;
 			case PIF_PARREP_TYPE_ins:
 				// block policy insertion
@@ -716,6 +722,11 @@ main() {
 					vis_indices[i] = indices[i];
 				}
 			}
+			t2 = local_csr_read(local_csr_timestamp_low);
+
+			config_cycle_estimate = t1 - t0;
+			full_config_cycle_estimate = t2 - t0;
+
 		}
 
 		#endif /* !_RL_WORKER_DISABLED */
