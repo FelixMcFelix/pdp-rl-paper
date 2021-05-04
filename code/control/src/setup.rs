@@ -138,7 +138,7 @@ impl<T: Tile> KeySource<T> {
 
 	pub fn field(&self) -> Option<i32> {
 		match self {
-			KeySource::Field(f) => Some(f),
+			KeySource::Field(f) => Some(*f),
 			_ => None,
 		}
 	}
