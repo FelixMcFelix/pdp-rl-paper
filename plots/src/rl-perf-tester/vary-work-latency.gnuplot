@@ -1,4 +1,4 @@
-load "gnuplot-palettes/inferno.pal"
+load "gnuplot-palettes/gnbu.pal"
 set datafile separator ","
 
 set multiplot

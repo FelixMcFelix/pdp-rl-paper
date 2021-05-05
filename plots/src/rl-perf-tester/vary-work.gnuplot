@@ -60,9 +60,9 @@ set arrow from 1.5, 22.5 to screen 0.25, screen 0.5 lw 1 as 1
 set arrow arrowstyle 2
 
 set arrow from 0.9,5 to 2.1,5 front nohead as 2 
-set arrow from 0.9,5 to 0.9,17.5 front nohead as 2
-set arrow from 2.1,17.5 to 0.9,17.5 front nohead as 2
-set arrow from 2.1,17.5 to 2.1,5 front nohead as 2
+set arrow from 0.9,5 to 0.9,19.5 front nohead as 2
+set arrow from 2.1,19.5 to 0.9,19.5 front nohead as 2
+set arrow from 2.1,19.5 to 2.1,5 front nohead as 2
 
 # 2 types
 # times 3 bit depths.
@@ -83,7 +83,7 @@ unset xtics
 unset ytics
 unset grid
 set xrange [0.9:2.1]
-set yrange [5:17.5]
+set yrange [5:19.5]
 
 plot for [i=0:5] file(i) u 1:(column(4)/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1]
 

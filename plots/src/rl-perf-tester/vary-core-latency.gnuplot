@@ -1,4 +1,4 @@
-load "gnuplot-palettes/inferno.pal"
+load "gnuplot-palettes/gnbu.pal"
 set datafile separator ","
 
 set xlabel "Worker threads allocated"
@@ -32,9 +32,9 @@ DashStyles[5] = 5
 DashStyles[6] = 6
 
 array Singles[3]
-Singles[1] = 196.613
-Singles[2] = 196.000
-Singles[3] = 187.387
+Singles[1] = 193.413
+Singles[2] = 195.320
+Singles[3] = 185.040
 
 myTitle(i) = sprintf("Parallel (%d-bit)", BitDepths[i + 1])
 singleTitle(i) = sprintf("Single (%d-bit)", BitDepths[i + 1])
