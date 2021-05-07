@@ -231,6 +231,12 @@
 \section{Introduction}
 ?? REDO ME
 
+\begin{figure}
+	\centering
+	\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/arch-with-p4}
+	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible.\label{fig:netro-arch}}
+\end{figure}
+
 Automatic optimisation, control, and defence of networks are at last becoming commonplace. Data-driven networking has led the charge in traffic optimisation, congestion control and packet classification via adaptive techniques such as Reinforcement Learning (RL), where every change and its measured effects further improve future decisions. Considering that the network evolves in its use and deployed protocols, this flexibility is essential. Yet data-driven methods suffer from a key weakness: they are dependent on both the recency and accuracy of input state. An out-of-date view of the world will lead to suboptimal choices, as will long processing times. These can result in worse performance and slower adaptation to the evolving network.
 
 Programmable data-planes and in-switch compute, then, hold promise for integrating these new techniques in a feasible and efficient manner (beyond dedicated servers or virtualised network functions). For RL, key tasks include policy evaluation, online training, state collection, and action execution -- each of these introduces some degree of sensitivity to state accuracy. Ideally then, all logic would run on these programmable devices. Yet, there is often a finite budget in microcode/FPGA space, per-packet processing times, and available cores for execution. Moreover, necessary hardware, such as floating-point units, is unavailable in almost all cases.
@@ -403,12 +409,6 @@ At a high level, \approachshort{} is designed to use the auxiliary compute expos
 We open-source our firmware design and control programs for the benefit of the community.\footnote{\url{https://github.com/FelixMcFelix/pdp-rl-paper}---currently private...}
 We describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
 
-\begin{figure}
-	\centering
-	\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/arch-with-p4}
-	\caption{Architecture for an \approachshort{} agent on Netronome hardware, using 4 cores for parallel policy processing. (FIXME: redo in illustrator? Show CTXes, PISA, \Coopfw{} vs \Indfw{})\label{fig:netro-arch}}
-\end{figure}
-
 \subsection{System Model}
 \approachshort{} is a general, task-independent framework for in-network, online training and execution of \emph{any reinforcement learning agent design} using classical methods.
 \approachshort{} is agnostic to the meaning of state vectors it receives as inputs and the actions it produces, which are employed by other functional units or the dataplane.
@@ -446,14 +446,15 @@ The new state- or tiles-action pair is then written into storage.
 	\begin{subfigure}{0.45\linewidth}
 		\centering
 		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/ind}
-		\caption{\Indfw{} (offline throughput-optimal).\label{fig:single-and-parallel:single}}
+		\caption{\Indfw{} (offline throughput-optimal). \emph{Workers} independently pull commands from and push state-action pairs to the environment (locking access to when updates must occur).\label{fig:single-and-parallel:single}}
 	\end{subfigure}
+\hspace{0.04\linewidth}
 	\begin{subfigure}{0.45\linewidth}
 		\centering
 		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/coop}
-		\caption{\Coopfw{} (online-optimal).\label{fig:single-and-parallel:parallel}}
+		\caption{\Coopfw{} (online-optimal). A single \emph{controller} ... to many \emph{minion} threads, who operate on independent subtasks.\label{fig:single-and-parallel:parallel}}
 	\end{subfigure}
-	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to latency/throughput needs. ?? MAKE ME FOR REAL \label{fig:single-and-parallel}}
+	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to latency/throughput needs.\label{fig:single-and-parallel}}
 \end{figure*}
 
 ?? Do we need better/snappier names than just \Indfw/\Coopfw? It's awfully dry.
