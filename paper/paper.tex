@@ -143,10 +143,10 @@
 
 \newcommand{\approach}{On Path Learning}
 \newcommand{\approachshort}{OPaL}
-\newcommand{\coopfw}{parallel}
-\newcommand{\Coopfw}{Parallel}
-\newcommand{\indfw}{single}
-\newcommand{\Indfw}{Single}
+\newcommand{\Coopfw}{CoOp}
+\newcommand{\coopfw}{\Coopfw}
+\newcommand{\Indfw}{Ind}
+\newcommand{\indfw}{\Indfw}
 
 \makeatletter\let\expandableinput\@@input\makeatother
 \newcommand{\cmark}{\ding{51}}%
@@ -405,76 +405,7 @@ We describe how our architectural choices may be adapted and improved upon by mo
 
 \begin{figure}
 	\centering
-	\resizebox{1.2\linewidth}{!}{\begin{tikzpicture}
-			\node (sw2) {};
-			
-			\node[fill=white!80!uofgcobalt, draw=black, minimum height=5.5cm, minimum width=2.9cm, below right= 0.1 of sw2.north west](p4-master){};
-			\node[below right, inner sep=2pt] at (p4-master.north west) {\small P4 Datapath};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.8] (p4-rules) at (p4-master.north) {\begin{varwidth}{2.5 cm}\scriptsize \centering Flow Control Rules\end{varwidth}};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n1) at (p4-rules.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Extern-based Action\end{varwidth}};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n2) at (n1.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering ...\end{varwidth}};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (oswlc) at (n2.south) {\begin{varwidth}{1.5 cm}\scriptsize \centering Control Packet Match\end{varwidth}};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n3) at (oswlc.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering ...\end{varwidth}};
-			\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, below=0.1] (n4) at (n3.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Network Telemetry\end{varwidth}};
-			
-			
-			
-			\node (pkt-text) at ($(p4-master.north) + (0.0,0.6)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Packet In\end{varwidth}};
-			
-			\node (pkt-text-out) at ($(p4-master.south) + (0.0,-0.6)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Packet Out\end{varwidth}};
-			
-			\node[fill=white!80!uofgsunshine, draw=black, minimum height=5cm, minimum width=5cm](rli) at ($(p4-master.east) + (5, -1)$){};
-			\node[below right, inner sep=2pt] at (rli.north west) (rli-text) {\small RL Island};
-			
-			\node[draw=black, dotted, minimum height=1cm, minimum width=2cm](wq-out) at ($(rli-text.south) + (0.5,-0.5)$){};
-			\node[below right, inner sep=2pt] at (wq-out.north west) {\small EMEM};
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (wq-in) at (wq-out.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Input Queue\end{varwidth}};
-			
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (loop) at ($(wq-out.east) + (1.5,-0.5)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Control ME\end{varwidth}};
-			
-			\node[draw=black, dotted, minimum height=1cm, minimum width=2cm](wq-act) at ($(loop.north) + (0.0,1.5)$){};
-			\node[below right, inner sep=2pt] at (wq-act.north west) {\small EMEM};
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (wq-actin) at (wq-act.south) {\begin{varwidth}{2.5 cm}\scriptsize \centering Action Queue\end{varwidth}};
-			
-			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-cls-out) at ($(loop.south) + (0,-1.5)$){};
-			\node[below right, inner sep=2pt] at (policy-cls-out.north west) {\small CLS};
-			\node[above right, inner sep=2pt] at (policy-cls-out.north west) {\small Policy};
-			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-ctm-out) at ($(policy-cls-out.south) + (0,-0.25)$){};
-			\node[below right, inner sep=2pt] at (policy-ctm-out.north west) {\small CTM};
-			\node[draw=black, dotted, minimum height=0.5cm, minimum width=2cm](policy-emem-out) at ($(policy-ctm-out.south) + (0,-0.25)$){};
-			\node[below right, inner sep=2pt] at (policy-emem-out.north west) {\small EMEM};
-			
-			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t1) at (policy-cls-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T1\end{varwidth}};
-			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t2) at (policy-ctm-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T2\end{varwidth}};
-			\node[fill=white!90!uofgsunshine, draw, rectangle, above=0.1, below left= 0.05] (t3) at (policy-emem-out.north east) {\begin{varwidth}{2.5 cm}\scriptsize \centering T3\end{varwidth}};
-			
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-1) at ($(wq-out.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-			
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-2) at ($(po-me-1.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-			
-			\node[fill=white!90!uofgsunshine, draw, rectangle, rounded corners=0.05cm, above=0.1] (po-me-3) at ($(po-me-2.south) + (0,-1.0)$) {\begin{varwidth}{2.5 cm}\scriptsize \centering Policy ME\end{varwidth}};
-			
-			\draw[->] (oswlc.east)  to node[midway, above, sloped] {\tiny Control, Requests} (wq-in.west);
-			\draw[->] (n4.east)  to node[midway, above, sloped] {\tiny State} (wq-in.west);
-			\draw[<->, dotted] (wq-in.east)  to (loop.west);
-			\draw[->, dotted] (loop.south) to (policy-cls-out);
-			
-			\draw[->] (loop.north)  to node[midway, above, sloped] {\tiny Actions} (wq-actin.south);
-			
-			\draw[->] (wq-actin.west)  to node[midway, above, sloped] {\tiny Actions} (n1.east);
-			
-			\draw[<->, dotted] (po-me-1.east) to (policy-cls-out.west);
-			\draw[<->, dotted] (po-me-2.east) to (policy-ctm-out.west);
-			\draw[<->, dotted] (po-me-3.east) to (policy-emem-out.west);
-			
-			\draw[->] (pkt-text)  to  (p4-master.north);
-			\draw[->] (p4-master.south)  to  (pkt-text-out);
-			
-			\draw[->] (loop) to node[midway, above, sloped] {\tiny NN} (po-me-1);
-			\draw[->] (po-me-1) to node[midway, above, sloped] {\tiny NN} (po-me-2);
-			\draw[->] (po-me-2) to node[midway, above, sloped] {\tiny NN} (po-me-3);
-			\draw[->] (po-me-3) to [out=-45,in=0,looseness=2] node[midway, above, sloped] {\tiny NN} (loop);
-	\end{tikzpicture}}
+	\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/arch-with-p4}
 	\caption{Architecture for an \approachshort{} agent on Netronome hardware, using 4 cores for parallel policy processing. (FIXME: redo in illustrator? Show CTXes, PISA, \Coopfw{} vs \Indfw{})\label{fig:netro-arch}}
 \end{figure}
 
@@ -510,19 +441,20 @@ If updates are enabled, \approachshort{} then checks an internal hashmap for a p
 Updates are computed using \emph{single-step semi-gradient Sarsa}, though modification to support other single-step methods would be trivial.
 The new state- or tiles-action pair is then written into storage.
 
-\begin{figure}
-	\begin{subfigure}{0.3\linewidth}
+\begin{figure*}
+	\centering
+	\begin{subfigure}{0.45\linewidth}
 		\centering
-		\includegraphics[keepaspectratio, width=\linewidth]{figures/single-core-arch-sketch}
+		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/ind}
 		\caption{\Indfw{} (offline throughput-optimal).\label{fig:single-and-parallel:single}}
 	\end{subfigure}
 	\begin{subfigure}{0.45\linewidth}
 		\centering
-		\includegraphics[keepaspectratio, width=\linewidth]{figures/parallel-arch-sketch}
+		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/coop}
 		\caption{\Coopfw{} (online-optimal).\label{fig:single-and-parallel:parallel}}
 	\end{subfigure}
 	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to latency/throughput needs. ?? MAKE ME FOR REAL \label{fig:single-and-parallel}}
-\end{figure}
+\end{figure*}
 
 ?? Do we need better/snappier names than just \Indfw/\Coopfw? It's awfully dry.
 
@@ -860,6 +792,37 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 	\caption{?? More work means More time. ?? Max Parallelisation. ?? Bitdepth affects independent cores more. ?? latency version in appendix: \Cref{fig:vary-work-latency}.\label{fig:vary-work}}
 \end{figure}
 
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/vary-work-latency}
+	}
+	\caption{Latency! varying work.\label{fig:vary-work-latency}}
+\end{figure}
+
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/vary-core-latency}
+	}
+	\caption{Latency! varying core count\label{fig:vary-core-latency}}
+\end{figure}
+
+\begin{figure}
+	\centering
+	\begin{subfigure}{0.45\linewidth}
+		\resizebox{1.0\linewidth}{!}{
+			\includegraphics{../plots/build/rl-perf-tester/latency-cumul}
+		}
+		\caption{Just Pars.}
+	\end{subfigure}
+	\begin{subfigure}{0.45\linewidth}
+		\resizebox{1.0\linewidth}{!}{
+			\includegraphics{../plots/build/rl-perf-tester/latency-cumul-broad}
+		}
+		\caption{Wider View.}
+	\end{subfigure}
+	\caption{BigCap}
+\end{figure}
+
 \fakepara{Work allocation}
 \Cref{fig:work-alloc-32} shows that our heuristic first-fit allocator (\emph{Balanced}) is key in achieving consistent sub-\SIlist{50;100}{\micro\second} latencies/processing times respectively.
 The trend is repeated for all bit depths, noting the latency differences described above.
@@ -893,14 +856,22 @@ Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-isl
 \begin{table}
 \caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources} ??NEEDS REWORKED}
 \resizebox{\linewidth}{!}{
-\begin{tabular}{@{}cSSSSSSSSSS@{}}
+\begin{tabular}{
+		@{}c
+		S[table-format=4.2] S[table-format=2.2]
+		S[table-format=4.2] S[table-format=2.2]
+		S[table-format=4.2] S[table-format=2.2]
+		S[table-format=2.2] S[table-format=2.2]
+		S[table-format=3.2] S[table-format=2.2]
+		@{}
+	}
 	\toprule Firmware & \multicolumn{2}{c}{EMEM} & \multicolumn{2}{c}{EMEM Cache} & \multicolumn{2}{c}{IMEM} & \multicolumn{2}{c}{i5.CLS} & \multicolumn{2}{c}{i5.CTM}\\
 	& \multicolumn{1}{c}{\si{\mebi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} \\
-	\midrule Base P4 & 6776.67 & 88.24 & 268.52 & 2.91 & 858.28 & 10.48 & 0 & 0 & 0 & 0 \\
-	\Indfw(1) & 6778.77 & 88.27 & 1738.01 & 18.86 & 1263.28 & 15.42 & 23.50 & 36.72 & 90.00 & 35.16 \\
-	\Indfw(4) & 6778.79 & 88.27 & 1746.88 & 18.95 & 1263.28 & 15.42 & 49.00 & 76.56 & 90.00 & 35.16 \\
-	\Coopfw(1) & 6778.76 & 88.27 & 1742.51 & 18.91 & 1263.28 & 15.42 & 19.66 & 30.72 & 90.00 & 35.16 \\
-	\Coopfw(4) & 6778.76 & 88.27 & 1738.04 & 18.86 & 1263.28 & 15.42 & 31.82 & 49.71 & 90.00 & 35.16 \\
+	\midrule Base P4 & 6776.67 & 88.24 & 268.52 & 2.91 & 858.28 & 10.48 & 0.00 & 0.00 & 0.00 & 0.00 \\
+	\Indfw(1) & 6780.21 & 88.28 & 2541.07 & 27.57 & 1263.28 & 15.42 & 24.75 & 38.67 & 94.25 & 36.82 \\
+	\Indfw(4) & 6780.21 & 88.28 & 2545.32 & 27.62 & 1263.28 & 15.42 & 51.18 & 79.97 & 107.00 & 41.80 \\
+	\Coopfw(1) & 6779.12 & 88.27 & 1769.83 & 19.20 & 1263.28 & 15.42 & 20.25 & 31.64 & 90.00 & 35.16 \\
+	\Coopfw(4) & 6779.12 & 88.27 & 1769.84 & 19.20 & 1263.28 & 15.42 & 31.91 & 49.85 & 90.00 & 35.16 \\
 	\bottomrule
 \end{tabular}
 }
@@ -941,6 +912,8 @@ Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-isl
 
 ?? Mechanisms to support full in-switch DDoS detection~\cite{tnms-ddos-victim-ident}.
 
+?? Simialr HW has been used to get NN \emph{inference} \textcite{langlet-ml-netronome}---although \emph{actual NN latency} in his Fig 4.4 (IPG is inter-packet gap: his is not truly async but achieves perf by lying on the packet path. Note that 0 IPG murders his latencies).
+
 \section{Conclusion}
 
 ?? Future work: allow scaling over multiple islands.
@@ -956,19 +929,6 @@ Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-isl
 \printbibliography
 
 \begin{appendices}
-	\begin{figure}
-		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/rl-perf-tester/vary-work-latency}
-		}
-		\caption{Latency! varying work.\label{fig:vary-work-latency}}
-	\end{figure}
-	
-	\begin{figure}
-		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/rl-perf-tester/vary-core-latency}
-		}
-		\caption{Latency! varying core count\label{fig:vary-core-latency}}
-	\end{figure}
 	\section{Old ``What could we do''?}
 	How do we evaluate this without looking into classification performance?
 	\begin{itemize}
