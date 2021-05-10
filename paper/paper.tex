@@ -234,7 +234,7 @@
 \begin{figure}
 	\centering
 	\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/arch-with-p4}
-	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible.\label{fig:netro-arch}}
+	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this computationally feasible.\label{fig:netro-arch}}
 \end{figure}
 
 Automatic optimisation, control, and defence of networks are at last becoming commonplace. Data-driven networking has led the charge in traffic optimisation, congestion control and packet classification via adaptive techniques such as Reinforcement Learning (RL), where every change and its measured effects further improve future decisions. Considering that the network evolves in its use and deployed protocols, this flexibility is essential. Yet data-driven methods suffer from a key weakness: they are dependent on both the recency and accuracy of input state. An out-of-date view of the world will lead to suboptimal choices, as will long processing times. These can result in worse performance and slower adaptation to the evolving network.
@@ -256,6 +256,7 @@ This paper contributes:
 \end{itemize}
 
 \section{Background and Motivation}\label{sec:motivation}
+\subsection{Reinforcement Learning}
 ?? RL~\parencite{RL2E}
 
 ?? Use this to explain differences between the modern state of the art and older works.
@@ -342,7 +343,7 @@ Both programmable devices and the network environment make this more difficult, 
 	Online control problems benefit from low-latency, local execution and training (i.e., in-NIC/switch).
 \end{insight}
 
-\fakepara{Programmable hardware capabilities}
+\subsection{Programmable hardware capabilities}
 The introduction of the P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} language has led to explosive growth in the research community surrounding in-network computation and offloading.
 Providing a single language which is compatible with network devices of many form factors has been instrumental in the development of novel fine-grained traffic measurement approaches~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
 However, this requires that there be a reasonably consistent interface and behaviour between device classes.
@@ -399,15 +400,32 @@ Finally, the choice of single-step algorithms (as opposed to $n$-step or Monte C
 \fakepara{To-be-organised}
 Interesting thing I realised from \textcite{DBLP:conf/sigcomm/NeugebauerAZAL018}: GPU and NIC might cause IOMMU contention? Making line-rate offload of DDN to GPU impractical. Unsure if I want to twin this with later measurements/plots.
 
-\section{Design and Implementation}\label{sec:design}
-?? Can we say ``in-situ'' anywhere? I like that term.
+\subsection{Netronome Platform Fundamentals}
+Explain MEs, Threads, CTXs, so on so on.
 
+\section{Design and Implementation}\label{sec:design}
 Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{} (\approach)}.
 At a high level, \approachshort{} is designed to use the auxiliary compute exposed by general SmartNIC devices to offer low-latency online learning, scaling according to available on-chip resources at build time.
 
-\Cref{fig:netro-arch} outlines our design and implementation on Netronome SmartNIC hardware in pursuit of this goal.
+\begin{figure*}
+	\centering
+	\begin{subfigure}{0.45\linewidth}
+		\centering
+		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/ind}
+		\caption{\Indfw{} (offline throughput-optimal). \emph{Workers} independently pull commands from (and push state-action pairs to) the environment, locking access to the policy when updates must occur.\label{fig:single-and-parallel:single}}
+	\end{subfigure}
+	\hspace{0.04\linewidth}
+	\begin{subfigure}{0.45\linewidth}
+		\centering
+		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/coop}
+		\caption{\Coopfw{} (online-optimal). A single \emph{controller} delegates RL computation and updates to many \emph{minion} threads, who operate on independent subtasks.\label{fig:single-and-parallel:parallel}}
+	\end{subfigure}
+	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to either latency or throughput needs.\label{fig:single-and-parallel}}
+\end{figure*}
+
+\Cref{fig:netro-arch,fig:single-and-parallel} outline our design and implementation on Netronome SmartNIC hardware in pursuit of this goal: unused device resources beyond the P4-PSA spec \emph{can and should be used} to drive asynchronous environmental control.
 We open-source our firmware design and control programs for the benefit of the community.\footnote{\url{https://github.com/FelixMcFelix/pdp-rl-paper}---currently private...}
-We describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
+Moving beyond the Netronome platform, we describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
 
 \subsection{System Model}
 \approachshort{} is a general, task-independent framework for in-network, online training and execution of \emph{any reinforcement learning agent design} using classical methods.
@@ -415,15 +433,16 @@ We describe how our architectural choices may be adapted and improved upon by mo
 However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
 
 \approachshort{} runs on one more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
-These dedicated cores (\emph{microengines} grouped by \emph{island} in NFP terminology) are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
+As an example, this might be to map flow state and performance measurements into a queue priority for future packets from that flow, or to compute and apply a rate limit to preserve quality of service.
+These dedicated cores are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
 Combined with reward measurements, this policy can then be updated or trained from scratch entirely on the NIC, acting as a fully online RL agent.
 An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key placed alongside the state.
 This allows for simultaneous control and learning over independent systems by the same agent (i.e., optimising several flows with their own reward measures).
 
 %However, high-speed data networks impose inviolable per-packet deadlines.
 
-To protect traffic throughput and allow for effective deployment in as many environments as possible, \approachshort{} places RL execution off the main packet path, communicating and running parallel to the main P4 dataplane.
-This asynchrony allows coexistence with P4 programs, and imposes minimal/no impact on carried traffic for both bump-in-the-wire deployments and at end-points.
+To protect traffic throughput and allow for effective deployment in as many environments as possible, \approachshort{} places RL execution on-chip, \emph{but off the main packet path}, communicating and running parallel to the main P4 dataplane.
+As shown in \cref{fig:netro-arch}, this asynchrony allows coexistence with P4 programs, and imposes minimal/no impact on carried traffic for both bump-in-the-wire deployments and at end-points.
 For instance, in the default deployment of a P4 packet processing pipeline on Netronome NFP chips several of these cores go unused (as does spare area on an FPGA design), making this paradigm possible.
 
 The main interaction model is that platform-specific IPC mechanisms (message rings) are used to \emph{push} configuration, state vectors, and reward measurements to the RL system.
@@ -441,24 +460,6 @@ If updates are enabled, \approachshort{} then checks an internal hashmap for a p
 Updates are computed using \emph{single-step semi-gradient Sarsa}, though modification to support other single-step methods would be trivial.
 The new state- or tiles-action pair is then written into storage.
 
-\begin{figure*}
-	\centering
-	\begin{subfigure}{0.45\linewidth}
-		\centering
-		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/ind}
-		\caption{\Indfw{} (offline throughput-optimal). \emph{Workers} independently pull commands from and push state-action pairs to the environment (locking access to when updates must occur).\label{fig:single-and-parallel:single}}
-	\end{subfigure}
-\hspace{0.04\linewidth}
-	\begin{subfigure}{0.45\linewidth}
-		\centering
-		\includegraphics[keepaspectratio, width=0.9\linewidth]{figures/coop}
-		\caption{\Coopfw{} (online-optimal). A single \emph{controller} ... to many \emph{minion} threads, who operate on independent subtasks.\label{fig:single-and-parallel:parallel}}
-	\end{subfigure}
-	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to latency/throughput needs.\label{fig:single-and-parallel}}
-\end{figure*}
-
-?? Do we need better/snappier names than just \Indfw/\Coopfw? It's awfully dry.
-
 ?? Probably mention the idea of including "state keys" and "reward keys" in the input state vector.
 
 In the NFP architecture we use, physical cores (MEs) each have 8 hardware threads (contexts): all contexts on an ME share the same program and employ zero-cost context switches triggered by I/O.
@@ -470,7 +471,11 @@ Two main firmware models govern how the computation-intensive parts of these tas
 \end{description}
 Each offers a different point of optimisation; if updates are disabled, then the \emph{\indfw{}} model can maximise throughput, while the \emph{\coopfw{}} model is designed to minimise decision latency and needs no locks for updating the policy (increasing \emph{online learning} throughput).
 
-We found that, paradoxically, it was more efficient in the parallel case \emph{to do more work} by having each worker recompute its tile subset from a stored state.
+Latency and throughput, as in many networked systems, have different effects upon RL agents according to their design and target problem.
+Higher throughput for an RL agent is a necessity for per-flow or per-packet applications, which can require high decision-per-second rates even after combining state measurements received from the environment, such as flow control in DDoS prevention.
+Equally, lower latency affords an RL agent finer-grained control and learning of a problem, being able to react sooner to new information (e.g., device state in a routing optimisation problem, or queue depth when trying to enforce packet pacing).
+
+We found that, paradoxically, it was more efficient in the \Coopfw{} case \emph{to do more work} by having each worker recompute its tile subset from a stored state.
 It transpired that cacheing this data placed a larger \texttt{memcpy} in the serial section, whose size did not scale at all with bit depth.
 
 \subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
@@ -528,14 +533,6 @@ We had investigated bit-stuffing several such values into a single word for our 
 }{\bit} atomic addition).
 This is analogous to SIMD---through clever use of padding bits---but we found that manipulating tiles into the correct format added \SI{10}{\percent} extra overhead.
 
-\subsection{Notes from chat with Rhys}
-?? Where/how to fit this in? I think it's a useful point.
-
-The two compute models discussed here need not be homogeneously deployed.
-For instance, in a networked deployment a subset of \approachshort{} nodes could be \SI{32}{\bit} \emph{\coopfw{}} agents, training online, while most other nodes ran \SI{8}{\bit} \emph{\indfw{}} designs to meet throughput guarantees.
-The control plane would then be responsible for combining, downsampling, and distributing these improved policies between remaining agents.
-This can be taken further still, using policy deltas or execution traces to enable out-of-path transfer learning for more complex function approximators such as neural networks.
-
 %Potential: low-latency train for some specific points, and high throughput for others? Think on the exact note I took...
 %
 %``can have accel'd offline, train online subset w/ my approach''
@@ -544,7 +541,7 @@ This can be taken further still, using policy deltas or execution traces to enab
 %
 %Can changes in trained policy be used to transfer to a more complex function approximator elsewhere?
 
-\subsection{Limitations}
+\subsection{Limitations}\label{sec:limitations}
 Unfortunately, direct rule installation into P4 tables from the SmartNIC itself is not, in general, possible.
 To achieve line-rate match-action table lookup, platforms like NFP use accelerated datastructures (e.g., DCFL~\parencite{DBLP:conf/infocom/TaylorT05}) which must be computed by the controller over the \emph{entire rule set}.
 Even through externs, directly adding new rules is neither feasible nor safe.
@@ -667,36 +664,67 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 
 \section{Potential Integrations}\label{sec:potential-integrations}
 To show the general applicability and use of \approachshort{}, we propose two ideal integrations which would benefit most from in-NIC reinforcement learning; online DDoS attack mitigation (\cref{sec:integ-1}), and ?? OTHER THING (\cref{sec:integ-2}).
-We support these using other state-of-the-art P4/PDP developments.
+We support these using other state-of-the-art P4/PDP developments, and discuss how best to balance the concerns of online training with throughput in widespread deployment.
 
 \subsection{In-Network DDoS Defence}\label{sec:integ-1}
-Classical reinforcement learning has seen some recent use in real-time, adaptive DDoS mitigation~\parencite{DBLP:journals/tnsm/SimpsonRP20}.
+Classical reinforcement learning has seen recent use in real-time, adaptive DDoS mitigation~\parencite{DBLP:journals/tnsm/SimpsonRP20}.
+\Citeauthor{DBLP:journals/tnsm/SimpsonRP20}'s \emph{Guarded} agent design uses a mixture of global network state and local, per-flow state to monitor how flows respond to bandwidth changes and packet drop---applying the observations made by SPIFFY~\parencite{DBLP:conf/ndss/KangGS16} with more allowance for congestion-unaware protocols.
+Actions then move flows up or down in punishment levels according to a finite state machine.
 
-?? Bump-in-the-wire deployment of SmartNICs at edge nodes.
+\fakepara{Why in-NIC?}
+The above approach relies upon co-hosting traffic measurement and analysis alongside OpenFlow-compatible switches at the edge nodes of an AS.
+However, packet mirroring, offloading RL computation to a host (potentially over layers of virtualisation), and CPU performance are all sources of additional, consistent state-action latency.
+Both traffic statistics collection \emph{and} data-driven learning must be executed on such hosts/network functions.
+Unless running these stages in a dedicated pipeline (adding further processing latency), resource contention between these processes will further impact tail latencies.
+Naturally, this requires high-performance hardware to be stacked at network egress points, potentially beyond reasonable space, power, or ventilation constraints.
+The solution to implement and improve upon this work using \approachshort{} is to place its RL agents on SmartNICs at AS edge nodes---a bump-in-the-wire deployment.
 
-?? Place Dapper~\parencite{DBLP:conf/sosr/GhasemiBR17} on the datapath as the main source of state vectors.
-?? This resides in the P4 dataplane, and exists on-chip alongside the \approachshort{} agent.
-?? Use INDDoS~\parencite{tnms-ddos-victim-ident} as a reward function source---i.e., using the number of detected victims as a loss value.
-?? Still receive load measures from elsewhere in the network; this is now the element at highest risk of being outdated, but the least likely to vary significantly in response to individual actions.
+\fakepara{Inputs}
+To collate the required inputs and state, we then examine the recent innovations of the community.
+Low-latency, pure-P4 solutions to extract and record per-flow TCP state directly in the dataplane such as Dapper~\parencite{DBLP:conf/sosr/GhasemiBR17} are well-studied.
+In fact, the statistics offered by Dapper are a super-set of the local input state values employed by \emph{Guarded} agents, offering an opportunity to further improve their efficacy. 
+We propose placing such monitors in the P4 dataplane, existing on-chip alongside the \approachshort{} agent.
+The required global state (load measures from network paths) must still come from elsewhere in the network; this is now the element at highest risk of becoming stale, but the least likely to vary significantly in response to individual actions.
 
-?? How does increased attack flow ratio affect the RL core? How does changing its params to increase its own throughput?
-?? Remember the timed-random-selection; use the state coalescing trick indep discovered by you and those other guys.
-?? As such, the state collection mechanism prevents flows from being acted upon too often and ensures that the RL decision-making
-?? As we shall see, this far exceeds the number of decisions per second that a host based deployment could handle, though using these techniques is still key in preventing overloads.
+The original work suggests theoretical ``ground truth'' reward functions, whose correct implementation and designs were left as an open challenge. 
+We posit that INDDoS~\parencite{tnms-ddos-victim-ident}, which uses Count-min Sketches to estimate DDoS victim cardinality, could be used as an effective reward function source---i.e., using the number of detected victims as a loss value.
 
-?? The P4 dataplane is then used to reduce/increase the number of flows used as inputs? (YES)
+\fakepara{Integrating \approachshort}
+Before each Dapper monitoring action, we require that the table hosting this hybrid solution polls \approachshort{}'s \emph{OUT Ring} for any generated actions.
+As we note in \cref{sec:limitations}, these actions would be placed into a small local hash table and simultaneously exported to the attached controller to be inserted as P4 rules in batches.
+After the main monitoring step, packet ingress timestamps would be used to emulate the \emph{Timed Random Sequential} (TRS) scheduler used by the anti-DDoS agents for rate-controlled work, where state vectors would be selected and passed into \approachshort.
+By design, active flows which are not \emph{judged} after a configurable time are discarded to prune the work set and allow new flows to be seen by the agent.
+The tight bounds on execution time known \emph{a priori} make it easy to calculate the maximum number of decisions which can be made per deadline.
+Reward values would then be separately inserted by a modified INDDoS table.
+
+?? Can I have a P4 code snippet here?
+
+A reduction in state-action latency (i.e., with \Coopfw) is, as always, useful for minimising the noise inherent in learning.
+However, an agent is limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
+Accordingly, this use-case benefits most from an increase in \emph{throughput} using \Indfw{}.
+In this context, higher throughput means that network flows are more likely to be judged in every timestep, even when flow cardinality is high---making it more likely that changes in flow behaviour will be observed, acted on, and learned from.
+
+We note that the TRS scheduler is designed to handle cases where the number of flows created by an attacker, combining state vectors and information over time while the asynchronous agent is itself busy.
+An increased number of (attacking) flows beyond the maximum throughput simply makes it take longer in expectation for a flow to be reassessed.
+As we shall examine in \Cref{sec:evaluation}, \approachshort{} far exceeds the action throughput of a host based deployment could handle.
+The control plane is then free to use wildcards or specific matches to narrow down (or expand) the set of flows to be considered and controlled, though explicit scheduling techniques are still key in such adversarial environments.
 
 \subsection{Something host-specific?}\label{sec:integ-2}
 Accelerate something at an end-host... Flow control? Something datacentre-y? A novel CCA? What?
 
-\section{Evaluation}\label{sec:evaluation}
-We outline our performance evaluation of...
+\subsection{Network Deployment Considerations}
+The two compute models discussed above need not be homogeneously deployed.
+For instance, in a networked deployment a subset of \approachshort{} nodes could be \SI{32}{\bit} \emph{\coopfw{}} agents, training online, while most other nodes ran \SI{8}{\bit} \emph{\indfw{}} designs to meet throughput guarantees.
+The control plane would then be responsible for combining, downsampling, and distributing these improved policies between remaining agents.
+This can be taken further still, using policy deltas or execution traces to enable out-of-path transfer learning for more complex function approximators such as neural networks.
 
-?? find something meaningful to put here.
+\section{Evaluation}\label{sec:evaluation}
+We outline our performance evaluation of \approachshort.
 
 \subsection{Experimental Setup}
 Evaluation of \approachshort{} was performed on server blades hosting a single Netronome Agilio LX 1x100GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
-These ran Ubuntu 18.04.5 LTS (4.15.0-140-generic x86\_64) on Intel Xeon Bronze 3204 CPUs (\SI{1.9}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
+These mid-tier servers (\emph{MidServer}) ran Ubuntu 18.04.5 LTS (4.15.0-140-generic x86\_64) on Intel Xeon Bronze 3204 CPUs ($6\times$\SI{1.9}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
+We additionally use a more powerful consumer-grade machine (\emph{Collector}) for estimating host performance when offloaded to a network function, running Ubuntu 18.04.4 LTS (4.15.0-96-generic) on Intel Core i7-6700K ($4\times$\SI{4.2}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
 Control programs were built using rustc 1.51.0.
 We run \approachshort{} on an island with \num{4} MEs of the NFP-6480 for a total of \num{32} hardware threads.
 This is the maximum number of MEs on a single island which is not in use by an existing P4 pipeline.
@@ -746,6 +774,9 @@ Using the maximum policy size defined above, we investigate how the memory requi
 %\fakepara{The impact of bit depth}
 %We further investigate how bit depth affects the accuracy of policy by varying the number of bits used to represent the mantissa of action values and input state.
 
+\fakepara{Deployability}
+By timing policy installation, compile times and other metrics, we describe the runtime costs needed for an administrator to repurpose an installed agent in a live network.
+
 \subsection{Results and Discussion}\label{sec:results}
 \fakepara{Raw inference and learning performance}
 \Cref{tab:lat-tput} shows that \Coopfw{} \approachshort{} achieves sub-\SI{50}{\micro\second} median latency, with \nth{99} percentile latencies less than \SI{1}{\micro\second} worse.
@@ -761,9 +792,16 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 ?? NOT GOT OTHERS TO COMPARE AGAINST YET, JUST SELF. NEED TO COMPARE AGAINST SOMEONE TO SHOW SUPREMACY
 
 \begin{table}
-	\caption{Throughput and per-item compute time for an RL agent with/without policy learning. State$\rightarrow$action latency equals the offline completion cost. TODO: compare to host machine? Put completion times first? Put multi first?\label{tab:lat-tput}}
+	\caption{Latencies. On-device execution is crucial in not only lowering latencies, but in reducing tail latencies. Lower is better.\label{tab:lats}}
 	\resizebox{\linewidth}{!}{
-		\expandableinput ../tables/build/latency-tput-temp
+		\expandableinput ../tables/build/latency
+	}
+\end{table}
+
+\begin{table}
+	\caption{Puts! Designs which do not take advantage..... Higher is better.\label{tab:tputs}}
+	\resizebox{\linewidth}{!}{
+		\expandableinput ../tables/build/tput
 	}
 \end{table}
 
@@ -855,7 +893,7 @@ Thread local storage in CLS for compute/register spilling scales with the number
 Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-island CLS, due to the extra resources needed to maintain, operate on, and cache tile lists for optimal processing.
 
 \begin{table}
-\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources} ??NEEDS REWORKED}
+\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources}}
 \resizebox{\linewidth}{!}{
 \begin{tabular}{
 		@{}c
@@ -886,6 +924,12 @@ Notably, \emph{\Indfw{}} imposes far heavier requirements on the limited per-isl
 %	\includegraphics{../plots/build/marl-quant/accuracy-binary}
 %	\caption{Normalised accuracy of a converted, pre-trained floating-point tile-coded policy after conversion to $32Qn$ fixed-point.}\label{fig:quant-acc}
 %\end{figure}
+
+\fakepara{Deployability}
+?? Config times scale with work complexity in \Indfw, confirming the $\mathcal{O}{\left(n\right)}$ complexity of the allocator (??).
+?? Changing from online to offline has this cost.
+
+?? Anything else worth FW install time fairly constant (i.e., time to swap between bit-depths).
 
 \section{Related Work}
 
