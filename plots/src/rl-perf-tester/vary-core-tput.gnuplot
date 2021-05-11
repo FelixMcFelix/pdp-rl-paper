@@ -1,8 +1,8 @@
-load "gnuplot-palettes/gnbu.pal"
+load "gnuplot-palettes/bugn.pal"
 set datafile separator ","
 
 set xlabel "Worker threads allocated"
-set ylabel "State-Action Latency (\\si{\\micro\\second})"
+set ylabel "Offline Throughput (k actions/s)"
 
 set key textcolor rgb "black"
 set tics textcolor rgb "black"
@@ -40,5 +40,7 @@ myTitle(i) = sprintf("\\emph{\\Coopfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 singleTitle(i) = sprintf("\\emph{\\Indfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 file(i) = sprintf("../results/rl-perf-tester/vary-core-ct/%d/SUMMARY.balanced.ComputeAndWriteout.csv", BitDepths[i + 1])
 
-plot for [i=0:2] file(i) u 1:(column(4)/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1], \
-	for [i=0:2] Singles[i + 1] ls LineStyles[i + 4] dt DashStyles[i + 4] title singleTitle(i)
+tput(x, i) = x * (1e6 / Singles[i + 1])
+
+plot for [i=0:2] file(i) u 1:(1e6/(column(4)/1.2e3)) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1], \
+	for [i=0:2] tput(x, i) ls LineStyles[i + 4] dt DashStyles[i + 4] title singleTitle(i)

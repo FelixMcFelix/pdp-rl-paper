@@ -8,7 +8,7 @@ set key textcolor rgb "black"
 set tics textcolor rgb "black"
 set label textcolor rgb "black"
 
-set key samplen 2 spacing 1 width -3 above
+set key samplen 2 spacing 1 width -2 above
 
 array BitDepths[3]
 BitDepths[1] = 8
@@ -36,8 +36,8 @@ Singles[1] = 240.173
 Singles[2] = 242.040
 Singles[3] = 230.707
 
-myTitle(i) = sprintf("Parallel (%d-bit)", BitDepths[i + 1])
-singleTitle(i) = sprintf("Single (%d-bit)", BitDepths[i + 1])
+myTitle(i) = sprintf("\\emph{\\Coopfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
+singleTitle(i) = sprintf("\\emph{\\Indfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 file(i) = sprintf("../results/rl-perf-tester/vary-core-ct/%d/SUMMARY.balanced.UpdateAll.csv", BitDepths[i + 1])
 
 plot for [i=0:2] file(i) u 1:(column(4)/1.2e3) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1], \
