@@ -40,4 +40,4 @@ myTitle(i) = sprintf("\\emph{\\Coopfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 singleTitle(i) = sprintf("\\emph{\\Indfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 file(i) = sprintf("../results/rl-perf-tester/vary-core-ct/%d/SUMMARY.balanced.UpdateAll.csv", BitDepths[i + 1])
 
-plot for [i=0:2] file(i) u 1:((1e6/(column(4)/1.2e3))/$1) every ::1 with linespoints title myTitle(i) ls LineStyles[i + 1] dt DashStyles[i + 1]
+plot for [i=0:2] file(i) u 1:((1e6/(column(4)/1.2e3))/$1) every ::1 with linespoints title myTitle(i) ls LineStyles[(2*i) + 2] dt DashStyles[i + 1]
