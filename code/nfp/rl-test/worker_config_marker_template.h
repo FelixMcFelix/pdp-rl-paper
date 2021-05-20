@@ -38,4 +38,6 @@
 
 #define RL_DEBUG_ASSERTS
 
+#define ENABLE_STRESS_TEST
+
 #endif /* !_WORK_CONFIG_MARKER_H_ */

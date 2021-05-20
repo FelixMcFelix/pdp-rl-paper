@@ -47,6 +47,8 @@ __declspec(export, emem) struct rl_work_item test_work;
 volatile __declspec(export, emem) uint32_t config_cycle_estimate = 0;
 volatile __declspec(export, emem) uint32_t full_config_cycle_estimate = 0;
 
+volatile __declspec(export, emem) uint32_t begin_stress = 0;
+
 // Testing out CAM table creation here.
 
 /*#define SA_CAM_BUCKETS 0x40000
@@ -635,6 +637,7 @@ main() {
 				state_packet_delegate(&cfg, &workq_read_register, r_out_addr, workq_read_register.parsed_fields.state.dim_count, total_num_workers);
 				#endif /* _RL_CORE_OLD_POLICY_WORK */
 
+				#ifndef ENABLE_STRESS_TEST
 				// TEMP: this is here to handle actions put on the line.
 				if (!cfg.disable_action_writeout) {
 					__declspec(read_reg) struct rl_answer_item workq_dump;
@@ -647,6 +650,8 @@ main() {
 					// sleep(1000);
 					rl_pkt_return_slot(&rl_actions, workq_dump.state);
 				}
+				#endif /* !ENABLE_STRESS_TEST */
+				
 				break;
 			case PIF_PARREP_TYPE_in_reward:
 				pt._pad = workq_read_register.parsed_fields.reward.measured_value;
@@ -669,6 +674,8 @@ main() {
 
 		if (new_cfg) {
 			if (has_tiling && has_setup) {
+				__xrw uint32_t cfg_done_xfer = 1;
+
 				to_do.type = WORK_NEW_CONFIG;
 				to_do.body.cfg = &cfg;
 				// to_do.body.cfg = (__addr40 _declspec(emem) struct rl_config *) (((uint64_t)&cfg) << 32 | ((uint64_t)&cfg) >> 32);
@@ -721,12 +728,13 @@ main() {
 				for (i=0; i<RL_MAX_TILE_HITS; ++i) {
 					vis_indices[i] = indices[i];
 				}
+
+				mem_test_set((void*)&cfg_done_xfer, (__addr40 void*)&(begin_stress), sizeof(uint32_t));
 			}
 			t2 = local_csr_read(local_csr_timestamp_low);
 
 			config_cycle_estimate = t1 - t0;
 			full_config_cycle_estimate = t2 - t0;
-
 		}
 
 		#endif /* !_RL_WORKER_DISABLED */

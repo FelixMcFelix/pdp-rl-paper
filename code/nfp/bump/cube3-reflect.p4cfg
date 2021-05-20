@@ -1,0 +1,144 @@
+{
+    "tables": {
+        "ingress::forward": {
+            "rules": [
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p0"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "0 to 0", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p0"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p1"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "1 to 1", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p1"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p2"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "2 to 2", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p2"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p3"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "3 to 3", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p3"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p4"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "4 to 4", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p4"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p8"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "8 to 8", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p8"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p12"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "12 to 12", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p12"
+                        }
+                    }
+                }, 
+                {
+                    "action": {
+                        "data": {
+                            "port": {
+                                "value": "p16"
+                            }
+                        }, 
+                        "type": "ingress::set_egress_spec"
+                    }, 
+                    "name": "16 to 16", 
+                    "match": {
+                        "standard_metadata.ingress_port": {
+                            "value": "p16"
+                        }
+                    }
+                }
+            ]
+        }, 
+        "ingress::macswap": {
+            "default_rule": {
+                "action": {
+                    "type": "ingress::swap_mac_addrs"
+                }, 
+                "name": "swapall"
+            }
+        }
+    }
+}
