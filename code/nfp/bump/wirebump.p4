@@ -29,8 +29,10 @@ control ingress(inout headers_t headers,
     inout metadata_t meta,
     inout standard_metadata_t standard_metadata)
 {
+    direct_counter(CounterType.packets_and_bytes) forward_ct;
     action set_egress_spec(bit<16> port) {
         standard_metadata.egress_spec = port;
+        forward_ct.count();
     }
     action swap_mac_addrs() {
         bit<48> tmp = headers.ethernet.eth_dst;
@@ -46,6 +48,7 @@ control ingress(inout headers_t headers,
         }
         size = 1024;
         default_action = NoAction();
+        counters = forward_ct;
     }
     table macswap {
         key = { standard_metadata.ingress_port: exact; }
