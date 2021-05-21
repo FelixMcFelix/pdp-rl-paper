@@ -203,6 +203,8 @@
 ?? In-NIC execution allows clever use of resources to bring 99.99th percentile action compute latency  from \SI{725}{\micro\second} to \SI{44}{\micro\second} (1.5 orders of magnitude!) in real-world policies for DDoS detection/prevention control.
 
 ?? We are the first to bring fully online RL to the dataplane!
+
+?? Emphasise here and elsewhere: scales with core count, but with some designs (\Indfw) achieve better latency and per-core throughput with just one core/worker!
 \end{abstract}
 
 \begin{CCSXML}
@@ -276,6 +278,9 @@ Crucially, we train our focus on devices with a low port density, such as SmartN
 The designs of these devices make it reasonable to move policy processing \emph{outside of the packet pipeline}; SmartNICs expose many additional programmable cores, and NetFPGAs allow for the synthesis of independent functional units.
 The main benefit of doing so is that core control logic can be moved as close to the device as possible \emph{without impacting packet processing rates}.
 
+?? TODO: trim down. Too ``thesis-y'', rather than ``conference-y''.
+?? Save this elsewhere 'til then?
+
 \subsection{Programmable hardware capabilities}
 The introduction of the P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} language has led to explosive growth in the research community surrounding in-network computation and offloading.
 Providing a single language which is compatible with network devices of many form factors has been instrumental in the development of novel fine-grained traffic measurement approaches~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
@@ -288,12 +293,14 @@ Many compatible devices have legacies long predating these developments.
 For instance, many-core SOC-based Netronome SmartNIC~\parencite{netronome-smartnic}, and NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14} NICs allow virtually arbitrary programs to be specified and executed.
 The first of these compiles from P4$\rightarrow$Micro-C$\rightarrow$bytecode (with Micro-C externs), while the latter can combine the P4$\rightarrow$NetFPGA toolchain~\parencite{DBLP:conf/fpga/IbanezBMZ19} with arbitrary circuit externs---both exposing further device capabilities beyond the specification.
 This pattern extends to other SmartNICs, such as NVIDIA BlueField~\parencite{nvidia-bluefield} and Xilinx Alveo~\parencite{xilinx-alveo} devices.
-Even Intel Tofino~\parencite{barefoot-intel} ASICs, which architecturally mirror the PSA, expose additional matching capabilities and ALU functions via the Tofino Native Architecture.
+
+Currently, low port density devices like the above are most likely to have specific general-purpose compute, as they are designed to suit high-performance offloading and middlebox development.
+Even Intel Tofino~\parencite{barefoot-intel} ASICs, which architecturally mirror the PSA, expose additional matching capabilities and \emph{arithmetic logic unit} (ALU) functions via the Tofino Native Architecture.
 Regardless, floating-point operations key to ML/RL workloads are very rarely supported outside of deep learning accelerators (which, in turn, lack packet switching functionality).
 Moreover, the limited memory/block RAM and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
 
 \begin{insight}
-	Low-port density programmable network devices often have spare resources and extra capabilities beyond the PSA specification which can aid asynchronous, local compute.
+	Current low-port density programmable network devices often have spare resources and extra capabilities beyond the PSA specification which can aid asynchronous, local compute.
 \end{insight}
 
 \fakepara{To-be-organised}
@@ -360,6 +367,7 @@ Achieving this often requires that state measurements are combined or coalesced~
 		\end{tikzpicture}}
 		\caption{Theory: state measurement, action computation, and learning are zero-cost.}
 	\end{subfigure}
+	\hspace{0.05\linewidth}
 	\begin{subfigure}{0.45\linewidth}
 		\resizebox{0.75\linewidth}{!}{
 			\centering
@@ -387,7 +395,7 @@ Achieving this often requires that state measurements are combined or coalesced~
 
 %?? Find some cites citing the relevance of this problem wrt. self-driving cars, robotics, etc.
 
-The solution we propose is to make use of the recent wave of programmable network devices to \emph{bring reinforcement learning to the data plane}---placing state measurement ($t_1$), low-cost decision-making processes ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
+The solution we propose is to make use of the recent wave of programmable network devices to \emph{bring reinforcement learning to the data plane}---referring again to \cref{fig:state-slip}, we would place place state measurement ($t_1$), low-cost decision-making processes ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
 In networks, actions are most likely to be installed on backbone switches, bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts.
 Ideally, these functions which comprise an RL agent would all be collocated on the same chip or device, but this is easier said than done. 
 Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
@@ -409,7 +417,7 @@ Although there has been a vested interest in efficiently \emph{executing} more c
 We then return again to what classical RL methods can offer us; in particular, the simple linear function approximation given by \emph{tile coding} \cite[pp.\ \numrange{217}{221}]{RL2E}.
 The idea is simple: a policy is represented by sets of tiles, each covering one or more dimensions of the input state with several overlapping tilings (offset stepwise to provide generalisation).
 A state vector produces a single `hit' in each tiling, which provides both the set of action preference lists to sum during inference \emph{and} the set of tiles to update at the next timestep.
-Crucially, there are no data dependencies between calculating any tile hits for an input state vector.
+Crucially, this internal representation ensures that there are no data dependencies between any tile hit calculations for an input state vector.
 This has important benefits for parallelisation.
 To select an action, we can produce a task for each tiling---retrieving the list of action values contributed by the tile activated by the input state.
 An aggregate step sums up all action preference lists, and the action with the highest value is then selected.
@@ -465,6 +473,7 @@ Finally, the choice of single-step algorithms (as opposed to $n$-step or Monte C
 \section{Design and Implementation}\label{sec:design}
 Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{} (\approach)}.
 At a high level, \approachshort{} is designed to use the auxiliary compute exposed by general SmartNIC devices to offer low-latency online learning, scaling according to available on-chip resources at build time.
+As the allocation of cores/chip area is set ahead of time by a framework or system administrator, \approachshort{} (\Coopfw) agents enumerate themselves at runtime initialisation.
 
 \begin{figure*}
 	\centering
@@ -491,7 +500,7 @@ Moving beyond the Netronome platform, we describe how our architectural choices 
 \approachshort{} is agnostic to the meaning of state vectors it receives as inputs and the actions it produces, which are employed by other functional units or the dataplane.
 However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
 
-\approachshort{} runs on one more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
+\approachshort{} runs on one or more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
 As an example, this might be to map flow state and performance measurements into a queue priority for future packets from that flow, or to compute and apply a rate limit to preserve quality of service.
 These dedicated cores are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
 Combined with reward measurements, this policy can then be updated or trained from scratch entirely on the NIC, acting as a fully online RL agent.
@@ -521,6 +530,8 @@ The new state- or tiles-action pair is then written into storage.
 
 ?? Probably mention the idea of including "state keys" and "reward keys" in the input state vector.
 
+?? Move a bunch of this to the NFP basics chapter.
+
 In the NFP architecture we use, physical cores (MEs) each have 8 hardware threads (contexts): all contexts on an ME share the same program and employ zero-cost context switches triggered by I/O.
 Each core then provides 8 worker threads, though in the \indfw{} case one must be dedicated to monitoring work acknowledgements.
 Two main firmware models govern how the computation-intensive parts of these tasks (tile-coding, action preference list construction, policy updates) are carried out:
@@ -537,6 +548,8 @@ Equally, lower latency affords an RL agent finer-grained control and learning of
 We found that, paradoxically, it was more efficient in the \Coopfw{} case \emph{to do more work} by having each worker recompute its tile subset from a stored state.
 It transpired that cacheing this data placed a larger \texttt{memcpy} in the serial section, whose size did not scale at all with bit depth.
 
+?? While we \emph{could} use bitshifts in tile coding, we don't due to the strict limits it places upon policy design.
+
 \subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
 \approachshort{} uses \emph{multiple-producer/multiple-consumer} (MPMC) messaging channels to communicate with other computational elements; be they P4 programs on the packet path, or additional on-chip analysis and control modules.
 Through these channels the system \emph{pushes} state vectors, reward measures, and control/setup packets as its inputs, and \emph{pulls} a stream of state-action pairs as its outputs.
@@ -550,10 +563,12 @@ We found that this costs a median \SIrange{126}{140}{\nano\second} communication
 
 \subsection{Intra-Agent Communication}
 Even with embarrassingly parallel problems, optimising for latency requires meticulous care in how work is passed out and aggregated.
-This is truer still when moving from the moderately fine-grained, efficient control of classical RL methods ($\sim$\SI{2}{\milli\second}) to its logical limit (tens of \si{\micro\second}).
+This is truer still when moving from the moderately fine-grained, efficient control of classical RL methods ($\sim$\SI{1}{\milli\second}) to its logical limit (tens of \si{\micro\second}).
 Ordinarily, the serialisation/marshalling of requests, responses, and safe shared data access can incur significant extra overheads.
 On-chip execution and the nature of action preference computation allow us to use lockless atomic aggregation, removing the overheads of explicit messaging/packetisation.
 Moreover, physically adjacent functional units may have special-purpose shared registers or share a small fast cache to accelerate communication further.
+
+?? Move much of the below to the NFP basics section?
 
 Our implementation exploits the locality of threads, cores, and their parent islands in the NFP architecture.
 Groups of \numrange{4}{12} cores (MEs) in this platform are termed \emph{islands}, with shared access to low-latency scratch memory and the adjacent registers of neighbouring MEs.
@@ -581,8 +596,9 @@ As a consequence, tiling space requirements scale exponentially with dimension c
 As a result, tilings are split across memory regions, giving different access and compute costs to different tasks---ranging over CLS, CTM and EMEM in increasing latency.
 
 We use a simple first-fit work placement algorithm run on the NFP, placing the largest work item into the least loaded thread of the least loaded core.
-The cost of any individual work item (according to its dimension count and memory location) was estimated offlin.
+The cost of any individual work item (according to its dimension count and memory location) was estimated offline.
 This work allocation and any cached per-work-item values are recomputed when any configuration is installed or changed.
+Naturally, for $n$ tasks and $m$ threads this is $\mathcal{O}{\left(n\log{m}\right)}$: two find/update min operations into binary heaps per task, storing $m/8$ and $\le8$ costs respectively.
 
 \subsection{Variable Quantisation Bit Depth}
 At compile-time, \approachshort{} can be configured to use \SIlist[list-final-separator = { \translate{or} }]{32;16;8}{\bit} values in input states and its internal policies.
@@ -591,6 +607,9 @@ Through the lens of computational efficiency, reduced bit depth allows action pr
 We had investigated bit-stuffing several such values into a single word for our atomic writeback mechanism (as the platform offers both \SIlist{32;64
 }{\bit} atomic addition).
 This is analogous to SIMD---through clever use of padding bits---but we found that manipulating tiles into the correct format added \SI{10}{\percent} extra overhead.
+
+?? Need to mention that this is a theoretical improvement; the results are basically opposite to this.
+?? Main benefit is then, I guess, the redux in storage requirements?
 
 %Potential: low-latency train for some specific points, and high throughput for others? Think on the exact note I took...
 %
@@ -608,6 +627,8 @@ Even through externs, directly adding new rules is neither feasible nor safe.
 We instead suggest on NFP chips that externs or datapath stages which apply actions to packet processing should maintain a small local store of state-action pairs, and periodically send these back to the controller for batch rule installation.
 This ensures that the vast majority of installed rules enjoy accelerated performance, while preventing rule installation delay on the newest decisions.
 Platforms such as Intel Tofino greatly simplify this, with Tofino Native Architecture intrinsics such as \emph{Action Profiles/Selects} allowing a P4 action to be chosen based on a register value (i.e., an RL action).
+
+?? Achieving very tight latency bounds on \Coopfw{} requires quite a decent core allocation. (i.e., need at least 11 workers to make a gain in online t'put, 5 cores needed to win in throughput).
 
 \subsection{Targeting other device classes}
 While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
@@ -725,6 +746,8 @@ This, however, would introduce new issues surrounding concurrent accesses, work 
 To show the general applicability and use of \approachshort{}, we propose two ideal integrations which would benefit most from in-NIC reinforcement learning; online DDoS attack mitigation (\cref{sec:integ-1}), and ?? OTHER THING (\cref{sec:integ-2}).
 We support these using other state-of-the-art P4/PDP developments, and discuss how best to balance the concerns of online training with throughput in widespread deployment.
 
+?? Will these look better \emph{after} the results?
+
 \subsection{In-Network DDoS Defence}\label{sec:integ-1}
 Classical reinforcement learning has seen recent use in real-time, adaptive DDoS mitigation~\parencite{DBLP:journals/tnsm/SimpsonRP20}.
 \Citeauthor{DBLP:journals/tnsm/SimpsonRP20}'s \emph{Guarded} agent design uses a mixture of global network state and local, per-flow state to monitor how flows respond to bandwidth changes and packet drop---applying the observations made by SPIFFY~\parencite{DBLP:conf/ndss/KangGS16} with more allowance for congestion-unaware protocols.
@@ -737,6 +760,8 @@ Both traffic statistics collection \emph{and} data-driven learning must be execu
 Unless running these stages in a dedicated pipeline (adding further processing latency), resource contention between these processes will further impact tail latencies.
 Naturally, this requires high-performance hardware to be stacked at network egress points, potentially beyond reasonable space, power, or ventilation constraints.
 The solution to implement and improve upon this work using \approachshort{} is to place its RL agents on SmartNICs at AS edge nodes---a bump-in-the-wire deployment.
+
+?? Any way to move some of this sooner? I.e., this is ``why move DDoS prevention here'', Stefanos suggested backporting some of this to justify ``why \emph{RL} in-NIC''?
 
 \fakepara{Inputs}
 To collate the required inputs and state, we then examine the recent innovations of the community.
@@ -849,14 +874,14 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 \begin{table}
 	\caption{Latencies and computation times for \approachshort{} versus commodity hardware hosts. On-device execution is crucial in not only lowering latencies, but in reducing tail latencies. Lower is better, with the best marked \emph{in bold}.\label{tab:lats}}
 	\resizebox{\linewidth}{!}{
-		\expandableinput ../tables/build/latency
+		\expandableinput ../tables/build/latency-only32
 	}
 \end{table}
 
 \begin{table}
 	\caption{Action and update throughputs for \approachshort{} versus commodity hardware hosts. Most designs cannot scale online performance with additional cores. Higher is better, with the best marked \emph{in bold}.\label{tab:tputs}}
 	\resizebox{\linewidth}{!}{
-		\expandableinput ../tables/build/tput
+		\expandableinput ../tables/build/tput-only32
 	}
 \end{table}
 
@@ -922,6 +947,12 @@ We observed that ...
 	\end{subfigure}
 	\caption{Cumulative state-action latency plots for \approachshort{} and host-based execution.}
 \end{figure}
+
+?? Urgently describe and explain why lower bitdepth gives *worse* metrics.
+?? Mainly, register width.
+?? We also do stuff to batch read as many action vals as possible!! And yet this happens!!
+?? Also explain that Integer math does worse due to it falling back to BLAS in numpy (i.e., a float optimiser).
+?? We might have good int results if I do it in Rust?
 
 \fakepara{Work allocation}
 \Cref{fig:work-alloc-32} shows that our heuristic first-fit allocator (\emph{Balanced}) is key in achieving consistent sub-\SIlist{50;100}{\micro\second} latencies/processing times respectively.
@@ -1040,6 +1071,10 @@ We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{
 
 ?? Future work: allow scaling over multiple islands.
 ?? Future work: NetFPGA it.
+
+?? Future directions for community: want to see more general-purpose async compute on-chip! Larger form-factors!
+
+?? Are there other ``old ways of doing things'' worth looking at?
 
 \begin{acks}
 	The authors would like to thank Rhys Simpson for his comments and discussions on the soundness of SIMD-like optimisations.

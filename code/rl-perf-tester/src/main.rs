@@ -224,7 +224,8 @@ fn run_core<'a>(
 		// TODO: make folder for install times.
 		// TODO: make files with current date in 'em.
 		let out_dir = format!("{}/setup-times/", OUTPUT_DIR);
-		let time_str = chrono::offset::Utc::now().to_rfc3339();
+		let time = chrono::offset::Utc::now();
+		let time_str = time.format("%FT %H %M %S");
 
 		let _ = std::fs::create_dir_all(&out_dir);
 
