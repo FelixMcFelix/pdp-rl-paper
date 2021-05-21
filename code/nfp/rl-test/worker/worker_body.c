@@ -225,6 +225,8 @@ __intrinsic void action_preferences_with_cfg_single(
 			loc++;
 			loc_base = cfg->last_tier_tile[loc];
 		}
+	} else {
+		__critical_path(90);
 	}
 
 	// WORKER_BARGAIN_BUCKET_SIMD
@@ -252,6 +254,8 @@ __intrinsic void action_preferences_with_cfg_single(
 		case TILE_LOCATION_T3:
 			base = tile_index - cfg->last_tier_tile[loc-1];
 			break;
+		default:
+			__impossible_path();
 	}
 
 	while (j < act_count) {
@@ -384,10 +388,13 @@ __intrinsic void update_action_preference_with_cfg_single(
 
 	if (loc > TILE_LOCATION_T3) {
 		loc = TILE_LOCATION_T1;
-		while (target >= loc_base) {
+		loc_base = cfg->last_tier_tile[loc];
+		while (tile_index >= loc_base) {
 			loc++;
 			loc_base = cfg->last_tier_tile[loc];
 		}
+	} else {
+		__critical_path(90);
 	}
 
 	// find location of tier in memory.
@@ -404,6 +411,8 @@ __intrinsic void update_action_preference_with_cfg_single(
 			base = target - cfg->last_tier_tile[loc-1];
 			t3_tiles[base + action] += delta;
 			break;
+		default:
+			__impossible_path();
 	}
 }
 
@@ -483,11 +492,10 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 	uint8_t allocs_with_spill = 0;
 	uint8_t has_bias = 0;
 	uint8_t iter = 0;
-	uint16_t work_idxes[RL_MAX_TILE_HITS/2] = {0};
-	uint32_t tile_hits[RL_MAX_TILE_HITS/2] = {0};
+	uint16_t work_idxes[RL_MAX_TILE_HITS] = {0};
 
-	uint16_t tiling_set_idxes[RL_MAX_TILE_HITS/2] = {0};
-	uint16_t tiling_idxes[RL_MAX_TILE_HITS/2] = {0};
+	uint16_t tiling_set_idxes[RL_MAX_PRECACHE] = {0};
+	uint16_t tiling_idxes[RL_MAX_PRECACHE] = {0};
 
 	uint32_t last_work_t;
 	uint32_t b_t0;
@@ -627,18 +635,34 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
-					enum tile_location loc = (iter < RL_MAX_PRECACHE)
-						? precache_locs[iter]
-						: TILE_LOCATION_T3 + 1;
 					//uint32_t t0 = local_csr_read(local_csr_timestamp_low);
 					//uint32_t t1;
-					uint32_t hit_tile = tile_code_with_cfg_single(
+					enum tile_location loc;
+					uint16_t ts_idx, t_idx;
+					uint32_t hit_tile;
+
+					if (iter < RL_MAX_PRECACHE) {
+						__critical_path(100);
+						loc = precache_locs[iter];
+						ts_idx = tiling_set_idxes[iter];
+						t_idx = tiling_idxes[iter];
+					} else {
+						loc = TILE_LOCATION_T3 + 1;
+						ts_idx = has_bias
+							? (((work_idxes[iter] - 1) / cfg->tilings_per_set) + 1)
+							: (work_idxes[iter] / cfg->tilings_per_set);
+						t_idx = work_idxes[iter] - (has_bias
+							? 1 + ((ts_idx-1) * cfg->tilings_per_set)
+							: ts_idx * cfg->tilings_per_set);
+					}
+
+					hit_tile = tile_code_with_cfg_single(
 						local_ctx_work.body.state,
 						cfg,
 						has_bias,
 						work_idxes[iter],
-						tiling_set_idxes[iter],
-						tiling_idxes[iter]
+						ts_idx,
+						t_idx
 					);
 
 					#ifdef RL_DEBUG_ASSERTS
@@ -682,6 +706,7 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				);
 
 				for(iter=0; iter<my_work_alloc_size && iter<RL_MAX_PRECACHE; iter++) {
+				// for(iter=0; iter<my_work_alloc_size; iter++) {
 					enum tile_location loc = TILE_LOCATION_T1;
 					uint16_t tiling_set_idx = has_bias
 						? (((work_idxes[iter] - 1) / cfg->tilings_per_set) + 1)
@@ -705,17 +730,32 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				__critical_path(90);
 				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
-					enum tile_location loc = (iter < RL_MAX_PRECACHE)
-						? precache_locs[iter]
-						: TILE_LOCATION_T3 + 1;
+					enum tile_location loc;
+					uint16_t ts_idx, t_idx;
+					uint32_t hit_tile;
 
-					uint32_t hit_tile = tile_code_with_cfg_single(
+					if (iter < RL_MAX_PRECACHE) {
+						__critical_path(90);
+						loc = precache_locs[iter];
+						ts_idx = tiling_set_idxes[iter];
+						t_idx = tiling_idxes[iter];
+					} else {
+						loc = TILE_LOCATION_T3 + 1;
+						ts_idx = has_bias
+							? (((work_idxes[iter] - 1) / cfg->tilings_per_set) + 1)
+							: (work_idxes[iter] / cfg->tilings_per_set);
+						t_idx = work_idxes[iter] - (has_bias
+							? 1 + ((ts_idx-1) * cfg->tilings_per_set)
+							: ts_idx * cfg->tilings_per_set);
+					}
+
+					hit_tile = tile_code_with_cfg_single(
 						local_ctx_work.body.state,
 						cfg,
 						has_bias,
 						work_idxes[iter],
-						tiling_set_idxes[iter],
-						tiling_idxes[iter]
+						ts_idx,
+						t_idx
 					);
 					
 					update_action_preference_with_cfg_single(

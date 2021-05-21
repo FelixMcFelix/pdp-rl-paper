@@ -651,7 +651,7 @@ main() {
 					rl_pkt_return_slot(&rl_actions, workq_dump.state);
 				}
 				#endif /* !ENABLE_STRESS_TEST */
-				
+
 				break;
 			case PIF_PARREP_TYPE_in_reward:
 				pt._pad = workq_read_register.parsed_fields.reward.measured_value;
@@ -736,6 +736,12 @@ main() {
 			config_cycle_estimate = t1 - t0;
 			full_config_cycle_estimate = t2 - t0;
 		}
+
+		#else
+
+		t2 = t1;
+		config_cycle_estimate = t1 - t0;
+		full_config_cycle_estimate = t2 - t0;
 
 		#endif /* !_RL_WORKER_DISABLED */
 	}
