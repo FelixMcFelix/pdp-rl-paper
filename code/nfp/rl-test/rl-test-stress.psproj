@@ -1156,7 +1156,7 @@
                     "tool": "compiler"
                 }, 
                 ".\\out\\rl_stressor.list\\rl_stressor.list": {
-                    "build_required": true, 
+                    "build_required": false, 
                     "input_files": {
                         "c_source_files": [
                             "$(SDKDIR)\\components\\flowenv\\me\\lib\\lu\\liblu.c", 
@@ -1184,6 +1184,7 @@
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_mem_workq.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_nbi.c", 
                             "$(SDKDIR)\\components\\standardlibrary\\microc\\src\\nfp_override.c", 
+                            ".\\rl-pkt-store.c", 
                             ".\\stress.c"
                         ], 
                         "ext_obj_files": [], 
@@ -1427,7 +1428,7 @@
                     "target": "list", 
                     "tool": "compiler"
                 }, 
-                ".\\rl-test": {
+                ".\\rl-test-stress.nffw": {
                     "build_required": false, 
                     "list_assignments": {
                         "i12.me0": [
