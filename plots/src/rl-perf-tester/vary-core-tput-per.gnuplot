@@ -32,9 +32,9 @@ DashStyles[5] = 5
 DashStyles[6] = 6
 
 array Singles[3]
-Singles[1] = 193.413
-Singles[2] = 195.320
-Singles[3] = 185.040
+Singles[1] = 194.520
+Singles[2] = 193.427
+Singles[3] = 185.133
 
 myTitle(i) = sprintf("\\emph{\\Coopfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 singleTitle(i) = sprintf("\\emph{\\Indfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
