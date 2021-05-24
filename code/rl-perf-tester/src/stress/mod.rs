@@ -1,4 +1,5 @@
+mod client;
 mod host;
 pub mod protocol;
 
-pub use self::host::*;
+pub use self::{client::*, host::*};

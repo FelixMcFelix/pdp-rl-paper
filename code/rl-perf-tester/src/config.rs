@@ -17,3 +17,14 @@ pub struct Config<'a> {
 pub struct HostConfig {
 	pub rtecli_path: String,
 }
+
+pub struct StressConfig<'a> {
+	pub transport_cfg: TransportConfig,
+	pub host_server: &'a str,
+	pub port: u16,
+	pub pci_addr: &'a str,
+	pub bind_driver: &'a str,
+	pub min_rate: u32,
+	pub max_rate: u32,
+	pub num_trials: u32,
+}

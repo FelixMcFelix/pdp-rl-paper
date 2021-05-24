@@ -6,6 +6,7 @@ use rl_perf_tester::{
 	ExperimentFile,
 	HostConfig,
 	InstallTimes,
+	StressConfig,
 	OUTPUT_DIR,
 	RTE_PATH,
 	RTSYM_PATH,
@@ -148,21 +149,116 @@ fn main() -> Result<(), Box<dyn Error>> {
 						.takes_value(true)
 						.default_value("3188"),
 				)
-				.arg(
-					Arg::with_name("rtecli-path")
-						.short("c")
-						.long("rtecli-path")
-						.value_name("PATH")
-						.help("Path to the executable `rtecli`.")
-						.takes_value(true)
-						.default_value(RTE_PATH),
-				)
 				.about("Host a server for firmware installation and management on the device under test.")
 		)
 		.subcommand(
 			SubCommand::with_name("stress-client")
 				.arg(Arg::with_name("blah"))
-				.about("Host a server for firmware installation and management on the device under test.")
+				.arg(
+					Arg::with_name("HOST")
+						.help("Address of the host machine for the target firmware. This must be addressable over the local control plane.")
+						.takes_value(true)
+						.min_values(1)
+						.required(true),
+				)
+				.arg(
+					Arg::with_name("ws-port")
+						.short("w")
+						.long("ws-port")
+						.value_name("PORT")
+						.help("Port number to conenct to the WebSocket server.")
+						.takes_value(true)
+						.default_value("3188"),
+				)
+				.arg(
+					Arg::with_name("src-ip")
+						.short("s")
+						.long("src-ip")
+						.value_name("IPV4")
+						.help("Source IP for control packets. Defaults to selected interface.")
+						.takes_value(true)
+						.default_value("192.168.0.4"),
+				)
+				.arg(
+					Arg::with_name("dst-ip")
+						.short("d")
+						.long("dst-ip")
+						.value_name("IPV4")
+						.help("Destination IP for control packets. Defaults to selected interface.")
+						.takes_value(true)
+						.default_value("192.168.1.141"),
+				)
+				.arg(
+					Arg::with_name("src-port")
+						.short("p")
+						.long("src-port")
+						.value_name("U16")
+						.help("Source UDP port for control packets.")
+						.takes_value(true)
+						.default_value("16767"),
+				)
+				.arg(
+					Arg::with_name("dst-port")
+						.short("P")
+						.long("dst-port")
+						.value_name("U16")
+						.help("Destination port for control packets.")
+						.takes_value(true)
+						.default_value("16768"),
+				)
+				.arg(
+					Arg::with_name("nfp-interface")
+						.short("n")
+						.long("nfp-interface")
+						.value_name("IFACE")
+						.help("Interface to send packets over. This will be different from `--interface`, and overrides it.")
+						.takes_value(true)
+						.default_value("enp179s0np1"),
+				)
+				.arg(
+					Arg::with_name("pci-addr")
+						.long("pci-addr")
+						.value_name("ADDR")
+						.help("PCI device address for DPDK-based generation.")
+						.takes_value(true)
+						.default_value("b3:00.0"),
+				)
+				.arg(
+					Arg::with_name("bind-driver")
+						.long("bind-driver")
+						.value_name("DRIVER")
+						.help("PCI device driver to use in DPDK binding.")
+						.takes_value(true)
+						.default_value("igb_uio"),
+				)
+				.arg(
+					Arg::with_name("min-rate")
+						.short("r")
+						.long("min-rate")
+						.value_name("U32")
+						.help("Minimum rate for FW selection (in k decisions/s).")
+						.takes_value(true)
+						.default_value("0"),
+				)
+				.arg(
+					Arg::with_name("max-rate")
+						.short("R")
+						.long("max-rate")
+						.value_name("U32")
+						.help("Maximum rate, inclusive, for FW selection (in k decisions/s).")
+						.takes_value(true)
+						.default_value("11"),
+				)
+				.arg(
+					Arg::with_name("num-trials")
+						.short("N")
+						.long("num-trials")
+						.value_name("U32")
+						.help("Number of repetitions to perform for each throughput test.")
+						.takes_value(true)
+						.default_value("10"),
+				)
+				.about("Stress test the main firmware (hosted on another device) using pktgen-dpdk.")
 		)
 		.get_matches();
 
@@ -203,7 +299,83 @@ fn main() -> Result<(), Box<dyn Error>> {
 			rl_perf_tester::host_stress_server(port, config);
 		},
 		("stress-client", Some(sub_m)) => {
-			unimplemented!()
+			let if_name = sub_m.value_of("nfp-interface").expect(
+				"Interface name is always set: you MUST know what it will be after fw installation.",
+			);
+			let mut t_cfg: TransportConfig = Default::default();
+
+			t_cfg.src_addr.set_ip(
+				sub_m
+					.value_of("src-ip")
+					.expect("Assign a source IP: the test framework will not assign routing info.")
+					.parse()
+					.expect("Invalid source IpV4Addr."),
+			);
+
+			if let Some(port) = sub_m.value_of("src-port") {
+				t_cfg
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
+			}
+
+			if let Some(ip) = sub_m.value_of("dst-ip") {
+				t_cfg
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+			}
+
+			if let Some(port) = sub_m.value_of("dst-port") {
+				t_cfg
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
+			}
+
+			let host_server = sub_m
+				.value_of("HOST")
+				.expect("Target host for FW installation required!");
+
+			let ws_port = sub_m
+				.value_of("ws-port")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Invalid WS source port (u16).");
+
+			let pci_addr = sub_m.value_of("pci-addr").expect("PCI address required!");
+
+			let bind_driver = sub_m
+				.value_of("bind-driver")
+				.expect("PCI bind driver required!");
+
+			let min_rate = sub_m
+				.value_of("min-rate")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Minimum request rate required!");
+
+			let max_rate = sub_m
+				.value_of("max-rate")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Maximum request rate required!");
+
+			let num_trials = sub_m
+				.value_of("num-trials")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Number of trials required!");
+
+			let config = StressConfig {
+				transport_cfg: t_cfg,
+
+				host_server,
+				port: ws_port,
+
+				pci_addr,
+				bind_driver,
+
+				min_rate,
+				max_rate,
+				num_trials,
+			};
+
+			rl_perf_tester::run_stress_test(&config, if_name)
+				.expect("Critical error running stress test client!");
 		},
 		_ => {
 			println!("{}", matches.usage());
