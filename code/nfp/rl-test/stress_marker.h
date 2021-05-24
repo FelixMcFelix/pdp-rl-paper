@@ -1,4 +1,4 @@
 #ifndef _STRESS_MARKER_H
 #define _STRESS_MARKER_H
-#define STRESS_TEST_RATE 1000
+#define STRESS_TEST_RATE 11000
 #endif /* !_STRESS_MARKER_H */

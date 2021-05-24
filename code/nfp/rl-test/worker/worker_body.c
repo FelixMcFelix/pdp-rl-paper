@@ -467,7 +467,7 @@ __intrinsic void compute_my_work_alloc(
 }
 
 __declspec(shared imem) uint64_t iter_ct = 0;
-//__declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
+// __declspec(export emem) uint32_t write_space[RL_MAX_TILE_HITS] = {0};
 /*__declspec(export emem) uint32_t other_write_space[31] = {0};
 __declspec (export emem) uint32_t otherr_write_space[31] = {0};*/
 __declspec (export emem) uint64_t nntf = 0;
@@ -635,8 +635,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 				//  tile_code_with_cfg_single(local_ctx_work.state, cfg, has_bias, id);
 				// b_t0 = local_csr_read(local_csr_timestamp_low);
 				for (iter=0; iter < my_work_alloc_size; ++iter) {
-					//uint32_t t0 = local_csr_read(local_csr_timestamp_low);
-					//uint32_t t1;
+					// uint32_t t0 = local_csr_read(local_csr_timestamp_low);
+					// uint32_t t1;
 					enum tile_location loc;
 					uint16_t ts_idx, t_idx;
 					uint32_t hit_tile;
@@ -687,8 +687,8 @@ void work(uint8_t is_master, unsigned int parent_sig) {
 
 					// place tile into slot governed by active_pref_space
 					action_preferences_with_cfg_single(hit_tile, cfg, loc);
-					//t1 = local_csr_read(local_csr_timestamp_low);
-					//write_space[work_idxes[iter]] = t1 - t0;
+					// t1 = local_csr_read(local_csr_timestamp_low);
+					// write_space[work_idxes[iter]] = t1 - t0;
 				}
 				// b_t1 = local_csr_read(local_csr_timestamp_low);
 				// other_write_space[my_id] = b_t1 - b_t0;

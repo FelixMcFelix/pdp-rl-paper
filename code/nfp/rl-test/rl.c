@@ -366,7 +366,9 @@ __intrinsic void heavy_first_work_allocation(
 	__declspec(cls) struct rl_config *cfg
 ) {
 	// FIXME: in future, this could be made to rely upon larger CT/runtime bounds.
-	// uint32_t class_costs[4] = {6, 10, 13, 19};
+	// THESE ARE THE TRUE COSTS.
+	// 5.2us, 6.2us, 9.7us, 11.0us
+	// uint32_t class_costs[4] = {5, 6, 10, 11};
 	uint32_t class_costs[4] = {5, 8, 13, 16};
 	uint32_t available_ctxs[4] = {7, 8, 8, 8};
 	uint32_t first_ctx[4] = {0, 7, 15, 23};
