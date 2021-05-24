@@ -1,7 +1,7 @@
 use super::protocol::*;
 
-use control::{GlobalConfig, Setup, SetupConfig, TilingsConfig};
 use crate::{ProtoSetup, StressConfig};
+use control::{GlobalConfig, Setup, SetupConfig, TilingsConfig};
 use std::{error::Error, io::Result as IoResult, process::Command, thread, time::Duration};
 use tungstenite::error::Error as WsError;
 
@@ -77,7 +77,8 @@ fn unbind_and_reset_nfp(config: &StressConfig) -> IoResult<()> {
 // returns true if "should retry".
 // this is by no means what we'd call a "Sane API".
 fn tell_dut_to_install_fw(config: &StressConfig, rate: u32) -> AnyRes<bool> {
-	let (mut ws, _resp) = tungstenite::connect(format!("ws://{}:{}", config.host_server, config.port))?;
+	let (mut ws, _resp) =
+		tungstenite::connect(format!("ws://{}:{}", config.host_server, config.port))?;
 
 	ws.write_message(for_ws(&ClientToHost::Fw(FwInstall {
 		name: format!("{}.0k", rate),
@@ -90,20 +91,18 @@ fn tell_dut_to_install_fw(config: &StressConfig, rate: u32) -> AnyRes<bool> {
 	while !can_exit {
 		let msg = ws.read_message();
 		match msg {
-			Ok(msg) => {
+			Ok(msg) =>
 				if let Ok(text) = msg.to_text() {
 					let decoded = serde_json::from_str::<HostToClient>(text);
 
 					match decoded {
-						Ok(HostToClient::Fail(r)) => {
-							match r {
-								FailReason::Busy => {
-									was_busy = true;
-								},
-								FailReason::Generic(e) => {
-									err_to_throw = Some(e.into());
-								},
-							}
+						Ok(HostToClient::Fail(r)) => match r {
+							FailReason::Busy => {
+								was_busy = true;
+							},
+							FailReason::Generic(e) => {
+								err_to_throw = Some(e.into());
+							},
 						},
 						Ok(HostToClient::Success) => {},
 						Ok(HostToClient::IllegalRequest) => {
@@ -111,12 +110,11 @@ fn tell_dut_to_install_fw(config: &StressConfig, rate: u32) -> AnyRes<bool> {
 						},
 						Err(e) => {
 							err_to_throw = Some(e.into());
-						}
+						},
 					}
 
 					can_exit = true;
-				}
-			},
+				},
 			Err(WsError::ConnectionClosed) | Err(WsError::AlreadyClosed) => {
 				can_exit = true;
 			},
@@ -136,8 +134,7 @@ pub fn setup_dut(config: &StressConfig, if_name: &str) -> IoResult<()> {
 	let global = &mut global_base;
 	let transport = config.transport_cfg;
 
-	let mut setup: Setup<i32> = ProtoSetup::default()
-		.instantiate(true);
+	let mut setup: Setup<i32> = ProtoSetup::default().instantiate(true);
 	let tiling = crate::generate_tiling(&setup, 28);
 	setup.limit_workers = None;
 

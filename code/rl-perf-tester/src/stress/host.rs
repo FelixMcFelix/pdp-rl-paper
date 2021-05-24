@@ -12,19 +12,22 @@ use std::{
 use tungstenite::error::Error as WsError;
 
 pub fn host_stress_server(port: u16, config: HostConfig) {
-	let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
+	let listener = TcpListener::bind(("0.0.0.0", port)).unwrap();
 	let busy = Arc::new(AtomicBool::new(false));
+	eprintln!("Now hosting on port {}", port);
 
 	let cfg = Arc::new(config);
 
 	for stream in listener.incoming() {
 		if let Ok(stream) = stream {
+			eprintln!("Client arrived from {:?}", stream.peer_addr());
 			let l_busy = busy.clone();
 			stream.set_nonblocking(true).unwrap();
 
 			let cfg = Arc::clone(&cfg);
 
 			std::thread::spawn(move || {
+				eprintln!("WS Handler spawned.");
 				let mut websocket = tungstenite::server::accept(stream).unwrap();
 
 				let was_busy = l_busy.fetch_or(true, Ordering::Relaxed);
@@ -89,6 +92,8 @@ pub fn host_stress_server(port: u16, config: HostConfig) {
 
 				l_busy.store(false, Ordering::Relaxed);
 			});
+		} else {
+			eprintln!("Issue: {:?}", stream);
 		}
 	}
 }
