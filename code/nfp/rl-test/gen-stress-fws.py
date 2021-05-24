@@ -356,7 +356,8 @@ bit_depths = [
 ]
 thread_strats = [("multi", True)]
 work_alloc_schemes = ["balanced"]
-rates = [1000 * i for i in range(12)]
+rates = [1000 * i for i in range(1, 17)]
+# rates = [1000 * i for i in range(12, 17)]
 
 def gen_tag_sets():
 	out = []
