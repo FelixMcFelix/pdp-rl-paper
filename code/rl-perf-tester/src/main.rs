@@ -153,7 +153,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 		)
 		.subcommand(
 			SubCommand::with_name("stress-client")
-				.arg(Arg::with_name("blah"))
 				.arg(
 					Arg::with_name("HOST")
 						.help("Address of the host machine for the target firmware. This must be addressable over the local control plane.")
