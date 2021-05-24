@@ -2,7 +2,13 @@ use super::protocol::*;
 
 use crate::{ProtoSetup, StressConfig};
 use control::{GlobalConfig, Setup, SetupConfig, TilingsConfig};
-use std::{error::Error, io::Result as IoResult, process::Command, thread, time::Duration};
+use std::{
+	error::Error,
+	io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult},
+	process::Command,
+	thread,
+	time::Duration,
+};
 use tungstenite::error::Error as WsError;
 
 type AnyRes<A> = Result<A, Box<dyn Error>>;
@@ -13,7 +19,7 @@ pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
 	for rate in config.min_rate..=config.max_rate {
 		eprintln!("Rate set to {}k pkts/sec!", rate);
 
-		unbind_and_reset_nfp(config)?;
+		unbind_and_reset_nfp(config, if_name)?;
 
 		eprintln!("Device {} unbound from DPDK!", config.pci_addr);
 
@@ -43,35 +49,71 @@ pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
 		}
 	}
 
-	let _ = unbind_and_reset_nfp(config);
+	let _ = unbind_and_reset_nfp(config, if_name);
 
 	Ok(())
 }
 
 fn bind_nfp(config: &StressConfig) -> IoResult<()> {
-	Command::new("dpdk-devbind.py")
-		.args(&[&format!("--bind={}", config.bind_driver), config.pci_addr])
-		.output()
-		.map(|_| ())
+	rpo(
+		Command::new("dpdk-devbind.py")
+			.args(&[&format!("--bind={}", config.bind_driver), config.pci_addr])
+			.output()?,
+		"DPDK bind",
+	)
 }
 
-fn unbind_and_reset_nfp(config: &StressConfig) -> IoResult<()> {
-	Command::new("dpdk-devbind.py")
-		.args(&["-u", config.pci_addr])
-		.output()?;
+fn unbind_and_reset_nfp(config: &StressConfig, if_name: &str) -> IoResult<()> {
+	rpo(
+		Command::new("dpdk-devbind.py")
+			.args(&["-u", config.pci_addr])
+			.output()?,
+		"DPDK unbind",
+	)?;
 
-	Command::new("rmmod").args(&["nfp"]).output()?;
+	rpo(
+		Command::new("rmmod").args(&["nfp"]).output()?,
+		"Remove NFP module",
+	)?;
 
-	Command::new("modprobe")
-		.args(&[
-			"nfp",
-			"nfp_dev_cpp=1",
-			"nfp_pf_netdev=1",
-			"fw_load_required=1",
-		])
-		.output()?;
+	rpo(
+		Command::new("modprobe")
+			.args(&[
+				"nfp",
+				"nfp_dev_cpp=1",
+				"nfp_pf_netdev=1",
+				"fw_load_required=1",
+			])
+			.output()?,
+		"Install NFP module",
+	)?;
 
-	Ok(())
+	thread::sleep(Duration::from_secs(1));
+
+	rpo(
+		Command::new("ip")
+			.args(&["link", "set", if_name, "up"])
+			.output()?,
+		"bring up interface",
+	)
+}
+
+// resultify process output
+fn rpo(input: std::process::Output, name: &str) -> IoResult<()> {
+	if !input.status.success() {
+		return Err(IoError::new(
+			IoErrorKind::InvalidInput,
+			format!(
+				"Failed to perform {} (code {:?}): {:?} {:?}",
+				name,
+				input.status.code(),
+				std::str::from_utf8(&input.stdout[..]),
+				std::str::from_utf8(&input.stderr[..]),
+			),
+		));
+	} else {
+		Ok(())
+	}
 }
 
 // returns true if "should retry".
