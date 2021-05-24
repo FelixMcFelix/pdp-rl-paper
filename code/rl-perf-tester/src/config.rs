@@ -13,3 +13,7 @@ pub struct Config<'a> {
 	pub skip_setup: bool,
 	pub skip_retiling: bool,
 }
+
+pub struct HostConfig {
+	pub rtecli_path: String,
+}

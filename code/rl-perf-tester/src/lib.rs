@@ -1,8 +1,9 @@
 mod config;
 mod constants;
 mod experiment;
+mod stress;
 
-pub use self::{config::*, constants::*, experiment::*};
+pub use self::{config::*, constants::*, experiment::*, stress::*};
 
 use control::{GlobalConfig, SendStateConfig, Setup, SetupConfig, Tile, TilingsConfig};
 use core::fmt::Debug;
@@ -12,7 +13,7 @@ use rand_chacha::ChaChaRng;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
 	fs::File,
-	io::Write,
+	io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult, Write},
 	process::Command,
 	thread,
 	time::{Duration, Instant},
@@ -124,38 +125,13 @@ fn run_experiment_with_datatype<T>(
 		}
 
 		if !config.skip_firmware_install {
-			// NOTE: I do this here to try and mitigate any randomness between sets foe now.
-			// And/or strange bugs that lead to permanent early exit.
-			eprint!("\tInstalling firmware... ");
-			std::io::stderr().flush().unwrap();
+			let fw_install_time = install_fw(
+				config.rtecli_path,
+				&in_file,
+				&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
+			)
+			.expect("Failed to install firmware.");
 
-			let fw_t0 = Instant::now();
-			let cmd_output = Command::new(config.rtecli_path)
-				.args(&[
-					"design-load",
-					"-f",
-					&in_file[..],
-					"-p",
-					&format!("{}/{}bit/{}.json", FIRMWARE_DIR, bit_depth, fw.fw_name())[..],
-					"-c",
-					P4CFG_PATH,
-				])
-				.output()
-				.expect("Failed to install firmware.");
-			let fw_t1 = Instant::now();
-
-			if !cmd_output.status.success() {
-				panic!(
-					"Failed to install firmware (code {:?}): {:?} {:?}",
-					cmd_output.status.code(),
-					std::str::from_utf8(&cmd_output.stdout[..]),
-					std::str::from_utf8(&cmd_output.stderr[..]),
-				);
-			}
-
-			eprintln!("Installed!");
-
-			let fw_install_time = fw_t1 - fw_t0;
 			times.fws.push(fw_install_time);
 
 			std::thread::sleep(std::time::Duration::from_secs(3));
@@ -292,6 +268,43 @@ fn run_experiment_with_datatype<T>(
 			eprintln!("\t\tWritten!");
 		}
 	}
+}
+
+fn install_fw(rtecli_path: &str, in_file: &str, json_file: &str) -> IoResult<Duration> {
+	eprint!("\tInstalling firmware... ");
+	std::io::stderr().flush()?;
+
+	let fw_t0 = Instant::now();
+	let cmd_output = Command::new(rtecli_path)
+		.args(&[
+			"design-load",
+			"-f",
+			in_file,
+			"-p",
+			json_file,
+			"-c",
+			P4CFG_PATH,
+		])
+		.output()?;
+	let fw_t1 = Instant::now();
+
+	if !cmd_output.status.success() {
+		return Err(IoError::new(
+			IoErrorKind::InvalidInput,
+			format!(
+				"Failed to install firmware (code {:?}): {:?} {:?}",
+				cmd_output.status.code(),
+				std::str::from_utf8(&cmd_output.stdout[..]),
+				std::str::from_utf8(&cmd_output.stderr[..]),
+			),
+		));
+	}
+
+	eprintln!("Installed!");
+
+	let fw_install_time = fw_t1 - fw_t0;
+
+	Ok(fw_install_time)
 }
 
 #[derive(Default)]

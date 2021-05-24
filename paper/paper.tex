@@ -568,6 +568,8 @@ Ordinarily, the serialisation/marshalling of requests, responses, and safe share
 On-chip execution and the nature of action preference computation allow us to use lockless atomic aggregation, removing the overheads of explicit messaging/packetisation.
 Moreover, physically adjacent functional units may have special-purpose shared registers or share a small fast cache to accelerate communication further.
 
+?? NOTE: this aggregastion step is specifically WAIT-FREE, not just lockless etc. because progress always made.
+
 ?? Move much of the below to the NFP basics section?
 
 Our implementation exploits the locality of threads, cores, and their parent islands in the NFP architecture.
@@ -809,11 +811,13 @@ We outline our performance evaluation of \approachshort...
 Evaluation of \approachshort{} was performed on server blades hosting a single Netronome Agilio LX 1x100GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
 These mid-tier servers (\emph{MidServer}) ran Ubuntu 18.04.5 LTS (4.15.0-140-generic x86\_64) on Intel Xeon Bronze 3204 CPUs ($6\times$\SI{1.9}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
 We additionally use a more powerful consumer-grade machine (\emph{Collector}) for estimating host performance when offloaded to a network function, running Ubuntu 18.04.4 LTS (4.15.0-96-generic) on Intel Core i7-6700K ($4\times$\SI{4.2}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
-Control programs were built using rustc 1.51.0.
+Control programs were built using rustc 1.52.1.
 We run \approachshort{} on an island with \num{4} MEs of the NFP-6480 for a total of \num{32} hardware threads.
 This is the maximum number of MEs on a single island which is not in use by an existing P4 pipeline.
 Where feasible, we test \SIlist{32;16;8}{\bit} quantised arithmetic firmware versions.
-All timing and throughput measurements were repeated over \num{5000} trials.
+All \approachshort{} timing measurements were repeated over \num{10000} trials (preceded by \num{1000} warmup packets), from which throughput was derived.
+Host throughput measures were observed over \num{10} trials of \SI{10}{\second}.
+?? verify these numbers against code?
 
 Policy sizes are set to those matching a real-world DDoS control application~\parencite{DBLP:journals/tnsm/SimpsonRP20}: 20-dimension state vectors, a bias tile and 16 full tiling sets (7$\times$1-dim, 8$\times$2-dim, 1$\times$4-dim), 8 tilings per dimension set, 6 tiles per dimension, choosing between 10 actions.
 Although their more successful \emph{SPF} agent design uses 3 actions, we choose this to investigate the performance of larger agent designs.

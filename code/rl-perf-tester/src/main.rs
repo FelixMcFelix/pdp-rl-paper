@@ -1,10 +1,25 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use control::TransportConfig;
 use core::iter::Iterator;
-use rl_perf_tester::{Config, ExperimentFile, InstallTimes, OUTPUT_DIR, RTE_PATH, RTSYM_PATH};
-use std::{fs::File, io::{BufReader, Write}};
+use rl_perf_tester::{
+	Config,
+	ExperimentFile,
+	HostConfig,
+	InstallTimes,
+	OUTPUT_DIR,
+	RTE_PATH,
+	RTSYM_PATH,
+};
+use std::{
+	error::Error,
+	fs::File,
+	io::{BufReader, Write},
+};
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
+	#[cfg(unix)]
+	sudo::escalate_if_needed()?;
+
 	let run_base = SubCommand::with_name("run")
 		.about("Runs the given experiments.")
 		.arg(
@@ -122,6 +137,33 @@ fn main() {
 			),
 		)
 		.subcommand(run_base.clone().name("run-all"))
+		.subcommand(
+			SubCommand::with_name("stress-host")
+				.arg(
+					Arg::with_name("port")
+						.short("p")
+						.long("port")
+						.value_name("PORT")
+						.help("Port number to host the WebSocket server on.")
+						.takes_value(true)
+						.default_value("3188"),
+				)
+				.arg(
+					Arg::with_name("rtecli-path")
+						.short("c")
+						.long("rtecli-path")
+						.value_name("PATH")
+						.help("Path to the executable `rtecli`.")
+						.takes_value(true)
+						.default_value(RTE_PATH),
+				)
+				.about("Host a server for firmware installation and management on the device under test.")
+		)
+		.subcommand(
+			SubCommand::with_name("stress-client")
+				.arg(Arg::with_name("blah"))
+				.about("Host a server for firmware installation and management on the device under test.")
+		)
 		.get_matches();
 
 	match matches.subcommand() {
@@ -145,10 +187,30 @@ fn main() {
 				println!("No experiment names given.");
 				println!("{}", matches.usage());
 			},
+		("stress-host", Some(sub_m)) => {
+			let port = sub_m
+				.value_of("port")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Invalid source port (u16).");
+
+			let config = HostConfig {
+				rtecli_path: matches
+					.value_of("rtecli-path")
+					.expect("Always has a value by default.")
+					.into(),
+			};
+
+			rl_perf_tester::host_stress_server(port, config);
+		},
+		("stress-client", Some(sub_m)) => {
+			unimplemented!()
+		},
 		_ => {
 			println!("{}", matches.usage());
 		},
 	}
+
+	Ok(())
 }
 
 fn run_core<'a>(
@@ -221,8 +283,6 @@ fn run_core<'a>(
 
 	if !sub_m.is_present("no-write") {
 		// Writeout FW times.
-		// TODO: make folder for install times.
-		// TODO: make files with current date in 'em.
 		let out_dir = format!("{}/setup-times/", OUTPUT_DIR);
 		let time = chrono::offset::Utc::now();
 		let time_str = time.format("%FT %H %M %S");
