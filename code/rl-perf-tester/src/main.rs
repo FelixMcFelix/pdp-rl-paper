@@ -8,6 +8,7 @@ use rl_perf_tester::{
 	InstallTimes,
 	StressConfig,
 	OUTPUT_DIR,
+	PKTGEN_PATH,
 	RTE_PATH,
 	RTSYM_PATH,
 };
@@ -125,6 +126,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 				.help("Path to the executable `nfp-rtsym`.")
 				.takes_value(true)
 				.default_value(RTSYM_PATH),
+		)
+		.arg(
+			Arg::with_name("pktgen-home-path")
+				.short("H")
+				.long("pktgen-home-path")
+				.value_name("PATH")
+				.help("Path to the base directory for `pktgen-dpdk`.")
+				.takes_value(true)
+				.default_value(PKTGEN_PATH),
 		)
 		.subcommand(SubCommand::with_name("list").about("List all bindable interfaces."))
 		.subcommand(SubCommand::with_name("expts").about("List all experiment names for `run`."))
@@ -246,7 +256,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 						.value_name("U32")
 						.help("Maximum rate, inclusive, for FW selection (in k decisions/s).")
 						.takes_value(true)
-						.default_value("11"),
+						.default_value("16"),
 				)
 				.arg(
 					Arg::with_name("num-trials")
@@ -359,6 +369,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 				.and_then(|p_str| p_str.parse().ok())
 				.expect("Number of trials required!");
 
+			let dpdk_pktgen_home = matches
+				.value_of("pktgen-home-path")
+				.expect("I really, really need to know where to find Pktgen-DPDK!");
+
 			let config = StressConfig {
 				transport_cfg: t_cfg,
 
@@ -371,6 +385,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 				min_rate,
 				max_rate,
 				num_trials,
+
+				dpdk_pktgen_home,
 			};
 
 			rl_perf_tester::run_stress_test(&config, if_name)

@@ -27,4 +27,5 @@ pub struct StressConfig<'a> {
 	pub min_rate: u32,
 	pub max_rate: u32,
 	pub num_trials: u32,
+	pub dpdk_pktgen_home: &'a str,
 }

@@ -14,8 +14,6 @@ use tungstenite::error::Error as WsError;
 type AnyRes<A> = Result<A, Box<dyn Error>>;
 
 pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
-	const PKT_SIZES: [usize; 10] = [64, 128, 256, 512, 1024, 1500, 2048, 4096, 8192, 9000];
-
 	for rate in config.min_rate..=config.max_rate {
 		eprintln!("Rate set to {}k pkts/sec!", rate);
 
@@ -41,17 +39,36 @@ pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
 
 		bind_nfp(config)?;
 
-		for i in 0..config.num_trials {
-			for pkt_sz in PKT_SIZES.iter() {
-				// TODO: Pktgen stuff.
-				eprintln!("Trial {} for {}B pkts would be here!", i, pkt_sz);
-			}
-		}
+		run_dpdk_expt_set(config, rate)?;
 	}
 
 	let _ = unbind_and_reset_nfp(config, if_name);
 
 	Ok(())
+}
+
+fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
+	// sudo -E $PKTGEN_HOME/build/app/pktgen -n 6 -l 0-15 -- -m "{1}.0,{2:3}.1" -f opal-stress.lua
+
+	rpo(
+		Command::new(&format!("{}/build/app/pktgen", config.dpdk_pktgen_home))
+			.args(&[
+				"-n",
+				"6",
+				"-l",
+				"0-15",
+				"--",
+				"-m",
+				"\"{1}.0,{2:3}.1\"",
+				"-f",
+				"opal-stress.lua",
+			])
+			.env("PKTGEN_HOME", config.dpdk_pktgen_home)
+			.env("RL_TEST_STRESS_K", rate.to_string())
+			.env("RL_TEST_STRESS_ITERS", config.num_trials.to_string())
+			.output()?,
+		"run full DPDK experiment set",
+	)
 }
 
 fn bind_nfp(config: &StressConfig) -> IoResult<()> {

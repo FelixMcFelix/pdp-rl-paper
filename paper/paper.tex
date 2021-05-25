@@ -817,7 +817,10 @@ This is the maximum number of MEs on a single island which is not in use by an e
 Where feasible, we test \SIlist{32;16;8}{\bit} quantised arithmetic firmware versions.
 All \approachshort{} timing measurements were repeated over \num{10000} trials (preceded by \num{1000} warmup packets), from which throughput was derived.
 Host throughput measures were observed over \num{10} trials of \SI{10}{\second}.
+
 ?? verify these numbers against code?
+
+?? NOTE: Ritchie is actually Intel(R) Xeon(R) Silver 4208 CPU (8 times 2.1GHz)
 
 Policy sizes are set to those matching a real-world DDoS control application~\parencite{DBLP:journals/tnsm/SimpsonRP20}: 20-dimension state vectors, a bias tile and 16 full tiling sets (7$\times$1-dim, 8$\times$2-dim, 1$\times$4-dim), 8 tilings per dimension set, 6 tiles per dimension, choosing between 10 actions.
 Although their more successful \emph{SPF} agent design uses 3 actions, we choose this to investigate the performance of larger agent designs.
