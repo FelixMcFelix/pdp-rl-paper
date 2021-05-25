@@ -1,10 +1,11 @@
 use super::protocol::*;
 
-use crate::{ProtoSetup, StressConfig};
+use crate::{ProtoSetup, StressConfig, DUMB_HACK_FILE, DUMB_HACK_PATH};
 use control::{GlobalConfig, Setup, SetupConfig, TilingsConfig};
 use std::{
 	error::Error,
-	io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult},
+	fs::File,
+	io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult, Write},
 	process::Command,
 	thread,
 	time::Duration,
@@ -14,28 +15,63 @@ use tungstenite::error::Error as WsError;
 type AnyRes<A> = Result<A, Box<dyn Error>>;
 
 pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
-	for rate in config.min_rate..=config.max_rate {
-		eprintln!("Rate set to {}k pkts/sec!", rate);
+	// Unfortunately, ip set up -> dpdk is broken.
+	// the fix is to do the setup, then reset the machine.
+	// this requires a script at boot time to start this program,
+	// check for a file in the right place...
 
-		unbind_and_reset_nfp(config, if_name)?;
+	// config.do_hack
+	// config.do_trial_with_hack
 
-		eprintln!("Device {} unbound from DPDK!", config.pci_addr);
+	let true_min_rate = if let Some(start) = config.do_trial_with_hack {
+		start
+	} else {
+		config.min_rate
+	};
 
-		while tell_dut_to_install_fw(config, rate)? {
-			// Accidentally in use... so sleep it off.
-			eprintln!("DUT busy; retrying in 10s...");
-			thread::sleep(Duration::from_secs(10));
+	let rate_to_reset_on = if config.do_trial_with_hack.is_some() {
+		// this is a resume; reset after the *next* setup.
+		Some(true_min_rate + 1)
+	} else if config.do_hack {
+		// this is the first instance with the hack.
+		// reset right here.
+		Some(true_min_rate)
+	} else {
+		None
+	};
+
+	for rate in true_min_rate..=config.max_rate {
+		// Run this if
+		// * no progress
+		// * progress and not "true_min_rate"
+		if !(rate == true_min_rate && config.do_trial_with_hack.is_some()) {
+			eprintln!("Rate set to {}k pkts/sec!", rate);
+
+			unbind_and_reset_nfp(config, if_name)?;
+
+			eprintln!("Device {} unbound from DPDK!", config.pci_addr);
+
+			while tell_dut_to_install_fw(config, rate)? {
+				// Accidentally in use... so sleep it off.
+				eprintln!("DUT busy; retrying in 10s...");
+				thread::sleep(Duration::from_secs(10));
+			}
+
+			eprintln!("Firmware {}.0k installed!", rate);
+
+			thread::sleep(Duration::from_secs(1));
+
+			setup_dut(config, if_name)?;
+
+			eprintln!("Control packets sent over {}!", if_name);
+
+			thread::sleep(Duration::from_secs(3));
 		}
 
-		eprintln!("Firmware {}.0k installed!", rate);
-
-		thread::sleep(Duration::from_secs(1));
-
-		setup_dut(config, if_name)?;
-
-		eprintln!("Control packets sent over {}!", if_name);
-
-		thread::sleep(Duration::from_secs(3));
+		// THIS IS THE RESET POINT.
+		if Some(rate) == rate_to_reset_on {
+			return save_progress_and_reset(rate).map_err(Into::into);
+		}
 
 		bind_nfp(config)?;
 
@@ -45,6 +81,16 @@ pub fn run_stress_test(config: &StressConfig, if_name: &str) -> AnyRes<()> {
 	let _ = unbind_and_reset_nfp(config, if_name);
 
 	Ok(())
+}
+
+fn save_progress_and_reset(rate: u32) -> IoResult<()> {
+	std::fs::create_dir_all(DUMB_HACK_PATH)?;
+	{
+		let mut out_file = File::create(DUMB_HACK_FILE)?;
+		out_file.write_all(&rate.to_string().as_bytes())?;
+	}
+
+	rpo(Command::new("reboot").output()?, "just reboot, y'all")
 }
 
 fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {

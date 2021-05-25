@@ -267,6 +267,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 						.takes_value(true)
 						.default_value("10"),
 				)
+				.arg(
+					Arg::with_name("start-hack")
+						.long("start-hack")
+						.help("Whether to start this program, in a mode which restarts the machine before dpdk binding.")
+						.takes_value(false),
+				)
+				.arg(
+					Arg::with_name("hack-progress")
+						.long("hack-progress")
+						.value_name("U32")
+						.help("The rate which was last setup.")
+						.takes_value(true),
+				)
 				.about("Stress test the main firmware (hosted on another device) using pktgen-dpdk.")
 		)
 		.get_matches();
@@ -373,6 +386,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 				.value_of("pktgen-home-path")
 				.expect("I really, really need to know where to find Pktgen-DPDK!");
 
+			let do_hack = sub_m.is_present("start-hack");
+			let do_trial_with_hack = sub_m.value_of("hack-progress").map(|p_str| {
+				p_str
+					.parse()
+					.expect("Resume progress MUST be a valid number.")
+			});
+
 			let config = StressConfig {
 				transport_cfg: t_cfg,
 
@@ -387,6 +407,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 				num_trials,
 
 				dpdk_pktgen_home,
+
+				do_hack,
+				do_trial_with_hack,
 			};
 
 			rl_perf_tester::run_stress_test(&config, if_name)
