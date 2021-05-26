@@ -603,7 +603,7 @@ This work allocation and any cached per-work-item values are recomputed when any
 Naturally, for $n$ tasks and $m$ threads this is $\mathcal{O}{\left(n\log{m}\right)}$: two find/update min operations into binary heaps per task, storing $m/8$ and $\le8$ costs respectively.
 
 \subsection{Variable Quantisation Bit Depth}
-At compile-time, \approachshort{} can be configured to use \SIlist[list-final-separator = { \translate{or} }]{32;16;8}{\bit} values in input states and its internal policies.
+At compile-time, \approachshort{} can be configured to use \SIlist[list-final-separator = { or }]{32;16;8}{\bit} values in input states and its internal policies.
 Naturally, smaller bit depths reduce the storage required for policies, tiling data, and stored state-action pairs---allowing more complex problems to be modelled using more dimensions or fine-grained policies.
 Through the lens of computational efficiency, reduced bit depth allows action preference lists to be read using fewer I/O operations (as more values may fit into a single machine word).
 We had investigated bit-stuffing several such values into a single word for our atomic writeback mechanism (as the platform offers both \SIlist{32;64

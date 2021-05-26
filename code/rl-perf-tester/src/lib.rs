@@ -271,7 +271,7 @@ fn run_experiment_with_datatype<T>(
 }
 
 fn install_fw(rtecli_path: &str, in_file: &str, json_file: &str) -> IoResult<Duration> {
-	eprint!("\tInstalling firmware... ");
+	eprint!("\tInstalling firmware {}... ", in_file);
 	std::io::stderr().flush()?;
 
 	let fw_t0 = Instant::now();

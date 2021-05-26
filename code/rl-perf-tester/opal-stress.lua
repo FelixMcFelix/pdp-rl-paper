@@ -17,11 +17,10 @@ function run_expt(pkt_sz, iter_no)
 	pktgen.set(1, "rate", 100);
 
 	-- latency
-	-- 5s spoolup, 10s monitoring
+	-- can't do spoolup, because we need to enumerate *every* packet on the wire here.
+	-- 30s monitoring
 	pktgen.start(1);
-	pktgen.delay(5000);
-	pktgen.clr()
-	pktgen.delay(10000);
+	pktgen.delay(30000);
 	pktgen.stop(1);
 
 
@@ -41,7 +40,7 @@ function run_expt(pkt_sz, iter_no)
 	-- latency
 	pktgen.clr()
 	pktgen.set(1, "rate", 10);
-	pktgen.latsampler_params(1, "simple", 10000, 1000, results_dir .. string.format("l-%dB-%dk-%d.dat", pkt_sz, stress_rate, iter_no))
+	pktgen.latsampler_params(1, "simple", 20000, 2000, results_dir .. string.format("l-%dB-%dk-%d.dat", pkt_sz, stress_rate, iter_no))
 	pktgen.latsampler("1", "on")
 	pktgen.start(1)
 	pktgen.delay(10000);

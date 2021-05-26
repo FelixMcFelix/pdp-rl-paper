@@ -105,7 +105,7 @@ fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
 				"0-15",
 				"--",
 				"-m",
-				"{1}.0,{2:3}.1",
+				"{1}.0,{1:1-7}.1",
 				"-f",
 				"opal-stress.lua",
 			])
