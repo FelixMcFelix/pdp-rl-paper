@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/sh
 
 TARGET_FILE=/var/rl-perf-tester/progress
 IGB_LOC=/home/clouduser
