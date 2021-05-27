@@ -11,12 +11,10 @@ local pktSizes = { 64, 128, 256, 512, 1024, 1280, 1518 };
 local stress_rate = tonumber(os.getenv("RL_TEST_STRESS_K"))
 local iters_to_do = tonumber(os.getenv("RL_TEST_STRESS_ITERS"))
 
-function run_expt(pkt_sz, iter_no)
-	pktgen.clr()
-	pktgen.set(1, "size", pkt_sz);
+function run_tput(pkt_sz, iter_no)
 	pktgen.set(1, "rate", 100);
 
-	-- latency
+	-- tput
 	-- can't do spoolup, because we need to enumerate *every* packet on the wire here.
 	-- 30s monitoring
 	pktgen.start(1);
@@ -36,9 +34,10 @@ function run_expt(pkt_sz, iter_no)
 	tput_file:close()
 
 	printf("Wrote packet/byte volume data to: %s\n", tput_file_name)
+end
 
+function run_latency(pkt_sz, iter_no)
 	-- latency
-	pktgen.clr()
 	pktgen.set(1, "rate", 10);
 	pktgen.latsampler_params(1, "simple", 20000, 2000, results_dir .. string.format("l-%dB-%dk-%d.dat", pkt_sz, stress_rate, iter_no))
 	pktgen.latsampler("1", "on")
@@ -47,6 +46,18 @@ function run_expt(pkt_sz, iter_no)
 	pktgen.latsampler("1", "off")
 	pktgen.stop(1)
 	pktgen.clr()
+end
+
+function run_expt(pkt_sz, iter_no)
+	pktgen.clr()
+	pktgen.set(1, "size", pkt_sz);
+
+	run_tput(pkt_sz, iter_no)
+	pktgen.clr()
+	
+	-- run_latency(pkt_sz, iter_no)
+
+	pktgen.delay(10000);
 end
 
 function main()

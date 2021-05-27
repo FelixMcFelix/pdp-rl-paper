@@ -19,6 +19,8 @@ print("Latencies!")
 # process latencies first.
 for pkt_size in pkt_sizes:
 	lats_baseline = None
+	last_over_base = None
+	prev = None
 	for rate in range(rate_max):
 		lats_for_this_cell = []
 		for i in range(iter_ct):
@@ -30,7 +32,21 @@ for pkt_size in pkt_sizes:
 		if lats_baseline is None:
 			lats_baseline = lats_for_this_cell
 		else:
-			(_t_val, p_val) = spss.stats.ttest_ind(lats_baseline, lats_for_this_cell, equal_var=False)
+			(_t_val, p_val) = spss.stats.mannwhitneyu(lats_baseline, lats_for_this_cell, alternative='greater')
+
+		if last_over_base is not None:
+			versus_prev = spss.stats.mannwhitneyu(last_over_base[1], lats_for_this_cell, alternative='greater')[1]
+			if versus_prev < 0.05:
+				print("{}k worse than {}k with P_H0={}".format(rate, last_over_base[0], versus_prev))
+				last_over_base = (rate, lats_for_this_cell)
+		else:
+			last_over_base = (rate, lats_for_this_cell)
+
+		if prev is not None:
+			versus_prev = spss.stats.mannwhitneyu(prev, lats_for_this_cell, alternative='two-sided')[1]
+			if versus_prev >= 0.05:
+				print("{}k same-ish as {}k".format(rate, rate-1))
+		prev = lats_for_this_cell
 
 		metrics = [
 			np.median(lats_for_this_cell),
@@ -40,16 +56,16 @@ for pkt_size in pkt_sizes:
 			np.std(lats_for_this_cell),
 			p_val,
 		]
-		print("{}B {}k: {}".format(pkt_size, rate, metrics))
+		print("{}B {}k: {} (skew {}, kurtosis {})".format(pkt_size, rate, metrics, spss.skew(lats_for_this_cell), spss.kurtosis(lats_for_this_cell)))
 
 # { {
-#     ibytes = 28044446236,
+#     ibytes = 21536748776,
 #     ierrors = 0,
-#     imissed = 36943107,
-#     ipackets = 226164889,
-#     obytes = 32625360380,
+#     imissed = 123196123,
+#     ipackets = 21116998,
+#     obytes = 147196761216,
 #     oerrors = 0,
-#     opackets = 263107745,
+#     opackets = 144313056,
 #     rx_nombuf = 0
 #   },
 #   n = 1
