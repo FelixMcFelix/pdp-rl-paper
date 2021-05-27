@@ -116,6 +116,7 @@ fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
 			.output()?,
 		"run latency DPDK experiment set",
 	)?;
+
 	rpo(
 		Command::new(&format!("{}/build/app/pktgen", config.dpdk_pktgen_home))
 			.args(&[

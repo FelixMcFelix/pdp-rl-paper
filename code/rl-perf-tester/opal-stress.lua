@@ -21,12 +21,7 @@ function run_tput(pkt_sz, iter_no)
 	pktgen.delay(30000);
 	pktgen.stop(1);
 
-
 	pktgen.delay(5000);
-
-	-- printf("Pktgen stats1   : %s\n", inspect(pktgen.pktStats(1)));
-	-- printf("Pktgen stats2   : %s\n", inspect(pktgen.portStats(1, "port")));
-	-- printf("Pktgen stats3   : %s\n", inspect(pktgen.portStats(1, "rate")));
 
 	local tput_file_name = results_dir .. string.format("t-%dB-%dk-%d.dat", pkt_sz, stress_rate, iter_no)
 	local tput_file = io.open(tput_file_name, "w")
@@ -36,27 +31,10 @@ function run_tput(pkt_sz, iter_no)
 	printf("Wrote packet/byte volume data to: %s\n", tput_file_name)
 end
 
-function run_latency(pkt_sz, iter_no)
-	-- latency
-	pktgen.set(1, "rate", 10);
-	pktgen.latsampler_params(1, "simple", 20000, 2000, results_dir .. string.format("l-%dB-%dk-%d.dat", pkt_sz, stress_rate, iter_no))
-	pktgen.latsampler("1", "on")
-	pktgen.start(1)
-	pktgen.delay(10000);
-	pktgen.latsampler("1", "off")
-	pktgen.stop(1)
-	pktgen.clr()
-end
-
 function run_expt(pkt_sz, iter_no)
 	pktgen.clr()
 	pktgen.set(1, "size", pkt_sz);
-
 	run_tput(pkt_sz, iter_no)
-	--pktgen.clr()
-
-	--run_latency(pkt_sz, iter_no)
-
 	pktgen.delay(5000);
 end
 
