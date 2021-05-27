@@ -22,8 +22,13 @@ def write_matrix(name, matrix, w, h):
 	print(shaped)
 
 	with open(out_dir + name + ".dat", "w") as of:
-		for row in shaped:
-			of.write(" ".join(["{}".format(x) for x in row]) + "\n")
+		for x, row in enumerate(shaped):
+			#if not x == 0:
+			#	of.write("\n")
+
+			#for y, val in enumerate(row):
+			#	of.write("{} {} {}\n".format(x, y, val))
+			of.write(" ".join([str(x) for x in row]) + "\n")
 
 print("Latencies!")
 
@@ -77,7 +82,7 @@ for pkt_size in pkt_sizes:
 			p_val,
 		]
 
-		base_names = ["median", "two-9", "four-nine", "max", "mean"]
+		base_names = ["median", "two-9", "four-9", "max", "mean"]
 
 		for (name, metric) in zip(base_names, metrics):
 			add_metric("matrix-latency-"+name, metric)
