@@ -105,7 +105,8 @@ fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
 				"0-15",
 				"--",
 				"-m",
-				"{1}.0,{1:1-7}.1",
+				// NOTE: need rx and tx to be separate for latency checking purposes mainly.
+				"{1}.0,{1:2-7}.1",
 				"-f",
 				"opal-stress.lua",
 			])

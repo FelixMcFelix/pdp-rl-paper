@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats as spss
 
 stress_result_dir = "stress/"
+out_dir = "stress-process/"
 
 # pkt sz, stress level, iter
 stress_file_lat = "l-{}B-{}k-{}.dat"
@@ -11,10 +12,28 @@ pkt_sizes = [64, 128, 256, 512, 1024, 1280, 1518];
 iter_ct = 10
 rate_max = 16 + 1
 
-def write_matrix(name, matrix):
-	pass
+def write_matrix(name, matrix, w, h):
+	# these go in by rates, then pkt_szs
+	# need to transpose
+	npd = np.array(matrix)
+	shaped = np.reshape(npd, [w, h])
+	shaped = shaped.T
+
+	print(shaped)
+
+	with open(out_dir + name + ".dat", "w") as of:
+		for row in shaped:
+			of.write(" ".join(["{}".format(x) for x in row]) + "\n")
 
 print("Latencies!")
+
+matrices = {}
+
+def add_metric(name, metric):
+	if name not in matrices:
+		matrices[name] = []
+
+	matrices[name].append(metric)
 
 # process latencies first.
 for pkt_size in pkt_sizes:
@@ -52,11 +71,25 @@ for pkt_size in pkt_sizes:
 			np.median(lats_for_this_cell),
 			np.percentile(lats_for_this_cell, 99.0),
 			np.percentile(lats_for_this_cell, 99.99),
+			np.max(lats_for_this_cell),
 			np.mean(lats_for_this_cell),
 			np.std(lats_for_this_cell),
 			p_val,
 		]
+
+		base_names = ["median", "two-9", "four-nine", "max", "mean"]
+
+		for (name, metric) in zip(base_names, metrics):
+			add_metric("matrix-latency-"+name, metric)
+
 		print("{}B {}k: {} (skew {}, kurtosis {})".format(pkt_size, rate, metrics, spss.skew(lats_for_this_cell), spss.kurtosis(lats_for_this_cell)))
+
+		with open(out_dir + "l-{}B-{}k.dat".format(pkt_size, rate), "w") as of:
+			for lat in lats_for_this_cell:
+				of.write("{}\n".format(int(lat)))
+
+for key, value in matrices.items():
+	write_matrix(key, value, len(pkt_sizes), rate_max)
 
 # { {
 #     ibytes = 21536748776,
