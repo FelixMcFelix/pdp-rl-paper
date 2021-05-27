@@ -106,7 +106,27 @@ fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
 				"--",
 				"-m",
 				// NOTE: need rx and tx to be separate for latency checking purposes mainly.
-				"{1}.0,{1:2-7}.1",
+				"{1}.0,{2:3}.1",
+				"-f",
+				"opal-lat.lua",
+			])
+			.env("PKTGEN_HOME", config.dpdk_pktgen_home)
+			.env("RL_TEST_STRESS_K", rate.to_string())
+			.env("RL_TEST_STRESS_ITERS", config.num_trials.to_string())
+			.output()?,
+		"run latency DPDK experiment set",
+	)?;
+	rpo(
+		Command::new(&format!("{}/build/app/pktgen", config.dpdk_pktgen_home))
+			.args(&[
+				"-n",
+				"6",
+				"-l",
+				"0-15",
+				"--",
+				"-m",
+				// NOTE: need rx and tx to be separate for latency checking purposes mainly.
+				"{1}.0,{1:1-7}.1",
 				"-f",
 				"opal-stress.lua",
 			])
@@ -114,7 +134,7 @@ fn run_dpdk_expt_set(config: &StressConfig, rate: u32) -> IoResult<()> {
 			.env("RL_TEST_STRESS_K", rate.to_string())
 			.env("RL_TEST_STRESS_ITERS", config.num_trials.to_string())
 			.output()?,
-		"run full DPDK experiment set",
+		"run tput DPDK experiment set",
 	)
 }
 

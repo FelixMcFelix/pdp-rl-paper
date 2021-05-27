@@ -53,11 +53,11 @@ function run_expt(pkt_sz, iter_no)
 	pktgen.set(1, "size", pkt_sz);
 
 	run_tput(pkt_sz, iter_no)
-	pktgen.clr()
+	--pktgen.clr()
 
-	run_latency(pkt_sz, iter_no)
+	--run_latency(pkt_sz, iter_no)
 
-	pktgen.delay(10000);
+	pktgen.delay(5000);
 end
 
 function main()
