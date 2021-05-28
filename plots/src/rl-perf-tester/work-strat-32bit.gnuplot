@@ -1,5 +1,7 @@
 load "gnuplot-palettes/inferno.pal"
 
+set terminal tikz standalone color size 9cm,5cm font '\scriptsize' preamble '\usepackage{microtype} \usepackage{libertinus} \usepackage{libertinust1math} \usepackage[binary-units, per-mode=symbol]{siunitx}\sisetup{detect-all} \newcommand{\approachshort}{OPaL} \newcommand{\Coopfw}{CoOp} \newcommand{\coopfw}{\Coopfw} \newcommand{\Indfw}{Ind} \newcommand{\indfw}{\Indfw}'
+
 # set xlabel "Rule Count"
 set ylabel "Time (\\si{\\micro\\second})"
 
