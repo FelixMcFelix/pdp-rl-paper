@@ -60,10 +60,11 @@ for pkt_size in pkt_sizes:
 			lats_baseline = lats_for_this_cell
 			p_val = 1.0
 		else:
-			(_t_val, p_val) = spss.stats.mannwhitneyu(lats_baseline, lats_for_this_cell, alternative='greater')
+			# read this as "checking that baseline is less than new"
+			(_t_val, p_val) = spss.stats.mannwhitneyu(lats_baseline, lats_for_this_cell, alternative='less')
 
 		if last_over_base is not None:
-			versus_prev = spss.stats.mannwhitneyu(last_over_base[1], lats_for_this_cell, alternative='greater')[1]
+			versus_prev = spss.stats.mannwhitneyu(last_over_base[1], lats_for_this_cell, alternative='less')[1]
 			if versus_prev < 0.05:
 				print("{}k worse than {}k with P_H0={}".format(rate, last_over_base[0], versus_prev))
 				last_over_base = (rate, lats_for_this_cell)

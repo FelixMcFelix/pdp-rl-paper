@@ -2,7 +2,7 @@ load "gnuplot-palettes/gnbu.pal"
 
 set xlabel "Packet Size (\\si{\\byte})"
 set ylabel "RL Request rate (k updates/s)"
-set cblabel "Median Packet Latency (\\si{\\micro\\second})"
+set cblabel "Packet Latency (\\si{\\nano\\second})"
 set view map
 
 set xrange [-0.5:6.5]

@@ -1,7 +1,7 @@
 load "gnuplot-palettes/inferno.pal"
 
 set ylabel "Frequency"
-set xlabel "Packet Latency (\\si{\\micro\\second})"
+set xlabel "Packet Latency (\\si{\\nano\\second})"
 
 # set xrange [0:700000]
 
@@ -11,7 +11,7 @@ set xlabel "Packet Latency (\\si{\\micro\\second})"
 #set boxwidth 0.05 absoluteset boxwidth 0.8 absoluteset boxwidth0.8 absolute 
 #set style fill solid 1.0 noborder
 
-set logscale y
+#set logscale y
 
 bin_width = 200;
 
