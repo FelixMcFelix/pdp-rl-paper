@@ -1,11 +1,11 @@
 { {
-    ibytes = 21034764636,
+    ibytes = 20940919764,
     ierrors = 0,
-    imissed = 241503479,
-    ipackets = 41407017,
-    obytes = 143718531968,
+    imissed = 241518037,
+    ipackets = 41222283,
+    obytes = 143632082560,
     oerrors = 0,
-    opackets = 282910496,
+    opackets = 282740320,
     rx_nombuf = 0
   },
   n = 1
