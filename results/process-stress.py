@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import scipy.stats as spss
 
@@ -7,6 +8,8 @@ out_dir = "stress-process/"
 # pkt sz, stress level, iter
 stress_file_lat = "l-{}B-{}k-{}.dat"
 stress_file_tpu = "t-{}B-{}k-{}.dat"
+
+histo_bin_width = 200
 
 pkt_sizes = [64, 128, 256, 512, 1024, 1280, 1518];
 iter_ct = 10
@@ -55,6 +58,7 @@ for pkt_size in pkt_sizes:
 		p_val = None
 		if lats_baseline is None:
 			lats_baseline = lats_for_this_cell
+			p_val = 1.0
 		else:
 			(_t_val, p_val) = spss.stats.mannwhitneyu(lats_baseline, lats_for_this_cell, alternative='greater')
 
@@ -82,7 +86,7 @@ for pkt_size in pkt_sizes:
 			p_val,
 		]
 
-		base_names = ["median", "two-9", "four-9", "max", "mean"]
+		base_names = ["median", "two-9", "four-9", "max", "mean", "std", "p"]
 
 		for (name, metric) in zip(base_names, metrics):
 			add_metric("matrix-latency-"+name, metric)
@@ -92,6 +96,20 @@ for pkt_size in pkt_sizes:
 		with open(out_dir + "l-{}B-{}k.dat".format(pkt_size, rate), "w") as of:
 			for lat in lats_for_this_cell:
 				of.write("{}\n".format(int(lat)))
+
+		with open(out_dir + "hl-{}B-{}k.dat".format(pkt_size, rate), "w") as of:
+			max_lat = np.max(lats_for_this_cell)
+			min_lat = np.min(lats_for_this_cell)
+
+			max_bin = (math.ceil(max_lat / histo_bin_width) + 2) * histo_bin_width
+			min_bin = math.floor(min_lat / histo_bin_width) * histo_bin_width
+
+			bins = np.arange(min_bin, max_bin, histo_bin_width)
+
+			histo = np.histogram(lats_for_this_cell, bins)
+
+			for (bin_x, freq) in zip(bins, histo[0]):
+				of.write("{},{}\n".format(int(bin_x), int(freq)))
 
 for key, value in matrices.items():
 	write_matrix(key, value, len(pkt_sizes), rate_max)
