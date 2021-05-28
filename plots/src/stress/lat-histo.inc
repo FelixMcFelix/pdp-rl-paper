@@ -3,23 +3,25 @@ load "gnuplot-palettes/inferno.pal"
 set ylabel "Frequency"
 set xlabel "Packet Latency (\\si{\\micro\\second})"
 
-set xrange [0:700000]
+# set xrange [0:700000]
 
 # based on : http://psy.swansea.ac.uk/staff/carter/gnuplot/gnuplot_frequency.htm
 
 # Each bar s half the (visual) width of its x-range.
-set boxwidth 0.05 absolute
+#set boxwidth 0.05 absoluteset boxwidth 0.8 absoluteset boxwidth0.8 absolute 
 #set style fill solid 1.0 noborder
 
-bin_width = 100;
+set logscale y
 
-bin_number(x) = floor(x/bin_width)
+bin_width = 200;
 
-rounded(x) = bin_width * ( bin_number(x) + 0.5 )
+# set boxwidth (0.8 * bin_width) absolute
 
-plot_file(k) = sprintf("../results/stress-process/l-%dB-%dk.dat", pktsz, k)
+plot_file(k) = sprintf("../results/stress-process/hl-%dB-%dk.dat", pktsz, k)
 mtitle(k) = sprintf("%dk requests/s", k)
 
-plot plot_file(base_k) using (rounded($1)):(1) smooth frequency with boxes fill pattern 1 ls 3 title mtitle(base_k), \
-	plot_file(target_k) using (rounded($1)):(0.75) smooth frequency with boxes ls 6 title mtitle(target_k)
+set style line 3 lw 0.1
+set style line 6 lw 0.1
 
+plot plot_file(base_k) using 1:2:(bin_width) with boxes fill solid ls 3 title mtitle(base_k), \
+	plot_file(target_k) using 1:2:(bin_width / 3) with boxes fill pattern 1 ls 6 title mtitle(target_k)
