@@ -267,7 +267,7 @@
 
 Automatic optimisation, control, and defence of networks are at last becoming commonplace. Data-driven networking has led the charge in traffic optimisation, congestion control and packet classification via adaptive techniques such as Reinforcement Learning (RL), where every change and its measured effects further improve future decisions. Considering that the network evolves in its use and deployed protocols, this flexibility is essential. Yet data-driven methods suffer from a key weakness: they are dependent on both the recency and accuracy of input state. An out-of-date view of the world will lead to suboptimal choices, as will long processing times. These can result in worse performance and slower adaptation to the evolving network.
 
-Programmable data-planes and in-switch compute, then, hold promise for integrating these new techniques in a feasible and efficient manner (beyond dedicated servers or virtualised network functions). For RL, key tasks include policy evaluation, online training, state collection, and action execution -- each of these introduces some degree of sensitivity to state accuracy. Ideally then, all logic would run on these programmable devices. Yet, there is often a finite budget in microcode/FPGA space, per-packet processing times, and available cores for execution. Moreover, necessary hardware, such as floating-point units, is unavailable in almost all cases.
+Programmable dataplanes and in-switch compute, then, hold promise for integrating these new techniques in a feasible and efficient manner (beyond dedicated servers or virtualised network functions). For RL, key tasks include policy evaluation, online training, state collection, and action execution -- each of these introduces some degree of sensitivity to state accuracy. Ideally then, all logic would run on these programmable devices. Yet, there is often a finite budget in microcode/FPGA space, per-packet processing times, and available cores for execution. Moreover, necessary hardware, such as floating-point units, is unavailable in almost all cases.
 
 The precise costs and trade-offs which operators and designers must make have yet to be identified. This follows from a design space explosion induced by many necessary workarounds. For instance, quantisation or fixed-point arithmetic will allow training and control on all devices, but introduces further questions: what degree of quantisation is most appropriate? What effect would this have on training accuracy, communications cost, or storage requirements? More concerns arise when we consider core allocation, local vs. distributed training, and reliable lightweight communication in multi-agent scenarios. In all cases, network operators will not consider tools which affect underlying traffic.
 
@@ -408,7 +408,7 @@ Achieving this often requires that state measurements are combined or coalesced~
 
 %?? Find some cites citing the relevance of this problem wrt. self-driving cars, robotics, etc.
 
-The solution we propose is to make use of the recent wave of programmable network devices to \emph{bring reinforcement learning to the data plane}---referring again to \cref{fig:state-slip}, we would place place state measurement ($t_1$), low-cost decision-making processes ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
+The solution we propose is to make use of the recent wave of programmable network devices to \emph{bring reinforcement learning to the dataplane}---referring again to \cref{fig:state-slip}, we would place place state measurement ($t_1$), low-cost decision-making processes ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
 In networks, actions are most likely to be installed on backbone switches, bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts.
 Ideally, these functions which comprise an RL agent would all be collocated on the same chip or device, but this is easier said than done. 
 Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
@@ -453,7 +453,7 @@ As we shall see shortly, this aligns with our choice of numerical representation
 A key feature universally lacking from the target environments is floating-point arithmetic support.
 Luckily, the task of bringing machine learning models to resource-constrained environments without these capabilities is well-studied.
 Quantisation and alternative data formats have been suggested to make ML inference feasible on resource- and power-limited platforms, work around hardware constraints, or compute faster and more efficiently.
-Lower bit-depths reduce memory footprints, and improve throughput in designs such as \emph{bfloat16}~\parencite{bfloat16-blog} in Google TPUs~\parencite{DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
+Lower bit depths reduce memory footprints, and improve throughput in designs such as \emph{bfloat16}~\parencite{bfloat16-blog} in Google TPUs~\parencite{DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
 In many cases, accuracy losses for doing so are negligible.
 Much of this work goes further still towards integer~\parencite{tensorrt-8bit} or binarised~\parencite{DBLP:journals/corr/MiyashitaLM16,DBLP:conf/eccv/RastegariORF16,DBLP:journals/corr/KimS16,DBLP:conf/nips/HubaraCSEB16} representations, sacrificing dynamic range for simpler arithmetic operations.
 The works mentions above use similar techniques to make inference tractable on network hardware, i.e., to bring neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
@@ -640,7 +640,7 @@ Through the lens of computational efficiency, reduced bit depth should allows ac
 We had investigated bit-stuffing several such values into a single word for our atomic writeback mechanism (as the platform offers both \SIlist{32;64
 }{\bit} atomic addition).
 This is analogous to SIMD---through clever use of padding bits---but we found that manipulating tiles into the correct format added \SI{10}{\percent} extra overhead.
-We investigate further performance implications of changing bit-depth in the sequel.
+We investigate further performance implications of changing bit depth in the sequel.
 
 %Potential: low-latency train for some specific points, and high throughput for others? Think on the exact note I took...
 %
@@ -668,7 +668,7 @@ While this design caters primarily to Netronome's SmartNIC devices, many aspects
 For instance, the availability of other cores can be handled by designing additional off-path functional units, much like the floating-point adders used by \textcite{DBLP:conf/isca/LiLYCSH19}.
 Rather than general-purpose cross-core communication, an RL functional unit would be hard-wired to and from the custom actions that interface with it, using the P4$\rightarrow$NetFPGA toolchain to offer the base framework and granular control over packet and flow selection.
 Further optimisations arise from this model: a NetFPGA design would be able to replicate and optimise further on this concept of dedicated, low-latency communication between functional units.
-As our later results show, working on a bitdepth below the native word size forces the compiler or programmer to emit excess code to extract and re-align preference values.
+As our later results show, working on a bit depth below the native word size forces the compiler or programmer to emit excess code to extract and re-align preference values.
 This reduces overall efficiency even though considerably fewer reads are made.
 We expect that more bespoke hardware/FPGA co-design would allow this boiler-plate to be removed and enable the SIMD-like optimisations we discuss above without creative and costly bit-stuffing.
 
@@ -752,7 +752,7 @@ By timing agent setup and compile times, we describe the runtime costs needed fo
 As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, while the simpler \Indfw{} succeeds when policies are fixed/known.
 ?? Crucially, our using many extra functional units to tackle this task
 
-?? Bitdepth is important for single item computation in the simpler \Indfw{} strategy.
+?? Bit depth is important for single item computation in the simpler \Indfw{} strategy.
 
 ?? We observed that \SIlist{8;16}{\bit} have worse action compute/latency, but better update processing time in \SI{16}{\bit}. Why? Throughput and batching of value reads only goes so far, native register size for ALU is \SI{32}{\bit}, so these wins are ``undone'' to some extent by the compiler extracting/shifting parts  for correctness. Wins are mainly due to serial part scaling with bitsize.
 
@@ -790,7 +790,8 @@ We observed that ...
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-core}
 	}
-	\caption{?? More cores means less time ?? Max-size work (129 work-items). ?? Need to dedicate 3 worker to beat independent cores. ?? Sharper perf increase when new physical core added. ?? up to 31 due to master thread. ?? latency version in appendix: \Cref{fig:vary-core-latency}.\label{fig:vary-core}}
+	\caption{
+		\Coopfw{}'s online learning performance improves as additional cores are made available, on max size tasks (\num{129} work items). This requires \num{8} workers to offer greater online throughput than single-threaded in-NIC RL. Sharper performance increases occur when new physical core is added (\numrange{7}{8}) or the scheduler works around a bottleneck (\numrange{13}{14}).\label{fig:vary-core}}
 \end{figure}
 
 ?? \Cref{fig:vary-work} shows how action+update compute time of any individual work item scales with the complexity of the work.
@@ -803,8 +804,14 @@ We observed that ...
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-work}
 	}
-	\caption{?? More work means More time. ?? Max Parallelisation. ?? Bitdepth affects independent cores more. ?? latency version in appendix: \Cref{fig:vary-work-latency}.\label{fig:vary-work}}
+	\caption{?? More work means More time. ?? Max Parallelisation. ?? Bit depth affects independent cores more. ?? latency version in appendix: \Cref{fig:vary-work-latency}.\label{fig:vary-work}}
 \end{figure}
+
+We found that a key aspect of in-NIC execution is that it allows far tighter bounds on tail latency to be offered compared to host offloading.
+Examining the state-action latencies in \cref{tab:lats}, we see that \num{99.99}\nthscript{th} percentile latencies exceed the median by \SIlist{0.58;0.66}{\percent} for \Indfw{} and \Coopfw{} respectively.
+Similar results were observed for other bit depths.
+By contrast, host-based tail latencies are at least \SI{40.53}{\percent} greater in our test setup when parallel workers are at or below the physical core count.
+We show the cumulative distributions of these in detail in \cref{fig:lat-cumul}, noting how just one additional CPU-intensive task---potentially automated system updates, scans, or another vNF or traffic processing task---can impact tail latencies further (\emph{Float(Over)}).
 
 \begin{figure}
 	\resizebox{1.0\linewidth}{!}{
@@ -817,7 +824,7 @@ We observed that ...
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-core-latency}
 	}
-	\caption{Latency! varying core count\label{fig:vary-core-latency}}
+	\caption{\Coopfw{}'s action latencies improve as additional cores are made available. This requires \num{3} workers (4 total contexts) to improve upon single-threaded in-NIC RL.\label{fig:vary-core-latency}}
 \end{figure}
 
 \begin{figure}
@@ -834,7 +841,7 @@ We observed that ...
 		}
 		\caption{Tail latencies suffer in host execution---particularly when oversubscribed.}
 	\end{subfigure}
-	\caption{Cumulative state-action latency plots for \approachshort{} and host-based execution.}
+	\caption{Cumulative state-action latency plots for \approachshort{} and host-based execution.\label{fig:lat-cumul}}
 \end{figure}
 
 A somewhat remarkable trend is that the \SIlist{8;16}{\bit} versions of \approachshort{} consistently underperform compared to \SI{32}{\bit} designs, with the exception of smaller workloads (seen in the zoomed portions of \cref{fig:vary-work,fig:vary-work-latency}).
@@ -904,11 +911,10 @@ No packet loss incurred
 
 \fakepara{Resource requirements}
 \Cref{tab:resources} demonstrates how \approachshort{} consumes shared and local memory as it scales to fit a device's compute resources, compared with a simple P4 forwarding application.
-As one program is installed per ME, these represents the minimum and maximum resource use we can command on a single island (i.e., without replacing P4 workers).
+As one program is installed per ME, these represent the minimum and maximum resource use we can command on a single island (i.e., without replacing P4 workers).
 We observe negligible costs on shared bulk storage ($\sim$\SI{4}{\mebi\byte}), including storage space for a hash-table of \num{4096} state-action pairs and \num{16} reward values.
 The most significant costs arise due to policy data (\SI{405}{\kibi\byte} capacity shared IMEM, \SI{90}{\kibi\byte} local CTM, \SI{15}{\kibi\byte} local CLS), which can be halved or quartered using \SIlist{16;8}{\bit} quantisation and remain constant regardless of compute unit usage.
-Thread local storage in CLS for compute/register spilling scales with the number of MEs required, and with \Coopfw{} this is far below the ``fair share'' (allowing co-existence with other asynchronous dataplane programs).
-Notably, \Indfw{} imposes far heavier requirements on the limited per-island CLS, due to the extra resources needed to maintain, operate on, and cache tile lists for optimal processing.
+Thread local storage in CLS for compute/register spilling scales with the number of MEs required, particularly when caching  and with \Coopfw{} this is far below the ``fair share'' (allowing co-existence with other asynchronous dataplane programs).
 
 \begin{table}
 \caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM regions are shared between all programs on the same island (placing our RL agent on i5), while EMEM and IMEM regions are shared between all NFP programs on a NIC.\label{tab:resources}}
@@ -949,7 +955,7 @@ Notably, \Indfw{} imposes far heavier requirements on the limited per-island CLS
 ?? Config times scale with work complexity in \Coopfw{}, confirming the $\mathcal{O}{\left(n\right)}$ complexity of the allocator (??). Is it O mlogn?
 ?? Changing from online to offline has this cost.
 
-We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{}, bit-depth, or increasing maximum policy sizes) took a mean time of \SI{38.83}{\second}.
+We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{}, bit depth, or increasing maximum policy sizes) took a mean time of \SI{38.83}{\second}.
 ?? What about compile time?
 
 \section{Potential Integrations}\label{sec:potential-integrations}
@@ -990,7 +996,7 @@ By design, active flows which are not \emph{judged} after a configurable time ar
 The tight bounds on execution time known \emph{a priori} make it easy to calculate the maximum number of decisions which can be made per deadline.
 Reward values would then be separately inserted by a modified INDDoS table.
 
-?? Can I have a P4 code snippet here?
+%?? Can I have a P4 code snippet here?
 
 A reduction in state-action latency (i.e., with \Coopfw) is, as always, useful for minimising the noise inherent in learning.
 However, an agent is limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
@@ -1013,7 +1019,7 @@ This can be taken further still, using policy deltas or execution traces to enab
 
 \section{Related Work}
 
-?? NOTES: try to strengthen emphasis on ``other works can't do online learning in the data plane''. This is absolutely, \SI{100}{\percent} the killer feature.
+?? NOTES: try to strengthen emphasis on ``other works can't do online learning in the dataplane''. This is absolutely, \SI{100}{\percent} the killer feature.
 
 ?? A switch/NIC architecture like \textcite{DBLP:conf/hotnets/StephensAS18} would remove the need for hard-coded island-island relationships.
 
@@ -1027,7 +1033,10 @@ This can be taken further still, using policy deltas or execution traces to enab
 \parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}
 
 ?? N3IC run NNs on NIC~\parencite{DBLP:journals/corr/abs-2009-02353}, allow packet tagging to occur based on pre-trained BNN~\parencite{DBLP:conf/nips/HubaraCSEB16}.
-?? both NFP and NetFPGA.
+?? both NFP (\SI{45}{\micro\second}) and NetFPGA (\SI{0.3}{\micro\second}).
+?? We handle larger inputs (versus their \SI{256}{\bit}), offer online training.
+?? Use our 5-dim as a point of comparison?
+
 ?? Or as an offload mechanism~\parencite{DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
 ?? Binary NNs ``more suitable for network hardware''~\parencite{DBLP:journals/corr/MiyashitaLM16}?
 
