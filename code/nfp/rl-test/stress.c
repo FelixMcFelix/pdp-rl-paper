@@ -28,6 +28,8 @@ volatile __declspec(import, emem, addr40, aligned(sizeof(unsigned int))) uint8_t
 
 volatile __declspec(import, emem) uint32_t begin_stress;
 
+__declspec(export, emem) uint64_t pkt_interval;
+
 main() {
 	uint32_t t0, t1;
 	__declspec(write_reg) struct rl_work_item workq_write_register = {0};
@@ -45,6 +47,8 @@ main() {
 
 	work_to_send.ctldata.t4_type = PIF_PARREP_TYPE_in_state;
 	work_to_send.parsed_fields.state.dim_count = RL_DIMENSION_MAX;
+
+	pkt_interval = STRESS_TEST_INDIV_GAP_RCYCLES;
 
 	// wait for valid config
 	while (1) {
@@ -100,9 +104,11 @@ main() {
 		// record t1
 		t1 = local_csr_read(local_csr_timestamp_low);
 
+		// elapsed = t1 - t0
 		if (t1 - t0 < STRESS_TEST_INDIV_GAP_RCYCLES) {
 			// Big note: this takes actual cycles, but the asm blocks take 16*cycles.
-			sleep((t1 - t0) << 4);
+			// sleep for (total - elapsed)
+			sleep((STRESS_TEST_INDIV_GAP_RCYCLES - (t1 - t0)) << 4);
 		}
 	}
 }
