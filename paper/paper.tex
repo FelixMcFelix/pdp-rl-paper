@@ -9,6 +9,17 @@
 \newcommand\bmmax{2}
 \usepackage{bm}
 
+\usepackage[ruled,vlined]{algorithm2e}
+
+% Get Booktab style ruling in algorithm blocks.
+% Values shamelessly taken from egreg's answer in 
+% https://tex.stackexchange.com/a/345745/82917
+\makeatletter
+\renewcommand*{\@algocf@pre@ruled}{\hrule height\heavyrulewidth depth0pt \kern\belowrulesep}
+\renewcommand*{\algocf@caption@ruled}{\box\algocf@capbox\kern\aboverulesep\hrule height\lightrulewidth\kern\belowrulesep}
+\renewcommand*{\@algocf@post@ruled}{\kern\aboverulesep\hrule height\heavyrulewidth\relax}
+\makeatother
+
 % Imports Ahoy
 
 %\usepackage[dvipsnames]{xcolor}
@@ -140,7 +151,7 @@
 \acmISBN{67890}
 
 %Conference
-\acmConference[SOSR '21]{Symposium of SDx Research 2021}{September \numrange{13}{14}, 2021}{Online}
+\acmConference[SOSR '21]{Symposium of SDx Research 2021}{September \numrange{20}{21}, 2021}{Online}
 \acmYear{2021}
 %\copyrightyear{}
 
@@ -245,6 +256,8 @@
 	
 \section{Introduction}
 ?? REDO ME: this is an old abstract
+
+?? Make a point of explaining why in-NIC... in general!
 
 \begin{figure}
 	\centering
@@ -458,7 +471,15 @@ This again fits our goals of integrating RL techniques directly within bump-in-t
 \end{insight}
 
 \subsection{Netronome Platform Fundamentals}
-?? Explain MEs, Threads, CTXs, so on so on.
+As we implement this work on Netronome SmartNICs, it is necessary to explain the basics of the NFP architecture.
+NFP chips are \emph{system-on-a-chip} (SoC) devices, and achieve scalable packet processing through sheer parallelism.
+Aside from an ARM management chip and application specific functional units, most of the chip is composed of \emph{microengines} (MEs), grouped into \emph{islands} of 4 or 12 MEs.
+All 12-ME islands are used by a default P4 pipeline.
+Each ME has \numrange{4}{8} \emph{contexts} (hardware threads) which share a code store and large register file, offering zero-cost context switches triggered by I/O.
+Contexts and MEs may send one another numbered signals, and MEs have a small \emph{next-neighbour} register file for passing values in one direction to the next ME on the same island.
+MEs run a proprietary instruction set, compiled to via a \emph{(Micro-)C} compiler.
+Beyond registers, the platform implements an explicit memory hierarchy scaling in size, location, and access cost as below:
+$$\text{LMEM (ME)} < \text{CLS (Island)} < \text{CTM} < \text{IMEM (Chip)} < \text{EMEM}$$
 
 \subsection{Discussion}
 %?? relate update/execute operations here? i.e., policy execute needs only ALU add (and whatever is needed for tile code), train needs add+mul+shr. or in RL section? Should that come first?
@@ -501,7 +522,7 @@ Moving beyond the Netronome platform, we describe how our architectural choices 
 However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
 
 \approachshort{} runs on one or more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
-As an example, this might be to map flow state and performance measurements into a queue priority for future packets from that flow, or to compute and apply a rate limit to preserve quality of service.
+As an example, this might be to map flow state and performance measurements into a queueing priority for future packets from that flow, or to compute and apply a rate limit to preserve quality of service.
 These dedicated cores are then responsible for processing requests, computing actions, and updating the underlying policy in real time.
 Combined with reward measurements, this policy can then be updated or trained from scratch entirely on the NIC, acting as a fully online RL agent.
 An input state vector \emph{always} induces an action, and if desired updates the policy using either an included reward or one retrieved from memory according to a (configurable) key placed alongside the state.
@@ -517,7 +538,7 @@ The main interaction model is that platform-specific IPC mechanisms (message rin
 These same mechanisms are used by other cores on the same device to \emph{pull} output actions from the RL system.
 Both input and output can occur on any other core of the device, i.e., as part of P4 \texttt{extern} plugins or a dedicated flow state measurement subsystem, while the P4 control plane itself provides granular control over which flows are monitored or affected.
 
-Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
+Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match-action tables and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
 Bit depth of quantised measurements/preferences, maximum policy sizes, and parallelisation strategy may be configured at compile time.
 
 \subsection{Action and Update Computation}
@@ -527,19 +548,15 @@ This is then written out to the environment as in \cref{sec:agent-environment-co
 If updates are enabled, \approachshort{} then checks an internal hashmap for a previous state-action pair matching the current instruction source, and if found then a policy update is performed.
 Updates are computed using \emph{single-step semi-gradient Sarsa} (\cref{eqn:sg-sarsa}), though modification to support other single-step methods would be trivial.
 The new state- or tiles-action pair is then written into storage.
+\approachshort{} can be configured to automatically select values of the input state vector as keys for state and reward storage.
 
-?? Probably mention the idea of including "state keys" and "reward keys" in the input state vector.
-
-?? Move a bunch of this to the NFP basics chapter.
-
-In the NFP architecture we use, physical cores (MEs) each have 8 hardware threads (contexts): all contexts on an ME share the same program and employ zero-cost context switches triggered by I/O.
-Each core then provides 8 worker threads, though in the \indfw{} case one must be dedicated to monitoring work acknowledgements.
 Two main firmware models govern how the computation-intensive parts of these tasks (tile-coding, action preference list construction, policy updates) are carried out:
 \begin{description}
-	\item[\Indfw{} (\cref{fig:single-and-parallel:single})] Separate threads listen for new states, and each performs its work sequentially. Computing an action list requires a \emph{read lock} on the policy. If an update occurs, the core requests a \emph{write lock} before updating, greatly limiting online throughput. Tile lists are stored for update computation.
-	\item[\Coopfw{} (\cref{fig:single-and-parallel:parallel})] Threads cooperate on processing state vectors, minimising latency. Workers have a fixed list of work items, while a master thread sends compute/update commands before awaiting worker completion. Work items are disjoint, requiring no policy locks. State vectors are stored for update computation.
+	\item[\Indfw{} (\cref{fig:single-and-parallel:single})] Separate threads listen for new states, and each performs its work sequentially. Computing an action list requires a \emph{read lock} on the policy. If an update occurs, the core requests a \emph{write lock} before updating, greatly limiting online throughput. \emph{Tile lists} are stored for update computation.
+	\item[\Coopfw{} (\cref{fig:single-and-parallel:parallel,alg:parsa})] Threads cooperate on processing state vectors, minimising latency. Minions have a fixed list of work items, while a controller thread sends compute/update commands before awaiting worker completion. Work items are disjoint, requiring no policy locks. \emph{State vectors} are stored for update computation.
 \end{description}
 Each offers a different point of optimisation; if updates are disabled, then the \emph{\indfw{}} model can maximise throughput, while the \emph{\coopfw{}} model is designed to minimise decision latency and needs no locks for updating the policy (increasing \emph{online learning} throughput).
+We note that our parallel, wait-free Sarsa implementation---\emph{ParSa} (\cref{alg:parsa})---is made possible only by the use of quantisation to integers, as atomic operations on floating point numbers typically do not exist outside of graphics- or tensor-processing hardware.
 
 Latency and throughput, as in many networked systems, have different effects upon RL agents according to their design and target problem.
 Higher throughput for an RL agent is a necessity for per-flow or per-packet applications, which can require high decision-per-second rates even after combining state measurements received from the environment, such as flow control in DDoS prevention.
@@ -547,8 +564,7 @@ Equally, lower latency affords an RL agent finer-grained control and learning of
 
 We found that, paradoxically, it was more efficient in the \Coopfw{} case \emph{to do more work} by having each worker recompute its tile subset from a stored state.
 It transpired that cacheing this data placed a larger \texttt{memcpy} in the serial section, whose size did not scale at all with bit depth.
-
-?? While we \emph{could} use bitshifts in tile coding, we don't due to the strict limits it places upon policy design.
+Additionally, we do not use bitshifts in place of division operations in our implementation, due to the strict limits that power-of-two tile widths place upon policy design.
 
 \subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
 \approachshort{} uses \emph{multiple-producer/multiple-consumer} (MPMC) messaging channels to communicate with other computational elements; be they P4 programs on the packet path, or additional on-chip analysis and control modules.
@@ -568,50 +584,63 @@ Ordinarily, the serialisation/marshalling of requests, responses, and safe share
 On-chip execution and the nature of action preference computation allow us to use lockless atomic aggregation, removing the overheads of explicit messaging/packetisation.
 Moreover, physically adjacent functional units may have special-purpose shared registers or share a small fast cache to accelerate communication further.
 
-?? NOTE: this aggregastion step is specifically WAIT-FREE, not just lockless etc. because progress always made.
-
-?? Move much of the below to the NFP basics section?
-
 Our implementation exploits the locality of threads, cores, and their parent islands in the NFP architecture.
-Groups of \numrange{4}{12} cores (MEs) in this platform are termed \emph{islands}, with shared access to low-latency scratch memory and the adjacent registers of neighbouring MEs.
-Each ME then has a number of threads fixed at compile time (\numrange{4}{8}), sharing one large register file to enable zero-cost context switches.
 Policy compute/update tasks and configuration updates are passed between cores using these direct \emph{next neighbour} registers, signalling all child threads in response.
-Each task performs atomic adds to a shared preference list, and atomically increments an acknowledgement counter to be periodically checked by the master thread.
+Each task performs atomic adds to a shared preference list, and atomically increments an acknowledgement counter to be periodically checked by the master thread, implementing the wait-free \emph{ParSa} algorithm we introduce (\cref{alg:parsa}).
 
-In earlier designs we had experimented with bounded buffers as in \cref{sec:agent-environment-communication} for this, modified to be located solely in local scratch memory, dedicating the master thread to result aggregation.
+In earlier designs we had experimented with bounded buffers as in \cref{sec:agent-environment-communication} for this, modified to be located solely in CLS memory, dedicating the master thread to result aggregation.
 We found that this created a performance bottleneck at this final stage, causing significant head-of-line blocking for each of the workers.
 Similarly, our next neighbour work notification scheme ($\sim$\SI{20}{\nano\second} latency per relayed message) was examined against \emph{reflector} and \emph{work queue} IPC mechanisms (\SIlist{58;126}{\nano\second} per messaged core).
 These slower messages can be used in theory to skip ahead into longer ME chains.
 
+
+\begin{algorithm}
+	\caption{ParSa---\emph{Par}allel \emph{Sa}rsa\label{alg:parsa}}
+	\SetKwProg{generate}{Function \emph{generate}}{}{end}
+	
+	Map store=new Map(obj, queue)\;
+	\generate{Object pivot}{
+		\ForAll{child $c$ in pivot}{
+			\If{ $c$'s FieldContext is not set and $c$ is fusible}{
+				generate($c$)\;
+			}
+		}
+		build pivot's fieldContext $fc$\;
+		EmitClassName\;
+		EmitFields($fc$)\;
+		EmitMethods($fc$)\;
+	}
+\end{algorithm}
+
 \subsection{Reconfigurability}
-\approachshort{} allows for policy dimensions, size, action count, tiling strategies, and algorithmic learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) to be chosen and changed at runtime.
-This extends to policy data, which may be imported from an offline pre-trained model via such packets, and exported via the NFP binary support package on the host machine.
+\approachshort{} allows for policy dimensions, size, action count, tiling strategies, and algorithmic learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) to be chosen and changed at runtime using at most two control packets.
+This extends to policy data, which may be imported from an offline pre-trained model via many such packets, and exported via the NFP binary support package on the host machine.
 Some aspects must be chosen at compile time; bit depth, work allocation strategy, and maximum policy/tiling/state sizes---these govern core operation or allocated memory regions.
 
 In our implementation, configuration packets are carried over UDP and signalled to the P4 parser using a reserved (pool 2~\parencite{rfc2474}) DSCP value as used by \textcite{DBLP:conf/isca/LiLYCSH19}.
-While we primarily use this to automate parser generation, this also allows for configuration packets to be received from only trusted hosts over the dataplane if needed via P4 rules.
+While we primarily use this to automate parser generation, this also allows for configuration packets to be received from only trusted hosts (over the dataplane if needed) via P4 rules.
 Our control packet generation library (and evaluation frameworks which build upon it) are written in Rust.
 
 \subsection{Work Allocation}
 Due to the lack of dynamic memory allocation and to simplify action-value lookups, policies cannot be effectively stored sparsely.
 As a consequence, tiling space requirements scale exponentially with dimension count, and so higher-dimension tilings must be placed in memory regions large enough to allocate space for them.
-As a result, tilings are split across memory regions, giving different access and compute costs to different tasks---ranging over CLS, CTM and EMEM in increasing latency.
+As a result, tilings are split across memory regions, giving different access and compute costs to different tasks---ranging over CLS, CTM and IMEM in increasing latency.
 
-We use a simple first-fit work placement algorithm run on the NFP, placing the largest work item into the least loaded thread of the least loaded core.
-The cost of any individual work item (according to its dimension count and memory location) was estimated offline.
+We use a simple first-fit work placement algorithm run on the NFP, placing the largest work item into the least loaded context of the least loaded ME.
+The cost of any individual work item (according to its dimension count and memory location) was empirically measured offline, and we weight the total cost per ME to account for the number of minion threads available.
+This weighting specifically accounts for the presence of the controller thread on the first ME.
 This work allocation and any cached per-work-item values are recomputed when any configuration is installed or changed.
-Naturally, for $n$ tasks and $m$ threads this is $\mathcal{O}{\left(n\log{m}\right)}$: two find/update min operations into binary heaps per task, storing $m/8$ and $\le8$ costs respectively.
+Naturally, for $n$ tilings/tasks and $m$ threads this procedure is $\mathcal{O}{\left(n\log{m}\right)}$: two find/update min operations into binary heaps per task, storing $m/8$ and $\le8$ costs respectively.
 
 \subsection{Variable Quantisation Bit Depth}
 At compile-time, \approachshort{} can be configured to use \SIlist[list-final-separator = { or }]{32;16;8}{\bit} values in input states and its internal policies.
 Naturally, smaller bit depths reduce the storage required for policies, tiling data, and stored state-action pairs---allowing more complex problems to be modelled using more dimensions or fine-grained policies.
-Through the lens of computational efficiency, reduced bit depth allows action preference lists to be read using fewer I/O operations (as more values may fit into a single machine word).
+Through the lens of computational efficiency, reduced bit depth should allows action preference lists to be read using fewer I/O operations (as more values may fit into a single machine word).
+
 We had investigated bit-stuffing several such values into a single word for our atomic writeback mechanism (as the platform offers both \SIlist{32;64
 }{\bit} atomic addition).
 This is analogous to SIMD---through clever use of padding bits---but we found that manipulating tiles into the correct format added \SI{10}{\percent} extra overhead.
-
-?? Need to mention that this is a theoretical improvement; the results are basically opposite to this.
-?? Main benefit is then, I guess, the redux in storage requirements?
+We investigate further performance implications of changing bit-depth in the sequel.
 
 %Potential: low-latency train for some specific points, and high throughput for others? Think on the exact note I took...
 %
@@ -626,213 +655,62 @@ Unfortunately, direct rule installation into P4 tables from the SmartNIC itself 
 To achieve line-rate match-action table lookup, platforms like NFP use accelerated datastructures (e.g., DCFL~\parencite{DBLP:conf/infocom/TaylorT05}) which must be computed by the controller over the \emph{entire rule set}.
 Even through externs, directly adding new rules is neither feasible nor safe.
 
-We instead suggest on NFP chips that externs or datapath stages which apply actions to packet processing should maintain a small local store of state-action pairs, and periodically send these back to the controller for batch rule installation.
+We instead suggest on NFP chips that \texttt{extern}s or datapath stages which apply actions to packet processing should maintain a small local store of state-action pairs, and periodically send these back to the controller for batch rule installation.
 This ensures that the vast majority of installed rules enjoy accelerated performance, while preventing rule installation delay on the newest decisions.
 Platforms such as Intel Tofino greatly simplify this, with Tofino Native Architecture intrinsics such as \emph{Action Profiles/Selects} allowing a P4 action to be chosen based on a register value (i.e., an RL action).
 
-?? Achieving very tight latency bounds on \Coopfw{} requires quite a decent core allocation. (i.e., need at least 11 workers to make a gain in online t'put, 5 cores needed to win in throughput).
+As is expected of parallel algorithms, efficient division of work, communication, and aggregation add per-task overheads in both the serial and parallel portions.
+Even in wait-free algorithms, this requires a minimum number of workers to improve upon the latency bounds of a serial approach.
+We investigate the exact worker count requirements imposed to break even or improve upon single-threaded execution in the sequel.
 
 \subsection{Targeting other device classes}
 While this design caters primarily to Netronome's SmartNIC devices, many aspects of this design have clear analogues in NICs of similar form-factor, such as their close NetFPGA SUME cousins.
 For instance, the availability of other cores can be handled by designing additional off-path functional units, much like the floating-point adders used by \textcite{DBLP:conf/isca/LiLYCSH19}.
 Rather than general-purpose cross-core communication, an RL functional unit would be hard-wired to and from the custom actions that interface with it, using the P4$\rightarrow$NetFPGA toolchain to offer the base framework and granular control over packet and flow selection.
 Further optimisations arise from this model: a NetFPGA design would be able to replicate and optimise further on this concept of dedicated, low-latency communication between functional units.
+As our later results show, working on a bitdepth below the native word size forces the compiler or programmer to emit excess code to extract and re-align preference values.
+This reduces overall efficiency even though considerably fewer reads are made.
+We expect that more bespoke hardware/FPGA co-design would allow this boiler-plate to be removed and enable the SIMD-like optimisations we discuss above without creative and costly bit-stuffing.
 
-Consider a single, shared, read-only register between RL functional ...
-?? think about really really carefully lest Reviewer 2 murder you
-?? Parallel, atomic writes at the required resolution.
-?? No bit stuffing required for SIMD-alike?.
-?? More chances for vectorisation? Is that where we're falling down atm with 32-bit being weirdly optimal?
-
-Bringing this to high-port density devices such as Intel Tofino-powered switches is more difficult.
+Bringing \approachshort{} to high-port density devices such as Intel Tofino-powered switches is more difficult.
 As discussed in \cref{sec:motivation}, Tofino ASICs map closely to the P4 PSA, meaning that there are no spare asynchronous general-purpose compute units to place this work on.
-A potential solution is to divide RL actions across several received packets (i.e., iteratively computing a portion of the action preference list each time) until any further work would delay outbound transmission.
+Taking inspiration from real-time programming techniques, a potential solution is to divide RL actions across several received packets (i.e., iteratively computing a portion of the action preference list each time) until any further work would delay outbound transmission.
 This, however, would introduce new issues surrounding concurrent accesses, work splitting, and altered timescales for learning: we leave their treatment and examination to future work.
 
-%\begin{figure}
-%	\centering
-%	\resizebox{\linewidth}{!}{\begin{tikzpicture}
-%		\node(remote){Remote};
-%		
-%		%%%
-%		
-%		\node[below=0.05 of remote](swpos){};
-%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of swpos.north west](sw1){};
-%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw1.north west](sw2){};
-%		\node[fill=white!80!uofgcobalt, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of sw2.north west](switch){};
-%		\node[below right, inner sep=2pt] at (switch.north west) {\small Switch};
-%		\node[fill=white!90!uofgcobalt, draw, rectangle, rounded corners=0.05cm, above=0.1] (oswlc) at (switch.south) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-%		
-%		%
-%		
-%		\node[right=2 of swpos](epos){};
-%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of epos.north west](e1){};
-%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e1.north west](e2){};
-%		\node[fill=white!80!uofgthistle, draw=black, minimum height=1.5cm, minimum width=3.5cm, below right= 0.1 of e2.north west](egress){};
-%		\node[below right, inner sep=2pt] at (egress.north west) {\small Egress Switch};
-%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (eglc) at ($(egress.south) + (-0.85,0)$) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, right=0.1] (egest) at (eglc.east) {\begin{varwidth}{1.5 cm}\small \centering Estimator\\$g(\cdot)$\end{varwidth}};
-%		
-%		%
-%		
-%		\node[right=3.5 of epos](apos){};
-%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of apos.north west](a1){};
-%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a1.north west](a2){};
-%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=1.5cm, minimum width=2cm, below right= 0.1 of a2.north west](otheragent){};
-%		\node[below right, inner sep=2pt] at (otheragent.north west) {\small Agent vNF};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, above=0.3] (oasa) at (otheragent.south) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
-%		
-%		%
-%		
-%		\node[below=2.3 of remote.west](linestart){};
-%		\path let \p1 = (linestart) in node (lineend) at (9,\y1){};
-%		\draw [dashed] (linestart) -- (lineend);
-%		
-%		%%%
-%		
-%		\node[below=2.4 of remote](local){Local};
-%		
-%		%%%
-%		
-%		\node[below=0.25 of local](aswpos){};
-%		\node[fill=white!80!uofgthistle, draw=black, minimum height=3cm, minimum width=2.2cm, below right= 0.1 of aswpos.north west](aswitch){};
-%		\node[below right, inner sep=2pt] at (aswitch.north west) {\small Agent Switch};
-%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswoft) at (aswitch.south) {\begin{varwidth}{1.5 cm}\small \centering OpenFlow\\Tables\end{varwidth}};
-%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswsc) at (aswoft.north) {\begin{varwidth}{1.5 cm}\small \centering Stats\\Collector\end{varwidth}};
-%		\node[fill=white!90!uofgthistle, draw, rectangle, rounded corners=0.05cm, above=0.1] (aswlc) at (aswsc.north) {\begin{varwidth}{1.5 cm}\small \centering Load\\Collector\end{varwidth}};
-%		
-%		%
-%		
-%		\node (avfpos) at ($(aswpos) + (3,0.2)$){};
-%		\node[fill=white!60!uofgpumpkin, draw=black, minimum height=3.5cm, minimum width=4.5cm, below right= 0.1 of avfpos.north west](avf){};
-%		\node[below right, inner sep=2pt] at (avf.north west) {\small Agent vNF};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.15] (avfsa) at ($(avf.north) + (0.2,0)$) {\begin{varwidth}{1.5 cm}\small \centering Stats API\end{varwidth}};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=0.9] (avfdb) at (avfsa.south west) {\begin{varwidth}{1.5 cm}\small \centering Flowstate\\Database\end{varwidth}};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.1] (avfsched) at (avfdb.east) {\begin{varwidth}{1.5 cm}\small \centering TRS\\Scheduler\end{varwidth}};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, below=2.3] (avfcore) at (avfsa.south) {\begin{varwidth}{1.5 cm}\small \centering Core\end{varwidth}};
-%		\node[fill=white!90!uofgpumpkin, draw, rectangle, rounded corners=0.05cm, right=0.8] (avfrl) at (avfcore.east) {\begin{varwidth}{1.5 cm}\small \centering RL\end{varwidth}};
-%		
-%		%%%
-%		
-%		\tikzset{>=stealth}
-%		
-%		\draw[thick, ->] (aswlc) -- (avfsa.west) node[midway,above] {\tiny Current load};
-%		\draw[thick, ->] (aswsc) -- (avfsa.west) node[midway,sloped, above] {\tiny Flow stats};
-%		
-%		\draw[thick, ->] (oswlc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
-%		
-%		\draw[thick, ->] (eglc) -- (avfsa) node[midway,above, sloped] {\tiny Current load};
-%		\draw[thick, ->] (egest) -- (avfsa) node[midway,above, sloped] {\tiny Estimation data};
-%		
-%		\draw[thick, <->] (oasa) -- (avfsa) node[midway,above, sloped] {\tiny Experience};
-%		
-%		\draw[thick, ->] (avfsa) -- (avfdb) node[midway,above, sloped] {\tiny State};
-%		\draw[thick, ->] (avfsa) -- (avfsched) node[midway,above, sloped] {\tiny Live flows};
-%		
-%		\draw[thick, ->] (avfcore) -- (aswoft) node[midway,above, sloped] {\tiny Packet drop rules};
-%		\draw[thick, <->] (avfcore) -- (avfdb) node[midway,below, sloped] {\tiny State};
-%		\draw[thick, <->] (avfcore) -- (avfsched) node[midway,below, sloped] {\tiny Work};
-%		\draw[thick, <-] ($(avfcore.east) + (0,0.1)$) -- ($(avfrl.west) + (0,0.1)$) node[midway,above, sloped] {\tiny Actions};
-%		\draw[thick, ->] (avfcore) -- (avfrl) node[midway,below, sloped] {\tiny State};
-%		
-%		\draw[thick, ->] (avfsa.east) to [out=0, in=45] (avfrl.north);
-%		\node[right=0.3] at (avfsa.east) {\tiny Experience};
-%		\end{tikzpicture}}
-%	\caption{
-%		System architecture  for our RL-driven DDoS defence system.
-%		\label{fig:sys-arch}
-%	}
-%\end{figure}
-
-\section{Potential Integrations}\label{sec:potential-integrations}
-To show the general applicability and use of \approachshort{}, we propose two ideal integrations which would benefit most from in-NIC reinforcement learning; online DDoS attack mitigation (\cref{sec:integ-1}), and ?? OTHER THING (\cref{sec:integ-2}).
-We support these using other state-of-the-art P4/PDP developments, and discuss how best to balance the concerns of online training with throughput in widespread deployment.
-
-?? Will these look better \emph{after} the results?
-
-\subsection{In-Network DDoS Defence}\label{sec:integ-1}
-Classical reinforcement learning has seen recent use in real-time, adaptive DDoS mitigation~\parencite{DBLP:journals/tnsm/SimpsonRP20}.
-\Citeauthor{DBLP:journals/tnsm/SimpsonRP20}'s \emph{Guarded} agent design uses a mixture of global network state and local, per-flow state to monitor how flows respond to bandwidth changes and packet drop---applying the observations made by SPIFFY~\parencite{DBLP:conf/ndss/KangGS16} with more allowance for congestion-unaware protocols.
-Actions then move flows up or down in punishment levels according to a finite state machine.
-
-\fakepara{Why in-NIC?}
-The above approach relies upon co-hosting traffic measurement and analysis alongside OpenFlow-compatible switches at the edge nodes of an AS.
-However, packet mirroring, offloading RL computation to a host (potentially over layers of virtualisation), and CPU performance are all sources of additional, consistent state-action latency.
-Both traffic statistics collection \emph{and} data-driven learning must be executed on such hosts/network functions.
-Unless running these stages in a dedicated pipeline (adding further processing latency), resource contention between these processes will further impact tail latencies.
-Naturally, this requires high-performance hardware to be stacked at network egress points, potentially beyond reasonable space, power, or ventilation constraints.
-The solution to implement and improve upon this work using \approachshort{} is to place its RL agents on SmartNICs at AS edge nodes---a bump-in-the-wire deployment.
-
-?? Any way to move some of this sooner? I.e., this is ``why move DDoS prevention here'', Stefanos suggested backporting some of this to justify ``why \emph{RL} in-NIC''?
-
-\fakepara{Inputs}
-To collate the required inputs and state, we then examine the recent innovations of the community.
-Low-latency, pure-P4 solutions to extract and record per-flow TCP state directly in the dataplane such as Dapper~\parencite{DBLP:conf/sosr/GhasemiBR17} are well-studied.
-In fact, the statistics offered by Dapper are a super-set of the local input state values employed by \emph{Guarded} agents, offering an opportunity to further improve their efficacy. 
-We propose placing such monitors in the P4 dataplane, existing on-chip alongside the \approachshort{} agent.
-The required global state (load measures from network paths) must still come from elsewhere in the network; this is now the element at highest risk of becoming stale, but the least likely to vary significantly in response to individual actions.
-
-The original work suggests theoretical ``ground truth'' reward functions, whose correct implementation and designs were left as an open challenge. 
-We posit that INDDoS~\parencite{tnms-ddos-victim-ident}, which uses Count-min Sketches to estimate DDoS victim cardinality, could be used as an effective reward function source---i.e., using the number of detected victims as a loss value.
-
-\fakepara{Integrating \approachshort}
-Before each Dapper monitoring action, we require that the table hosting this hybrid solution polls \approachshort{}'s \emph{OUT Ring} for any generated actions.
-As we note in \cref{sec:limitations}, these actions would be placed into a small local hash table and simultaneously exported to the attached controller to be inserted as P4 rules in batches.
-After the main monitoring step, packet ingress timestamps would be used to emulate the \emph{Timed Random Sequential} (TRS) scheduler used by the anti-DDoS agents for rate-controlled work, where state vectors would be selected and passed into \approachshort.
-By design, active flows which are not \emph{judged} after a configurable time are discarded to prune the work set and allow new flows to be seen by the agent.
-The tight bounds on execution time known \emph{a priori} make it easy to calculate the maximum number of decisions which can be made per deadline.
-Reward values would then be separately inserted by a modified INDDoS table.
-
-?? Can I have a P4 code snippet here?
-
-A reduction in state-action latency (i.e., with \Coopfw) is, as always, useful for minimising the noise inherent in learning.
-However, an agent is limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
-Accordingly, this use-case benefits most from an increase in \emph{throughput} using \Indfw{}.
-In this context, higher throughput means that network flows are more likely to be judged in every timestep, even when flow cardinality is high---making it more likely that changes in flow behaviour will be observed, acted on, and learned from.
-
-We note that the TRS scheduler is designed to handle cases where the number of flows created by an attacker, combining state vectors and information over time while the asynchronous agent is itself busy.
-An increased number of (attacking) flows beyond the maximum throughput simply makes it take longer in expectation for a flow to be reassessed.
-As we shall examine in \Cref{sec:evaluation}, \approachshort{} far exceeds the action throughput of a host based deployment could handle.
-The control plane is then free to use wildcards or specific matches to narrow down (or expand) the set of flows to be considered and controlled, though explicit scheduling techniques are still key in such adversarial environments.
-
-\subsection{Something host-specific?}\label{sec:integ-2}
-Accelerate something at an end-host... Flow control? Something datacentre-y? A novel CCA? What?
-
-\subsection{Network Deployment Considerations}
-The two compute models discussed above need not be homogeneously deployed.
-For instance, in a networked deployment a subset of \approachshort{} nodes could be \SI{32}{\bit} \emph{\coopfw{}} agents, training online, while most other nodes ran \SI{8}{\bit} \emph{\indfw{}} designs to meet throughput guarantees.
-The control plane would then be responsible for combining, downsampling, and distributing these improved policies between remaining agents.
-This can be taken further still, using policy deltas or execution traces to enable out-of-path transfer learning for more complex function approximators such as neural networks.
-
 \section{Evaluation}\label{sec:evaluation}
-We outline our performance evaluation of \approachshort...
+We investigate the performance of \approachshort{} as compared with classical RL techniques executed on commodity host machines, with \Coopfw{} offering a \SIrange{15}{21}{$\times$} speedup in median--\nth{99} state-action latency and \SI{9.9}{$\times$} greater online learning throughput.
+Crucially, we find that in-NIC execution offers tight tail latency bounds compared with host-based approaches.
+We report on how \approachshort{} scales to fit available device resources as cores/threads are added, noting that both \Indfw{} and \Coopfw{} designs outperform commodity hosts using just one core in latency and online throughput. 
+Furthermore, \Indfw{} provides higher per-core offline throughput than host-based approaches, even though our measured hosts exhibit higher clock speeds.
+Finally, we show that \approachshort{} has minimal impact on dataplane cross-traffic carried by its parent device.
 
 \subsection{Experimental Setup}\label{sec:experimental-setup}
-Evaluation of \approachshort{} was performed on server blades hosting a single Netronome Agilio LX 1x100GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
-These mid-tier servers (\emph{MidServer}) ran Ubuntu 18.04.5 LTS (4.15.0-140-generic x86\_64) on Intel Xeon Bronze 3204 CPUs ($6\times$\SI{1.9}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
-We additionally use a more powerful consumer-grade machine (\emph{Collector}) for estimating host performance when offloaded to a network function, running Ubuntu 18.04.4 LTS (4.15.0-96-generic) on Intel Core i7-6700K ($4\times$\SI{4.2}{\giga\hertz}) and \SI{32}{\gibi\byte} RAM.
+Testing machines had the following specifications, all having \SI{32}{\gibi\byte} RAM:
+\begin{description}
+	\item[\emph{MidServer}] Intel Xeon Bronze 3204 CPUs ($6\times$\SI{1.9}{\giga\hertz}),
+	\item[\emph{HighServer}] Intel Xeon Silver 4208 CPU ($8\times$\SI{2.1}{\giga\hertz}),
+	\item[\emph{Collector}] Intel Core i7-6700K ($4\times$\SI{4.2}{\giga\hertz}).
+\end{description}
+Evaluation of \approachshort{} was performed on server blades (\emph{Mid/HighServer}), each hosting a single Netronome Agilio LX 1x40GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
+These servers ran Ubuntu 18.04.5 LTS (4.15.0-140-generic).
+We additionally use a more powerful consumer-grade machine (\emph{Collector}) for estimating host performance when offloaded to a network function, running Ubuntu 18.04.4 LTS (4.15.0-96-generic).
 Control programs were built using rustc 1.52.1.
+
 We run \approachshort{} on an island with \num{4} MEs of the NFP-6480 for a total of \num{32} hardware threads.
 This is the maximum number of MEs on a single island which is not in use by an existing P4 pipeline.
 Where feasible, we test \SIlist{32;16;8}{\bit} quantised arithmetic firmware versions.
 All \approachshort{} timing measurements were repeated over \num{10000} trials (preceded by \num{1000} warmup packets), from which throughput was derived.
 Host throughput measures were observed over \num{10} trials of \SI{10}{\second}.
-
-?? verify these numbers against code?
-
-?? NOTE: Ritchie is actually Intel(R) Xeon(R) Silver 4208 CPU (8 times 2.1GHz)
-
 Policy sizes are set to those matching a real-world DDoS control application~\parencite{DBLP:journals/tnsm/SimpsonRP20}: 20-dimension state vectors, a bias tile and 16 full tiling sets (7$\times$1-dim, 8$\times$2-dim, 1$\times$4-dim), 8 tilings per dimension set, 6 tiles per dimension, choosing between 10 actions.
-Although their more successful \emph{SPF} agent design uses 3 actions, we choose this to investigate the performance of larger agent designs.
-
-Studies based on \textcite{DBLP:journals/tnsm/SimpsonRP20} mirror their experimental setup (Ubuntu 18.04.2 LTS (4.4.3-040403-generic x86\_64), Intel Core i7-6700K (\SI{4.2}{\giga\hertz}), \SI{32}{\gibi\byte} RAM).
+For \Coopfw{} for instance, this creates \num{129} work items across \num{31} workers.
+Although their more successful \emph{SPF} agent design uses 3 actions, we choose a larger action set to investigate the performance of more complex agents.
 
 \subsection{Experiments}
 
 \fakepara{Raw inference and learning performance}
 We compare how long it takes for \approachshort{} to compute actions and update its policy per state vector received, and report on the observed throughput of our designs.
-We compare these against floating point and quantised implementations running on a commodity host machine.
-This allows us to demonstrate the performance differences between the \indfw and \coopfw configurations, particularly in how \indfw's required policy locks impact throughput.
+We compare these against floating point (numpy-based) implementations running on a commodity host machine.
+This allows us to demonstrate the performance differences between the \indfw{} and \coopfw{} configurations, particularly in how \indfw's required policy locks impact throughput.
 We also report on the derived throughput measures accounting for the locking behaviour of each.
 
 Building on this, we vary the amount of allocated worker threads to show how \approachshort{} can scale to fit available compute resources on a device.
@@ -843,32 +721,34 @@ Moreover, to demonstrate how these costs vary as policy complexity increases, we
 %?? Also our simple, ahead-of-time, work scheduler.
 We verify that our heuristic, runtime work scheduler (\emph{Balanced}) makes meaningful use of the explicit memory hierarchy and cost of each work item.
 We compare it versus several baselines: a \emph{Na\"{i}ve} chunked scheduler, a \emph{Random} baseline allocation, and a simple \emph{Modular} allocator (where a worker $j$ out of $w$ takes $k$ items given by $\mathit{work}_j=\left\{\left(j + i \times w\right) \bmod n_{\mathit{items}} \mid i \in [0,k) \right\}$).
+We use maximum-size, \SI{32}{\bit} policies as described above.
 
 \fakepara{End-to-end RL latency}
 We compare the key RL decision-making latencies we discuss in \cref{fig:state-slip} ($t_1,t_2,t_3$) across 3 scenarios: completely in-NIC (\approachshort{}), offloading RL decisions to a SmartNIC's controller machine, and offloading to the controller of an OpenFlow-compatible switch (OvS).
 
-?? NOT DONE YET
-?? MOSTLY A PAPER EXERCISE FROM SOME OTHER MEASURES
-
 \fakepara{Co-existence with the dataplane}
-We measure maximum packet rate and bandwidth throughput of a P4 pipeline on our SmartNICs, both with and without \approachshort{}.
+While varying the rate of full RL updates performed by \approachshort{}-\Coopfw{} (\SI{32}{\bit}) from \numrange{0}{16000} actions/s, we measure packet losses and sample latencies of cross traffic forwarded over a P4 pipeline hosted on our SmartNICs.
 This allows us to quantify whether on-chip (out-of-path) execution impacts ordinary dataplane behaviour through indirect means: e.g., EMEM cache evictions or hidden resource contention.
-In particular, we stress test both decisions and policy updates of our \emph{Parallel} design at full throughput.
+%In particular, we stress test both decisions and policy updates of our \emph{Parallel} design at full throughput.
 
-?? NOT DONE YET.
+We perform these tests using Pktgen-DPDK~\cite{pktgen-dpdk}, using an NFP in \emph{MidServer} as the device under test and connecting \emph{HighServer} over a \SI{40}{\giga\bit\per\second} DAC cable as the traffic source via the default firmware.
+We perform throughput/loss tests using \num{7}/\num{1} transmit/receive queues at \SI{100}{\percent} send rate for 10 bursts of \SI{30}{\second}, and perform latency tests using \num{1}/\num{1} transmit/receive queue at \SI{10}{\percent} send rate for \num{200000} measurements.
+Sent traffic was comprised of fixed-size \SIrange{64}{1518}{\byte} packets~\cite{rfc2544}.
+CPU clock scaling was disabled on \emph{HighServer}.
 
 \fakepara{Resource requirements}
 Using the maximum policy size defined above, we investigate how the memory requirements imposed by \approachshort{} vary with the number of dedicated MEs, over and above a base P4 forwarding plane.
+We report resource use for \SI{32}{\bit} \Indfw{} and \Coopfw{} agents with maximum policy sizes as above, with hash-tables sized to \num{4096} state-action pairs and \num{16} separate reward values.
 
 %\fakepara{The impact of bit depth}
 %We further investigate how bit depth affects the accuracy of policy by varying the number of bits used to represent the mantissa of action values and input state.
 
 \fakepara{Deployability}
-By timing policy installation, compile times and other metrics, we describe the runtime costs needed for an administrator to repurpose an installed agent in a live network.
+By timing agent setup and compile times, we describe the runtime costs needed for an administrator to repurpose an installed agent in a live network.
 
 \subsection{Results and Discussion}\label{sec:results}
 \fakepara{Raw inference and learning performance}
-\Cref{tab:lats} shows that \Coopfw{} \approachshort{} achieves sub-\SI{50}{\micro\second} median latency, with \nth{99} percentile latencies less than \SI{1}{\micro\second} worse.
+\Cref{tab:lats} shows that \Coopfw{} \approachshort{} achieves sub-\SI{35}{\micro\second} median latency, with \nth{99} and \num{99.99}\nthscript{th} percentile latencies less than \SI{1}{\micro\second} worse.
 As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, while the simpler \Indfw{} succeeds when policies are fixed/known.
 ?? Crucially, our using many extra functional units to tackle this task
 
@@ -877,6 +757,8 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 ?? We observed that \SIlist{8;16}{\bit} have worse action compute/latency, but better update processing time in \SI{16}{\bit}. Why? Throughput and batching of value reads only goes so far, native register size for ALU is \SI{32}{\bit}, so these wins are ``undone'' to some extent by the compiler extracting/shifting parts  for correctness. Wins are mainly due to serial part scaling with bitsize.
 
 ?? Mention versus DNN latency in passing here?
+
+?? Need to mention some of the omitted results here for brevity; namely host integer implementations.
 
 \begin{table}
 	\caption{Latencies and computation times for \approachshort{} versus commodity hardware hosts. On-device execution is crucial in not only lowering latencies, but in reducing tail latencies. Lower is better, with the best marked \emph{in bold}.\label{tab:lats}}
@@ -892,7 +774,7 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 	}
 \end{table}
 
-\Cref{tab:tputs} shows how \approachshort{} compares in terms of throughput with a numpy-based implementation of an RL policy.
+\Cref{tab:tputs} shows how \approachshort{} compares in terms of throughput with a numpy-based (i.e., BLAS-accelerated) implementation of an RL policy.
 We choose the worker count on host machines with the largest number of parallel agents which produced a statistically significant throughput increase ($p < 0.05$).
 We observed that this equalled the number of physical cores on each device, while moving beyond this (even below the number of hyper-threads) would hamper tail latencies by an order of magnitude.
 To make the comparison fairer in the context of many-core CPU environments, we include per-core throughput.
@@ -955,20 +837,21 @@ We observed that ...
 	\caption{Cumulative state-action latency plots for \approachshort{} and host-based execution.}
 \end{figure}
 
-?? Urgently describe and explain why lower bitdepth gives *worse* metrics.
-?? Mainly, register width.
-?? We also do stuff to batch read as many action vals as possible!! And yet this happens!!
-?? Also explain that Integer math does worse due to it falling back to BLAS in numpy (i.e., a float optimiser).
-?? We might have good int results if I do it in Rust?
+A somewhat remarkable trend is that the \SIlist{8;16}{\bit} versions of \approachshort{} consistently underperform compared to \SI{32}{\bit} designs, with the exception of smaller workloads (seen in the zoomed portions of \cref{fig:vary-work,fig:vary-work-latency}).
+We found this to be rather surprising, given that our implementation is optimised to read and write policy tile data in batches (achieving fewer I/O operations as required).
+Our understanding is that this is due to the native register width on the NFP being \SI{32}{\bit}, and so the compiler must emit extra instructions around arithmetic operations to correctly load and update values.
+This matches \SI{32}{\bit} becoming dominant in more complex workloads: higher dimension tilings require more arithmetic operations to compute the hit tile index.
+Most of the I/O comes after this step, causing ALU use to dominate.
+Regardless, the reduction in memory needed to store a policy remain.
 
 \fakepara{Work allocation}
-\Cref{fig:work-alloc-32} shows that our heuristic first-fit allocator (\emph{Balanced}) is key in achieving consistent sub-\SIlist{50;100}{\micro\second} latencies/processing times respectively.
+\Cref{fig:work-alloc-32} shows that our heuristic first-fit allocator (\emph{Balanced}) is key in achieving consistent sub-\SIlist{35;65}{\micro\second} latencies/processing times respectively.
 The trend is repeated for all bit depths, noting the latency differences described above.
 The constant difference between \emph{Action} and \emph{Update Prep} was observed to scale linearly with bit depth, matching storage and lookup work in the serial portion between parallel jobs (plots omitted).
 The severe underperformance of the \emph{Na\"{i}ve} allocator confirms that work item complexity is correlated with its ID, as batching work in contiguous chunks leads to some workers receiving exclusively high-dimensionality tile sets.
 The minor gap in performance lower bounds between the \emph{Random} and \emph{Balanced} allocators suggests that further optimisations can be made in this way.
 We expect that closing or exceeding this gap may require more complex modelling of NFP's hardware thread interactions, which lies far beyond the scope of in-NIC scheduling.
-Some additional complexity may be tolerated though---subject to code store limits---scheduling runs exactly once per configuration change, so does not impact per-action code.
+Some additional complexity may be tolerated, subject to code store limits---scheduling runs exactly once per configuration change, so does not impact per-action code.
 
 \begin{figure}
 	\resizebox{1.0\linewidth}{!}{
@@ -984,15 +867,40 @@ Some additional complexity may be tolerated though---subject to code store limit
 	\caption{Throughput per added worker in a \Coopfw{} agent. \label{fig:tput-per-core}}
 \end{figure}
 
-\Cref{fig:tput-per-core}
-?? downticks in tput/core correspond to a `plateau' in throughput: the heuristic scheduler cannot find a better solution until extra cores are allocated
-?? Why? granularity of work items. Can't really subdivide high-dim policy items. Pushing past is tricky as described...
+An interesting aspect of \Coopfw{} and the \emph{ParSa} algorithm in general is that adding additional cores has both diminishing returns and key thresholds to pass.
+Consider \cref{fig:tput-per-core}, where the throughput per worker decreases over time but occasionally increases sharply.
+Later downward ticks (\numrange{25}{29} workers) correspond to plateaus in throughput.
+This is a common problem stemming from the granularity of work items, where the heuristic scheduler cannot find a better solution to a bottleneck until extra cores are allocated.
+We measured individual work items in state-action computation to take a mean \SIlist{5.2; 6.2; 9.7; 11.0}{\micro\second} for bias, CLS, CTM and IMEM tilings respectively.
+While there is still have a \SI{4.2}{$\times$} factor of task oversubscription at maximum worker count, it is clear that latencies are bound below by the length of the longest task.
 
 \fakepara{End-to-end RL latency}
 ?? TODO
 
 \fakepara{Co-existence with the dataplane}
-?? TODO
+No packet loss incurred
+?? mention actually achieved rates?
+
+?? Now talk about statistically significant deltas etc.
+
+\begin{figure}
+	\centering
+	\begin{subfigure}{0.45\linewidth}
+		\resizebox{1.0\linewidth}{!}{
+%			\includegraphics{../plots/build/stress/heat-latency-median}
+			\includegraphics{../plots/build/stress/heat-latency-two-9}
+		}
+		\caption{Ayy?}
+	\end{subfigure}
+	\hspace{0.05\linewidth}
+		\begin{subfigure}{0.45\linewidth}
+		\resizebox{1.0\linewidth}{!}{
+			\includegraphics{../plots/build/stress/histo-1518B-0-10}
+		}
+		\caption{Ayy?}
+	\end{subfigure}
+	\caption{Ayy.}
+\end{figure}
 
 \fakepara{Resource requirements}
 \Cref{tab:resources} demonstrates how \approachshort{} consumes shared and local memory as it scales to fit a device's compute resources, compared with a simple P4 forwarding application.
@@ -1017,10 +925,10 @@ Notably, \Indfw{} imposes far heavier requirements on the limited per-island CLS
 	\toprule Firmware & \multicolumn{2}{c}{EMEM} & \multicolumn{2}{c}{EMEM Cache} & \multicolumn{2}{c}{IMEM} & \multicolumn{2}{c}{i5.CLS} & \multicolumn{2}{c}{i5.CTM}\\
 	& \multicolumn{1}{c}{\si{\mebi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} & \multicolumn{1}{c}{\si{\kibi\byte}} & \multicolumn{1}{c}{\si{\percent}} \\
 	\midrule Base P4 & 6776.67 & 88.24 & 268.52 & 2.91 & 858.28 & 10.48 & 0.00 & 0.00 & 0.00 & 0.00 \\
-	\Indfw(1) & 6780.21 & 88.28 & 2541.07 & 27.57 & 1263.28 & 15.42 & 24.75 & 38.67 & 94.25 & 36.82 \\
-	\Indfw(4) & 6780.21 & 88.28 & 2545.32 & 27.62 & 1263.28 & 15.42 & 51.18 & 79.97 & 107.00 & 41.80 \\
-	\Coopfw(1) & 6779.12 & 88.27 & 1769.83 & 19.20 & 1263.28 & 15.42 & 20.25 & 31.64 & 90.00 & 35.16 \\
-	\Coopfw(4) & 6779.12 & 88.27 & 1769.84 & 19.20 & 1263.28 & 15.42 & 31.91 & 49.85 & 90.00 & 35.16 \\
+	\Indfw(1) & 6780.21 & 88.28 & 2541.08 & 27.57 & 1263.28 & 15.42 & 24.75 & 38.67 & 94.25 & 36.82 \\
+	\Indfw(4) & 6780.22 & 88.28 & 2545.33 & 27.62 & 1263.28 & 15.42 & 51.18 & 79.97 & 107.00 & 41.80 \\
+	\Coopfw(1) & 6779.12 & 88.27 & 1773.59 & 19.24 & 1263.28 & 15.42 & 22.41 & 35.01 & 90.00 & 35.16 \\
+	\Coopfw(4) & 6779.12 & 88.27 & 1769.84 & 19.20 & 1263.28 & 15.42 & 52.16 & 81.49 & 90.00 & 35.16 \\
 	\bottomrule
 \end{tabular}
 }
@@ -1043,6 +951,65 @@ Notably, \Indfw{} imposes far heavier requirements on the limited per-island CLS
 
 We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{}, bit-depth, or increasing maximum policy sizes) took a mean time of \SI{38.83}{\second}.
 ?? What about compile time?
+
+\section{Potential Integrations}\label{sec:potential-integrations}
+To show the general applicability and use of \approachshort{}, we propose an ideal integrations which would benefit from in-NIC reinforcement learning; online DDoS attack mitigation.
+We support this using other state-of-the-art P4/PDP developments, and discuss how best to balance the concerns of online training with throughput in widespread deployment.
+Additionally, we discuss how network administrators may combine offline (\Indfw) and online (\Coopfw) agents within a network to achieve online learning while maximising action throughput in the majority of the network.
+
+\subsection{In-Network DDoS Defence}\label{sec:integ-1}
+Classical reinforcement learning has seen recent use in real-time, adaptive DDoS mitigation~\parencite{DBLP:journals/tnsm/SimpsonRP20}.
+\Citeauthor{DBLP:journals/tnsm/SimpsonRP20}'s \emph{Guarded} agent design uses a mixture of global network state and local, per-flow state to monitor how flows respond to bandwidth changes and packet drop---applying the observations made by SPIFFY~\parencite{DBLP:conf/ndss/KangGS16} with more allowance for congestion-unaware protocols.
+Actions then move flows up or down in punishment levels according to a finite state machine.
+
+\fakepara{Why in-NIC?}
+The above approach relies upon co-hosting traffic measurement and analysis alongside OpenFlow-compatible switches at the edge nodes of an AS.
+However, packet mirroring, offloading RL computation to a host (potentially over layers of virtualisation), and CPU performance are all sources of additional, consistent state-action latency.
+Both traffic statistics collection \emph{and} data-driven learning must be executed on such hosts/network functions.
+Unless running these stages in a dedicated pipeline (adding further processing latency), resource contention between these processes will further impact tail latencies.
+Naturally, this requires high-performance hardware to be stacked at network egress points, potentially beyond reasonable space, power, or ventilation constraints.
+The solution to implement and improve upon this work using \approachshort{} is to place its RL agents on SmartNICs at AS edge nodes---a bump-in-the-wire deployment.
+
+?? Any way to move some of this sooner? I.e., this is ``why move DDoS prevention here'', Stefanos suggested backporting some of this to justify ``why \emph{RL} in-NIC''?
+
+\fakepara{Inputs}
+To collate the required inputs and state, we then examine the recent innovations of the community.
+Low-latency, pure-P4 solutions to extract and record per-flow TCP state directly in the dataplane such as Dapper~\parencite{DBLP:conf/sosr/GhasemiBR17} are well-studied.
+In fact, the statistics offered by Dapper are a super-set of the local input state values employed by \emph{Guarded} agents, offering an opportunity to further improve their efficacy. 
+We propose placing such monitors in the P4 dataplane, existing on-chip alongside the \approachshort{} agent.
+The required global state (load measures from network paths) must still come from elsewhere in the network; this is now the element at highest risk of becoming stale, but the least likely to vary significantly in response to individual actions.
+
+The original work suggests theoretical ``ground truth'' reward functions, whose correct implementation and designs were left as an open challenge. 
+We posit that INDDoS~\parencite{tnms-ddos-victim-ident}, which uses Count-min Sketches to estimate DDoS victim cardinality, could be used as an effective reward function source---i.e., using the number of detected victims as a loss value.
+
+\fakepara{Integrating \approachshort}
+Before each Dapper monitoring action, we require that the table hosting this hybrid solution polls \approachshort{}'s \emph{OUT Ring} for any generated actions.
+As we note in \cref{sec:limitations}, these actions would be placed into a small local hash table and simultaneously exported to the attached controller to be inserted as P4 rules in batches.
+After the main monitoring step, packet ingress timestamps would be used to emulate the \emph{Timed Random Sequential} (TRS) scheduler used by the anti-DDoS agents for rate-controlled work, where state vectors would be selected and passed into \approachshort.
+By design, active flows which are not \emph{judged} after a configurable time are discarded to prune the work set and allow new flows to be seen by the agent.
+The tight bounds on execution time known \emph{a priori} make it easy to calculate the maximum number of decisions which can be made per deadline.
+Reward values would then be separately inserted by a modified INDDoS table.
+
+?? Can I have a P4 code snippet here?
+
+A reduction in state-action latency (i.e., with \Coopfw) is, as always, useful for minimising the noise inherent in learning.
+However, an agent is limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
+Accordingly, this use-case benefits most from an increase in \emph{throughput} using \Indfw{}.
+In this context, higher throughput means that network flows are more likely to be judged in every timestep, even when flow cardinality is high---making it more likely that changes in flow behaviour will be observed, acted on, and learned from.
+
+We note that the TRS scheduler is designed to handle cases where the number of flows created by an attacker, combining state vectors and information over time while the asynchronous agent is itself busy.
+An increased number of (attacking) flows beyond the maximum throughput simply makes it take longer in expectation for a flow to be reassessed.
+As we shall examine in \Cref{sec:evaluation}, \approachshort{} far exceeds the action throughput of a host based deployment could handle.
+The control plane is then free to use wildcards or specific matches to narrow down (or expand) the set of flows to be considered and controlled, though explicit scheduling techniques are still key in such adversarial environments.
+
+%\subsection{Something host-specific?}\label{sec:integ-2}
+%Accelerate something at an end-host... Flow control? Something datacentre-y? A novel CCA? What?
+
+\subsection{Network Deployment Considerations}
+The two compute models discussed above need not be homogeneously deployed.
+For instance, in a networked deployment a subset of \approachshort{} nodes could be \SI{32}{\bit} \coopfw{} agents, training online, while most other nodes ran \SI{8}{\bit} \indfw{} designs to meet throughput guarantees.
+The control plane would then be responsible for combining, downsampling, and distributing these improved policies between remaining agents.
+This can be taken further still, using policy deltas or execution traces to enable out-of-path transfer learning for more complex function approximators such as neural networks.
 
 \section{Related Work}
 
@@ -1084,7 +1051,8 @@ We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{
 ?? Are there other ``old ways of doing things'' worth looking at?
 
 \begin{acks}
-	The authors would like to thank Rhys Simpson for his comments and discussions on the soundness of SIMD-like optimisations.
+	The authors would like to thank Rhys Simpson for his comments, and for discussions on the soundness of SIMD-like optimisations.
+	They would additionally like to thank Stefanos Sagkriotis, Mircea Iordache-\c{S}ic\u{a}, and Haruna Adoga for their comments and feedback.
 	This work was supported in part by the \grantsponsor{gs-epsrc}{Engineering and Physical Sciences Research Council}{https://epsrc.ukri.org/} [grant~\grantnum{gs-epsrc}{EP/N509668/1}].
 \end{acks}
 	
@@ -1092,196 +1060,196 @@ We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{
 %\bibliography{reference}
 \printbibliography
 
-\begin{appendices}
-	\section{Old ``What could we do''?}
-	How do we evaluate this without looking into classification performance?
-	\begin{itemize}
-		\item Analytically?
-		\begin{enumerate}
-			\item Prove that tile splitting scheme over memory hierarchy can improve performance.
-			\begin{itemize}
-				\item Hit rate of different tiles according to tile dimensionality?
-				\item Access time for each tier of memory hierarchy.
-			\end{itemize}
-		\end{enumerate}
-		\item Experimentally?
-		\begin{enumerate}
-			\item Create ``VNF'' testbed: mirror traffic from switch to a host for telemetry processing/flow state. Send flow state over to another node who computes RL actions. RL actions installed on switch.
-			\begin{itemize}
-				\item Why not co-host RL computation with telemetry? Could be separate functions, could want to ensure that neither impacts the performance of the other.
-			\end{itemize}
-			\item Create ``PDP'' testbed: Load firmware, pass in traffic. Traffic processing/action compute/table mod occurs in PDP.
-			\item What traffic? Healthy mix of attack (UDP), Discord legit Opus VoIP traffic, HTTP bulk-transfer traffic.
-			\item Measure $t_{1 \cdots 3}$ according to \cref{fig:state-slip} in both VNF and PDP contexts.
-			\begin{description}
-				\item[$t_1$]
-				\begin{description}
-					\item[PDP] Packet ingress $\rightarrow$ INT Island $\rightarrow$ State arrival in Control ME.
-					\item[VNF] Packet mirror time $\rightarrow$ telemetry VNF $\rightarrow$ state arrival in agent vnf.
-				\end{description}
-				
-				\item[$t_2$]
-				\begin{description}
-					\item[PDP] Time to compute action over parallel Policy MEs (RL Island, SmartNIC).
-					\item[VNF] Time to compute action in host program (on VNF) from received state.
-				\end{description}
-				
-				\item[$t_3$]
-				\begin{description}
-					\item[PDP] Modify local tables across ME/Island boundaries (same device), verify rule present (or get ACK).
-					\item[VNF] Generate OpenFlow control messages, send OF message to switch, verify rule present (or get ACK).
-				\end{description}
-			\end{description}
-			\item HYPOTHESIS: PDP will present a reduction in these three times for per-flow state.
-			\item QUESTION: Does same apply to learning?
-			\item NOTE: since we're not actually assessing the \emph{quality} of output decisions, we can cut corners on what data is sent out and where. I.e., in-band network telemetry island can be skipped, if we move over representative volumes of state to/from the RL island with approximately correct delay as recorded by other studies.
-		\end{enumerate}
-	\end{itemize}
-	I can think of one way to evaluate this if we employ classification performance:
-	\begin{enumerate}
-		\item Run the existing work~\parencite{DBLP:journals/tnsm/SimpsonRP20}, acquire a policy for one node after full info sharing.
-		\item Load this policy onto the RL Island (\cref{fig:netro-arch}).
-		\item Either feed in raw state packets, or feed in traffic if we can get INT working.
-		\item For each level of quantisation needed, examine average performance.
-		\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
-	\end{enumerate}
-
-	\section{Intermediate steps?}
-	System?
-	\begin{itemize}
-		\item Setup other core as event source.
-		\begin{itemize}
-			\item \emph{\num{2} week.}
-			\item Idea: proxy for idea of INT core mentioned elsewhere, combined with the main periodic event sending that the last RL work relied upon. So, say "you can put that state management and extraction on another core, here's what the comms cost is" or similar.
-		\end{itemize}
-		\item Fixes to hash table use, signalling.
-		\begin{itemize}
-			\item \emph{\num{1} week.}
-			\item Blocks progress on optimisation, correct multi-stream RL.
-		\end{itemize}
-		\item Optimise/parallelise action compute/learning.
-		\begin{itemize}
-			\item \emph{\num{2} week.}
-			\item Value? Proves this approach can scale according to resource availability/demand on the deployment device, at compile-time anyhow.
-		\end{itemize}
-	\end{itemize}
-	
-	Experiments?
-	\begin{itemize}
-		\item Measure sum of times $t_{1...3}$ described elsewhere.
-		\begin{itemize}
-			\item \emph{\num{1} week.}
-			\item Currently have individual, need ``end-to-end''.
-		\end{itemize}
-		\item Throughput impact testing.
-		\begin{itemize}
-			\item \emph{\num{1} week.}
-			\item Requires current impl, creation of basic testbed and packet forwarding setup.
-			\item Use-case independent.
-		\end{itemize}
-		\item Measure execution, training costs for varying policy sizes.
-		\begin{itemize}
-			\item \emph{\num{1.5} weeks.}
-			\item Policies need not be meaningful, and can be garbage data. Use-case independent.
-			\item Partially blocked on multicore accelerated/optimised execution.
-		\end{itemize}
-		\item Measure rule installation cost on different platforms.
-		\begin{itemize}
-			\item \emph{\num{1.5} weeks.}
-			\item Blocked on creation of basic testbed and packet forwarding setup.
-		\end{itemize}
-		\item Investigate stationarity.
-		\begin{itemize}
-			\item \emph{\numrange{2}{3} weeks.}
-			\item Requires full use-case implementation.
-			\item Requires careful thought about sensible changes to normality.
-			\item Might be bolstered by comparison against an offline-trained system?
-		\end{itemize}
-	\end{itemize}
-	
-	\section{Everything we could possibly evaluate}
-	
-	Evaluation will need to be divided into 2 main categories:
-	\begin{enumerate}
-		\item Simulation/emulation based on mininet.
-		\begin{itemize}
-			\item These can only assess algorithmic properties, as performance measurements in mininet (i.e., a full mult-agent system) are not representative.
-		\end{itemize}
-		\item Testbed setup (2/3 configurations):
-		\begin{itemize}
-			\item These will assess key system performance properties of a \emph{single agent}, in control of a single switch/NIC as a bump in the wire. Bump-in-the-wire device will carry traffic between two hosts.
-			\item \emph{Time permitting, may need to send state vectors in packets rather than do feature/state extraction on-chip}.
-			\item \emph{Necessary.} RL runs on bump-in-the-wire SmartNIC.
-			\item \emph{Either/both.} P4-based off-path RL. Custom packet actions (e.g., random drop) will be implemented in P4 with externs. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction. Rules inserted via P4-device specific RTE.
-			\item \emph{Either/both.} OvS-based off-path RL. Custom packet actions are already implemented in OvS as OpenFlow extensions. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction.
-		\end{itemize}
-	\end{enumerate}
-	
-	\subsection{What is this different from, or better than?}
-	List below mainly for the benefit of helping enumerate everything I can compare against, and what their drawbacks are.
-	
-	\begin{itemize}
-		\item (Deep) neural network-backed RL.
-		\begin{itemize}
-			\item NNs infeasible to update online. Ordinarily this requires larger volumes of data than can be gathered in real time, but becomes substantially more difficult after change of representation (quantisation, binarisation). An online system (such as this) should be able to adapt to changes in underlying traffic, optimisation criteria, etc., dynamically.
-			\item Complexity of function approximation means that policy updates are more computationally complex to compute. For instance, NNs require use of the backpropagation algorithm, rather than the simpler classical schemes which need only the tile set already identified in action selection.
-			\item Only heavily quantised (i.e., binary neural networks) suitable for in-switch execution.
-		\end{itemize}
-		
-		\item MARL and other ``agents as network functions'' designs.
-		\begin{itemize}
-			\item Action, state collection, updates etc. happen on nodes outside of the main packet path in this paradigm. Thus, state measurements, action computation, and so on, should induce the state drift described above. Also makes these approaches ``slower to react'' in theory.
-		\end{itemize}
-	\end{itemize}
-	
-	At present, there are no other RL works in PDPs, let alone with online policy updates.
-	Other existing RL use cases suitable for adaptation to the ``bump-in-the-wire'' model are proving tricky to find.
-	
-	\subsection{Emulation metrics}
-	Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
-	
-	\textbf{Quantisation accuracy}, quantised training accuracy, \textbf{stationarity}.
-	
-	\subsubsection{Quantisation accuracy}
-	Examination of whether lower resolution quantisation impacts RL agent decision accuracy substantially.
-	
-	This has been done using MARL in mininet, see \cref{fig:quant-acc}.
-	
-	\subsubsection{Interaction with stationarity}
-	Learning time of the system as compared to known changes in normality.
-	
-	I.e., in the DDoS case: how long does an agent take to respond to the onset of an attack?
-	A change in attack strategy?
-	The conclusion of an attack?
-	There are no citations on \emph{how} DDoS attacks evolve, just that they do, and that this can occur on various timescales.
-	
-	\subsection{Testbed metrics}
-	Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
-	
-	\textbf{Traffic throughput (bytes, packets)}, \textbf{packet processing delay}, \textbf{action execution time}, \textbf{learning time}, from-scratch learning accuracy, \textbf{rule installation delay/cost}, host and NIC memory costs, policy installation time, ``accuracy'' in the DDoS case.
-	
-	\subsubsection{Traffic throughput}
-	Main research question: does moving RL logic onto the NIC reduce maximum throughput of the NIC, even if calculation is on a different functional unit?
-	This is relevant in both \si{\byte\per\second} and packets per second.
-	
-	This is application independent, and would assess whether the RL units (acting independently on the netronome) affect throughput compared with a basic P4 program at different work intensities.
-	Ideally, this would show no effect on forwarding performance.
-	
-	\subsubsection{Packet processing delay}
-	Main research question: does the presence of off-path (but on-chip) RL execution meaningfully increase packet processing delay? How does this compare to a P4 program with an equivalent number of tables? What about to OvS?
-	
-	\subsubsection{Action execution \& learning time}
-	Main research question: does moving RL logic from the host to the NIC substantially reduce delays from state measurement, to state receipt, to action computation and installation?
-	These constitute $t_{1...3}$ discussed above.
-	Primarily, these need to be looked at using varying policy sizes and distribution across memory regions.
-	
-	We ideally want these both with and without any acceleration from extra cores on the netronome: the point of this being that we can demonstrate that the system (or a similar NetFPGA system) can scale upwards according to available system resources or demands.
-	
-	\subsubsection{Rule installation delay/cost.}
-	Main research question: how long does it take to install rules in the above testbed setups? What is the downtime of so doing?
-	
-	This is application-dependent: see earlier discussions on rule batching and local extern/hash-table use.
-\end{appendices}
+%\begin{appendices}
+%	\section{Old ``What could we do''?}
+%	How do we evaluate this without looking into classification performance?
+%	\begin{itemize}
+%		\item Analytically?
+%		\begin{enumerate}
+%			\item Prove that tile splitting scheme over memory hierarchy can improve performance.
+%			\begin{itemize}
+%				\item Hit rate of different tiles according to tile dimensionality?
+%				\item Access time for each tier of memory hierarchy.
+%			\end{itemize}
+%		\end{enumerate}
+%		\item Experimentally?
+%		\begin{enumerate}
+%			\item Create ``VNF'' testbed: mirror traffic from switch to a host for telemetry processing/flow state. Send flow state over to another node who computes RL actions. RL actions installed on switch.
+%			\begin{itemize}
+%				\item Why not co-host RL computation with telemetry? Could be separate functions, could want to ensure that neither impacts the performance of the other.
+%			\end{itemize}
+%			\item Create ``PDP'' testbed: Load firmware, pass in traffic. Traffic processing/action compute/table mod occurs in PDP.
+%			\item What traffic? Healthy mix of attack (UDP), Discord legit Opus VoIP traffic, HTTP bulk-transfer traffic.
+%			\item Measure $t_{1 \cdots 3}$ according to \cref{fig:state-slip} in both VNF and PDP contexts.
+%			\begin{description}
+%				\item[$t_1$]
+%				\begin{description}
+%					\item[PDP] Packet ingress $\rightarrow$ INT Island $\rightarrow$ State arrival in Control ME.
+%					\item[VNF] Packet mirror time $\rightarrow$ telemetry VNF $\rightarrow$ state arrival in agent vnf.
+%				\end{description}
+%				
+%				\item[$t_2$]
+%				\begin{description}
+%					\item[PDP] Time to compute action over parallel Policy MEs (RL Island, SmartNIC).
+%					\item[VNF] Time to compute action in host program (on VNF) from received state.
+%				\end{description}
+%				
+%				\item[$t_3$]
+%				\begin{description}
+%					\item[PDP] Modify local tables across ME/Island boundaries (same device), verify rule present (or get ACK).
+%					\item[VNF] Generate OpenFlow control messages, send OF message to switch, verify rule present (or get ACK).
+%				\end{description}
+%			\end{description}
+%			\item HYPOTHESIS: PDP will present a reduction in these three times for per-flow state.
+%			\item QUESTION: Does same apply to learning?
+%			\item NOTE: since we're not actually assessing the \emph{quality} of output decisions, we can cut corners on what data is sent out and where. I.e., in-band network telemetry island can be skipped, if we move over representative volumes of state to/from the RL island with approximately correct delay as recorded by other studies.
+%		\end{enumerate}
+%	\end{itemize}
+%	I can think of one way to evaluate this if we employ classification performance:
+%	\begin{enumerate}
+%		\item Run the existing work~\parencite{DBLP:journals/tnsm/SimpsonRP20}, acquire a policy for one node after full info sharing.
+%		\item Load this policy onto the RL Island (\cref{fig:netro-arch}).
+%		\item Either feed in raw state packets, or feed in traffic if we can get INT working.
+%		\item For each level of quantisation needed, examine average performance.
+%		\item Don't compare against old numbers for final perf: use a ``VNF'' setup similar to above---this will probably suffer a bit compared to old results, where everything was on the same machine. Make it relative/normalised.
+%	\end{enumerate}
+%
+%	\section{Intermediate steps?}
+%	System?
+%	\begin{itemize}
+%		\item Setup other core as event source.
+%		\begin{itemize}
+%			\item \emph{\num{2} week.}
+%			\item Idea: proxy for idea of INT core mentioned elsewhere, combined with the main periodic event sending that the last RL work relied upon. So, say "you can put that state management and extraction on another core, here's what the comms cost is" or similar.
+%		\end{itemize}
+%		\item Fixes to hash table use, signalling.
+%		\begin{itemize}
+%			\item \emph{\num{1} week.}
+%			\item Blocks progress on optimisation, correct multi-stream RL.
+%		\end{itemize}
+%		\item Optimise/parallelise action compute/learning.
+%		\begin{itemize}
+%			\item \emph{\num{2} week.}
+%			\item Value? Proves this approach can scale according to resource availability/demand on the deployment device, at compile-time anyhow.
+%		\end{itemize}
+%	\end{itemize}
+%	
+%	Experiments?
+%	\begin{itemize}
+%		\item Measure sum of times $t_{1...3}$ described elsewhere.
+%		\begin{itemize}
+%			\item \emph{\num{1} week.}
+%			\item Currently have individual, need ``end-to-end''.
+%		\end{itemize}
+%		\item Throughput impact testing.
+%		\begin{itemize}
+%			\item \emph{\num{1} week.}
+%			\item Requires current impl, creation of basic testbed and packet forwarding setup.
+%			\item Use-case independent.
+%		\end{itemize}
+%		\item Measure execution, training costs for varying policy sizes.
+%		\begin{itemize}
+%			\item \emph{\num{1.5} weeks.}
+%			\item Policies need not be meaningful, and can be garbage data. Use-case independent.
+%			\item Partially blocked on multicore accelerated/optimised execution.
+%		\end{itemize}
+%		\item Measure rule installation cost on different platforms.
+%		\begin{itemize}
+%			\item \emph{\num{1.5} weeks.}
+%			\item Blocked on creation of basic testbed and packet forwarding setup.
+%		\end{itemize}
+%		\item Investigate stationarity.
+%		\begin{itemize}
+%			\item \emph{\numrange{2}{3} weeks.}
+%			\item Requires full use-case implementation.
+%			\item Requires careful thought about sensible changes to normality.
+%			\item Might be bolstered by comparison against an offline-trained system?
+%		\end{itemize}
+%	\end{itemize}
+%	
+%	\section{Everything we could possibly evaluate}
+%	
+%	Evaluation will need to be divided into 2 main categories:
+%	\begin{enumerate}
+%		\item Simulation/emulation based on mininet.
+%		\begin{itemize}
+%			\item These can only assess algorithmic properties, as performance measurements in mininet (i.e., a full mult-agent system) are not representative.
+%		\end{itemize}
+%		\item Testbed setup (2/3 configurations):
+%		\begin{itemize}
+%			\item These will assess key system performance properties of a \emph{single agent}, in control of a single switch/NIC as a bump in the wire. Bump-in-the-wire device will carry traffic between two hosts.
+%			\item \emph{Time permitting, may need to send state vectors in packets rather than do feature/state extraction on-chip}.
+%			\item \emph{Necessary.} RL runs on bump-in-the-wire SmartNIC.
+%			\item \emph{Either/both.} P4-based off-path RL. Custom packet actions (e.g., random drop) will be implemented in P4 with externs. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction. Rules inserted via P4-device specific RTE.
+%			\item \emph{Either/both.} OvS-based off-path RL. Custom packet actions are already implemented in OvS as OpenFlow extensions. Packets/digests mirrored to state extraction machine. Agent may be co-hosted with state-extraction.
+%		\end{itemize}
+%	\end{enumerate}
+%	
+%	\subsection{What is this different from, or better than?}
+%	List below mainly for the benefit of helping enumerate everything I can compare against, and what their drawbacks are.
+%	
+%	\begin{itemize}
+%		\item (Deep) neural network-backed RL.
+%		\begin{itemize}
+%			\item NNs infeasible to update online. Ordinarily this requires larger volumes of data than can be gathered in real time, but becomes substantially more difficult after change of representation (quantisation, binarisation). An online system (such as this) should be able to adapt to changes in underlying traffic, optimisation criteria, etc., dynamically.
+%			\item Complexity of function approximation means that policy updates are more computationally complex to compute. For instance, NNs require use of the backpropagation algorithm, rather than the simpler classical schemes which need only the tile set already identified in action selection.
+%			\item Only heavily quantised (i.e., binary neural networks) suitable for in-switch execution.
+%		\end{itemize}
+%		
+%		\item MARL and other ``agents as network functions'' designs.
+%		\begin{itemize}
+%			\item Action, state collection, updates etc. happen on nodes outside of the main packet path in this paradigm. Thus, state measurements, action computation, and so on, should induce the state drift described above. Also makes these approaches ``slower to react'' in theory.
+%		\end{itemize}
+%	\end{itemize}
+%	
+%	At present, there are no other RL works in PDPs, let alone with online policy updates.
+%	Other existing RL use cases suitable for adaptation to the ``bump-in-the-wire'' model are proving tricky to find.
+%	
+%	\subsection{Emulation metrics}
+%	Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
+%	
+%	\textbf{Quantisation accuracy}, quantised training accuracy, \textbf{stationarity}.
+%	
+%	\subsubsection{Quantisation accuracy}
+%	Examination of whether lower resolution quantisation impacts RL agent decision accuracy substantially.
+%	
+%	This has been done using MARL in mininet, see \cref{fig:quant-acc}.
+%	
+%	\subsubsection{Interaction with stationarity}
+%	Learning time of the system as compared to known changes in normality.
+%	
+%	I.e., in the DDoS case: how long does an agent take to respond to the onset of an attack?
+%	A change in attack strategy?
+%	The conclusion of an attack?
+%	There are no citations on \emph{how} DDoS attacks evolve, just that they do, and that this can occur on various timescales.
+%	
+%	\subsection{Testbed metrics}
+%	Key (MVP) metrics will be \textbf{bolded}, and expanded with a subsubsection.
+%	
+%	\textbf{Traffic throughput (bytes, packets)}, \textbf{packet processing delay}, \textbf{action execution time}, \textbf{learning time}, from-scratch learning accuracy, \textbf{rule installation delay/cost}, host and NIC memory costs, policy installation time, ``accuracy'' in the DDoS case.
+%	
+%	\subsubsection{Traffic throughput}
+%	Main research question: does moving RL logic onto the NIC reduce maximum throughput of the NIC, even if calculation is on a different functional unit?
+%	This is relevant in both \si{\byte\per\second} and packets per second.
+%	
+%	This is application independent, and would assess whether the RL units (acting independently on the netronome) affect throughput compared with a basic P4 program at different work intensities.
+%	Ideally, this would show no effect on forwarding performance.
+%	
+%	\subsubsection{Packet processing delay}
+%	Main research question: does the presence of off-path (but on-chip) RL execution meaningfully increase packet processing delay? How does this compare to a P4 program with an equivalent number of tables? What about to OvS?
+%	
+%	\subsubsection{Action execution \& learning time}
+%	Main research question: does moving RL logic from the host to the NIC substantially reduce delays from state measurement, to state receipt, to action computation and installation?
+%	These constitute $t_{1...3}$ discussed above.
+%	Primarily, these need to be looked at using varying policy sizes and distribution across memory regions.
+%	
+%	We ideally want these both with and without any acceleration from extra cores on the netronome: the point of this being that we can demonstrate that the system (or a similar NetFPGA system) can scale upwards according to available system resources or demands.
+%	
+%	\subsubsection{Rule installation delay/cost.}
+%	Main research question: how long does it take to install rules in the above testbed setups? What is the downtime of so doing?
+%	
+%	This is application-dependent: see earlier discussions on rule batching and local extern/hash-table use.
+%\end{appendices}
 
 	
 \end{document}
