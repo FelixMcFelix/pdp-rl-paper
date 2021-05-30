@@ -1,8 +1,8 @@
 { {
-    ibytes = 21519158280,
+    ibytes = 21518192340,
     ierrors = 0,
-    imissed = 123190722,
-    ipackets = 21097214,
+    imissed = 123191669,
+    ipackets = 21096267,
     obytes = 147173694720,
     oerrors = 0,
     opackets = 144287936,
