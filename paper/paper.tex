@@ -713,6 +713,8 @@ We compare how long it takes for \approachshort{} to compute actions and update 
 We compare these against floating point (numpy-based) implementations running on a commodity host machine.
 This allows us to demonstrate the performance differences between the \indfw{} and \coopfw{} configurations, particularly in how \indfw's required policy locks impact throughput.
 We also report on the derived throughput measures accounting for the locking behaviour of each.
+We compare online learning performance (input states produce an output, and then update the policy with appropriate locking) with offline (input states \emph{only} produce an output) in these cases.
+State-action latency is a shared property of both cases, with the main difference being the impact on throughput of the update step.
 
 Building on this, we vary the amount of allocated worker threads to show how \approachshort{} can scale to fit available compute resources on a device.
 This also demonstrates the number of cores needed to achieve a given latency bound on a policy of representative complexity.
@@ -732,8 +734,9 @@ While varying the rate of full RL updates performed by \approachshort{}-\Coopfw{
 This allows us to quantify whether on-chip (out-of-path) execution impacts ordinary dataplane behaviour through indirect means: e.g., EMEM cache evictions or hidden resource contention.
 %In particular, we stress test both decisions and policy updates of our \emph{Parallel} design at full throughput.
 
-We perform these tests using Pktgen-DPDK~\cite{pktgen-dpdk}, using an NFP in \emph{MidServer} as the device under test and connecting \emph{HighServer} over a \SI{40}{\giga\bit\per\second} DAC cable as the traffic source via the default firmware.
+We perform these tests using Pktgen-DPDK~\cite{pktgen-dpdk}, placing an NFP in \emph{MidServer} as the device under test and connecting \emph{HighServer} over a \SI{40}{\giga\bit\per\second} DAC cable as the traffic source via the default firmware.
 We perform throughput/loss tests using \num{7}/\num{1} transmit/receive queues at \SI{100}{\percent} send rate for 10 bursts of \SI{30}{\second}, and perform latency tests using \num{1}/\num{1} transmit/receive queue at \SI{10}{\percent} send rate for \num{200000} measurements.
+DPDK was setup using four \SI{1}{\gibi\byte} hugepages.
 Sent traffic was comprised of fixed-size \SIrange{64}{1518}{\byte} packets~\cite{rfc2544}.
 CPU clock scaling was disabled on \emph{HighServer}.
 
@@ -749,17 +752,10 @@ By timing agent setup and compile times, we describe the runtime costs needed fo
 
 \subsection{Results and Discussion}\label{sec:results}
 \fakepara{Raw inference and learning performance}
-\Cref{tab:lats} shows that \Coopfw{} \approachshort{} achieves sub-\SI{35}{\micro\second} median latency, with \nth{99} and \num{99.99}\nthscript{th} percentile latencies less than \SI{1}{\micro\second} worse.
-As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, while the simpler \Indfw{} succeeds when policies are fixed/known.
-?? Crucially, our using many extra functional units to tackle this task
-
-?? Bit depth is important for single item computation in the simpler \Indfw{} strategy.
-
-?? We observed that \SIlist{8;16}{\bit} have worse action compute/latency, but better update processing time in \SI{16}{\bit}. Why? Throughput and batching of value reads only goes so far, native register size for ALU is \SI{32}{\bit}, so these wins are ``undone'' to some extent by the compiler extracting/shifting parts  for correctness. Wins are mainly due to serial part scaling with bitsize.
-
-?? Mention versus DNN latency in passing here?
-
-?? Need to mention some of the omitted results here for brevity; namely host integer implementations.
+\Cref{tab:lats} shows how \approachshort{} compares in latency with a numpy-based (BLAS-accelerated) implementation of an RL policy\footnote{For brevity, we omit numpy-based integer results---summarised against a floating point implementation, median state-action latencies are \SI{14.6}{\percent} worse, with \SI{7.9}{\percent} longer update times.}.
+We show that \Coopfw{} achieves sub-\SI{35}{\micro\second} median latency, with \nth{99} and \num{99.99}\nthscript{th} percentile latencies less than \SI{1}{\micro\second} worse using one island (4 MEs) of the NFP-6480.
+This corresponds to \SIlist{15.0;21.0}{$\times$} speedups over a \emph{Collector} host.
+Importantly, \Indfw{} achieves lower median state-action latencies (\SI{2.79}{$\times$}) \emph{and} update times (\SI{2.63}{$\times$}) than a dedicated \emph{Collector} host \emph{while requiring only a single core or dedicated functional unit}.
 
 \begin{table}
 	\caption{Latencies and computation times for \approachshort{} versus commodity hardware hosts. On-device execution is crucial in not only lowering latencies, but in reducing tail latencies. Lower is better, with the best marked \emph{in bold}.\label{tab:lats}}
@@ -775,17 +771,18 @@ As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughpu
 	}
 \end{table}
 
-\Cref{tab:tputs} shows how \approachshort{} compares in terms of throughput with a numpy-based (i.e., BLAS-accelerated) implementation of an RL policy.
-We choose the worker count on host machines with the largest number of parallel agents which produced a statistically significant throughput increase ($p < 0.05$).
-We observed that this equalled the number of physical cores on each device, while moving beyond this (even below the number of hyper-threads) would hamper tail latencies by an order of magnitude.
+\Cref{tab:tputs} compares \approachshort{}'s throughput against host-based execution.
+We choose the worker count on host machines as the number of parallel agents that maximises throughput.
+This equalled the amount of physical cores on each device, while moving beyond this (even below the number of hyper-threads) would hamper tail latencies by an order of magnitude.
 To make the comparison fairer in the context of many-core CPU environments, we include per-core throughput.
-We observed that ...
+\Indfw{} achieves \SI{2.82}{$\times$} higher offline throughput than commodity \emph{Collector} hardware in spite of the NFP-6480 having a considerably slower clock speed (\SI{0.29}{$\times$}).
+When compounded with the abundance of such weaker chips, in-NIC RL is able to deliver much higher throughput.
+As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, \SI{9.9}{$\times$} a dedicated collector machine, due to the locking requirements mandating coordinated division of work.
 
-?? \Cref{fig:vary-core} shows how action+update compute time scales with available cores.
-?? (Core count Limited by software).
-?? Extra \emph{physical core} additions (rather than logical workers) very visible.
-?? 11 workers needed to process items faster than \Indfw{}, but 5 workers needed to bring \emph{latency} below \Indfw{} ()
-?? TAKEAWAY: resource demand tunable to meet latency demands for workload.
+By limiting the available workers in software, we show how \Coopfw{}'s policy update time (thus  online throughput---\cref{fig:vary-core}) and state-action latency (\cref{fig:vary-core-latency}) scale with available cores.
+While the compute times and latency of \Coopfw{} always outperform the host-based floating point implementations, we observe that there are two distinct crossover points which must be met to overcome our own \Indfw{}; \num{8} workers for online throughput, and \num{3} workers for state-action latency.
+Some artefacts of our environment and design choices are visible, such as the addition of new physical cores (MEs) being more significant than contexts, and the presence of some schedule bottlenecks.
+Most importantly however, \approachshort{}-\Coopfw{}'s resource demand is tunable at compile time to meet the online training rate and/or action latency required by a task/environment.
 
 \begin{figure}
 	\resizebox{1.0\linewidth}{!}{
@@ -795,17 +792,22 @@ We observed that ...
 		\Coopfw{}'s online learning performance improves as additional cores are made available, on max size tasks (\num{129} work items). This requires \num{8} workers to offer greater online throughput than single-threaded in-NIC RL. Sharper performance increases occur when new physical core is added (\numrange{7}{8}) or the scheduler works around a bottleneck (\numrange{13}{14}).\label{fig:vary-core}}
 \end{figure}
 
-?? \Cref{fig:vary-work} shows how action+update compute time of any individual work item scales with the complexity of the work.
-?? Note: input vectors still have full size of 20 elements.
-?? Lower bit depth leads to a \SIrange{5}{10}{\micro\second} improvement in less complex policies, but these converge with policy complexity.
-?? Relate this to latency? \SI{32}{\bit} marginally ``wins out'' there..
-?? In latency if \Indfw{}, 32 == 8 < 16 (hmm).
+\begin{figure}
+	\resizebox{1.0\linewidth}{!}{
+		\includegraphics{../plots/build/rl-perf-tester/vary-core-latency}
+	}
+	\caption{\Coopfw{}'s action latencies improve as additional cores are made available. This requires \num{3} workers (4 total contexts) to improve upon the state-action latency of single-threaded in-NIC RL.\label{fig:vary-core-latency}}
+\end{figure}
+
+\Cref{fig:vary-work,fig:vary-work-latency} show how policy complexity affects complete update costs and state-action latency respectively, scaling from a bias tile up to the full policy size used throughout\footnote{Input vectors here all have 20 elements regardless of the policy design.}.
+\Coopfw{} always produces an action in less time than \Indfw{}, but requires at least one state-based tile to excel in online learning performance.
+We note that this is a trivial case, in that the use of \emph{only} a bias tile negates the need for any input state (similar to a multi-arm bandit problem).
 
 \begin{figure}
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-work}
 	}
-	\caption{?? More work means More time. ?? Max Parallelisation. ?? Bit depth affects independent cores more. ?? latency version in appendix: \Cref{fig:vary-work-latency}.\label{fig:vary-work}}
+	\caption{\Coopfw{} can fully process individual items faster than \Indfw{}---thus has higher online performance---on almost all policy sizes. Lower bit depths are more effective on simpler policies.\label{fig:vary-work}}
 \end{figure}
 
 We found that a key aspect of in-NIC execution is that it allows far tighter bounds on tail latency to be offered compared to host offloading.
@@ -818,14 +820,7 @@ We show the cumulative distributions of these in detail in \cref{fig:lat-cumul},
 	\resizebox{1.0\linewidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-work-latency}
 	}
-	\caption{Latency! varying work.\label{fig:vary-work-latency}}
-\end{figure}
-
-\begin{figure}
-	\resizebox{1.0\linewidth}{!}{
-		\includegraphics{../plots/build/rl-perf-tester/vary-core-latency}
-	}
-	\caption{\Coopfw{}'s action latencies improve as additional cores are made available. This requires \num{3} workers (4 total contexts) to improve upon single-threaded in-NIC RL.\label{fig:vary-core-latency}}
+	\caption{State-action latency scales with additional work in a similar manner to overall processing time; though \SI{32}{\bit} firmwares become more effective sooner (at \num{3} work items).\label{fig:vary-work-latency}}
 \end{figure}
 
 \begin{figure}
@@ -851,6 +846,7 @@ Our understanding is that this is due to the native register width on the NFP be
 This matches \SI{32}{\bit} becoming dominant in more complex workloads: higher dimension tilings require more arithmetic operations to compute the hit tile index.
 Most of the I/O comes after this step, causing ALU use to dominate.
 Regardless, the reduction in memory needed to store a policy remain.
+This also explains why \SI{32}{\bit} becomes the best choice at different policy complexities for online (\cref{fig:vary-work}, 10 dims) and offline (\cref{fig:vary-work-latency}, 3 dims) \Coopfw{} agents, where hashtable accesses and a \texttt{memcpy} of the state vector fall into the serial portion of the algorithm.
 
 \fakepara{Work allocation}
 \Cref{fig:work-alloc-32} shows that our heuristic first-fit allocator (\emph{Balanced}) is key in achieving consistent sub-\SIlist{35;65}{\micro\second} latencies/processing times respectively.
@@ -884,31 +880,31 @@ While there is still have a \SI{4.2}{$\times$} factor of task oversubscription a
 
 \fakepara{End-to-end RL latency}
 ?? TODO
+?? BIGGEST TO DO.
+
+?? PCIe RTT is 10us (neugebauer, BNN NFP paper), NFP RTT is 18us (own measurements). EMEM Ring one-way is 120ns.
+
+?? In the name of fairness, assume that rule installation uses same mechanism we recommend, but show how bad it can get? I.e. with rule installation costs etc.
 
 \fakepara{Co-existence with the dataplane}
-We were able to saturate the \SI{40}{\giga\bit\per\second} link for packet sizes above \SI{256}{\byte}.
-For frame sizes of \SIlist{64;128;256}{\byte} input traffic rates were \SIlist{17.4;32.9;37.0}{\giga\bit\per\second} respectively (\SIlist[per-symbol=p,sticky-per=true]{33.9;32.2;18.1}{\mega\packet\per\second}).
-Passing traffic over the loaded NFP device running \approachshort, no packet losses were incurred at any rate of RL actions.
+We were able to saturate the \SI{40}{\giga\bit\per\second} link for packet sizes at or above \SI{256}{\byte}.
+%For frame sizes of \SIlist{64;128;256}{\byte} input traffic rates were \SIlist{17.4;32.9;37.0}{\giga\bit\per\second} respectively (\SIlist[per-symbol=p,sticky-per=true]{33.9;32.2;18.1}{\mega\packet\per\second}).
+For frame sizes of \SIlist{64;128}{\byte} input traffic rates were \SIlist{17.4;32.9}{\giga\bit\per\second} respectively (\SIlist[per-symbol=p,sticky-per=true]{33.9;32.2}{\mega\packet\per\second}).
+Passing this traffic over the loaded NFP device running \approachshort, no packet losses were incurred at any rate of RL actions.
 
 We show the effect of RL workloads on the round-trip latencies of cross traffic through \cref{fig:dataplane-coop}.
-As observed latency measures do not obey a normal distribution, we employ a one-tailed \emph{Mann-Whitney U test} to mark statistically significant population increases in latency ($p < 0.05$) with a "+".
+As observed latency measures do not obey a normal distribution (particularly \SIlist{256;1518}{\byte}, which are bimodal), we employ a one-tailed \emph{Mann-Whitney U test} to mark statistically significant population increases in latency ($p < 0.05$) with a ``+''.
 In general, we observe that statistically significant latency increases concentrate around smaller packet sizes.
 All (bar one) of these affected \nth{99} percentile latencies by under \SI{0.38}{\percent} (at most \SI{78}{\nano\second}).
+This slight general degradation can be explained by increased pressure on the NFP's \emph{command push-pull} (CPP) bus, which is responsible for handling cross-island accesses to memory (particularly IMEM/EMEM) and other resources.
+\approachshort{} places load on the CPP bus through use of its IN/OUT rings for external communication and through last-tier policy accesses.
+This also explains the sensitivity of \SI{256}{\byte} packets to \approachshort{}---the Netronome P4 toolchain segments packets, storing metadata (e.g., MAC prepend data) and the first bytes of a packet in a $\SI{256}{\byte}$ CTM block and parking the bodies of processed packets in EMEM.
+\SI{256}{\byte} packets overshoot this due to metadata, causing small I/O accesses at a high rate for packets sized around this cutoff point.
+Regardless, this effect is small when observed.
 
-
-Is this anomaly just burstiness? It's \SI{222}{\nano\second} (1.175 percent)
-
-?? Cross-island/chip traffic must cross command push pull bus.
-
-\cref{fig:dataplane-example} shows one such example...
-
-?? Now talk about statistically significant deltas etc.
-
-\cref{fig:dataplane-coop}
-
-?? Odd two-tailed behaviour on 1518B
-
-?? Why spike in significance at 256? Likely due to packet segmentation in NFP (i.e., split between memory regions with body in EMEM).
+The anomalous result is \SI{128}{\byte} packets at \num{3000} RL action/update computations per second, causing a \SI{222}{\nano\second} (\SI{1.18}{\percent}) increase, shown in \cref{fig:dataplane-example}.
+In the above context, we believe that the inbound request rate is weakly synchronised with inbound packets, causing a higher level of burstiness around accesses to the CPP bus.
+We expect that dedicated hardware/FPGA designs can avoid this problem by having dedicated In/Out access mechanisms for an \approachshort{} agent.
 
 \begin{figure}
 	\centering
@@ -918,16 +914,16 @@ Is this anomaly just burstiness? It's \SI{222}{\nano\second} (1.175 percent)
 			\includegraphics{../plots/build/stress/heat-latency-two-9-rel}
 %			\includegraphics{../plots/build/stress/heat-latency-two-9-perc}
 		}
-		\caption{Deviations in \nth{99} percentile cross-traffic latencies.\label{fig:dataplane-heat}}
+		\caption{Deviations in \nth{99} percentile cross-traffic RTTs.\label{fig:dataplane-heat}}
 	\end{subfigure}
 	\hspace{0.05\linewidth}
 		\begin{subfigure}{0.45\linewidth}
 		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/stress/histo-128B-0-3}
+			\includegraphics{../plots/build/stress/histo-128B-0-3-trim}
 		}
-		\caption{Distribution of round-trip latencies for \SI{128}{\byte} packets.\label{fig:dataplane-example}}
+		\caption{Distribution of RTTs for \SI{128}{\byte} packets for baseline and \num{3000} RL actions/s.\label{fig:dataplane-example}}
 	\end{subfigure}
-	\caption{At most \SI{1.5}{\percent}... "+" symbols denote statistically significant ($p < 0.05$) increases in population latency, concentrated on smaller packet sizes.\label{fig:dataplane-coop}}
+	\caption{Effects on tail latency of cross-traffic caused by different loads of off-path RL compute. Statistically significant increases in population latency are concentrated on smaller packet sizes, and are typically sub-\SI{77}{\nano\second}.\label{fig:dataplane-coop}}
 \end{figure}
 
 \fakepara{Resource requirements}
@@ -971,13 +967,16 @@ Thread local storage in CLS for compute/register spilling scales with the number
 %\end{figure}
 
 \fakepara{Deployability}
-?? Setup and tiling packets take a mean \SI{26.65}{\micro\second} to be processed on \Indfw{}, while this processing and heuristic work scheduling takes \SI{417.25}{\micro\second} for the full-size policy described above.
-
-?? Config times scale with work complexity in \Coopfw{}, confirming the $\mathcal{O}{\left(n\right)}$ complexity of the allocator (??). Is it O mlogn?
-?? Changing from online to offline has this cost.
+We found that setup and tiling packets take a mean \SIlist{27.03;16.69}{\micro\second} to be processed on \Indfw{}, allowing for an agent to be swapped between online and offline operation (or repurposed for another task/policy) painlessly.
+Tiling packet processing was found to scale linearly with the number of \emph{tiling sets}, due to the needed precaching of tile set boundaries.
+Online-offline swaps for \Coopfw{} exhibit similar cost, however the need for explicit ahead-of-time heuristic scheduling means that policy/tiling \emph{structure} changes (including the first complete setup) take \SI{422.63}{\micro\second} for the full-size policy described above.
+The time taken for \Coopfw{} to schedule its tasks was found to scale with the number of workers ($m$) and work items ($n$) as described above ($\mathcal{O}{\left(n\log{m}\right)}$).
+Ignoring the trivial solutions, reducing the worker count to \num{1} costs a mean \SI{238.22}{\micro\second}, while placing a single task incurs \SI{53.79}{\micro\second}.
+Policy \emph{data} changes require no additional work in any case, resolving purely to \texttt{memcpy}s.
 
 We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{}, bit depth, or increasing maximum policy sizes) took a mean time of \SI{38.83}{\second}.
-?? What about compile time?
+In the event that appropriate firmwares are not pre-compiled, we found that compiling and linking both \approachshort{} and the P4 toolchain took around \SI{35}{\second}, while changing only \approachshort{} parameters required around \SI{25}{\second}.
+These results show that \approachshort{} can be easily adapted and altered by network administrators once in place, and illustrates .
 
 \section{Potential Integrations}\label{sec:potential-integrations}
 To show the general applicability and use of \approachshort{}, we propose an ideal integrations which would benefit from in-NIC reinforcement learning; online DDoS attack mitigation.
