@@ -130,7 +130,7 @@ for pkt_size in pkt_sizes:
 			histo = np.histogram(lats_for_this_cell, bins)
 
 			for (bin_x, freq) in zip(bins, histo[0]):
-				of.write("{},{}\n".format(int(bin_x), int(freq)))
+				of.write("{},{}\n".format(bin_x / 1000.0, int(freq)))
 
 for key, value in matrices.items():
 	write_matrix(key, value, len(pkt_sizes), rate_max)
