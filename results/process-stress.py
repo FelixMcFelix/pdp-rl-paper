@@ -33,6 +33,26 @@ def write_matrix(name, matrix, w, h):
 			#	of.write("{} {} {}\n".format(x, y, val))
 			of.write(" ".join([str(x) for x in row]) + "\n")
 
+	rel = shaped - shaped[0]
+	with open(out_dir + name + "rel.dat", "w") as of:
+		for x, row in enumerate(rel):
+			#if not x == 0:
+			#	of.write("\n")
+
+			#for y, val in enumerate(row):
+			#	of.write("{} {} {}\n".format(x, y, val))
+			of.write(" ".join([str(x) for x in row]) + "\n")
+
+	perc = (shaped / shaped[0]) - 1.0
+	with open(out_dir + name + "perc.dat", "w") as of:
+		for x, row in enumerate(perc):
+			#if not x == 0:
+			#	of.write("\n")
+
+			#for y, val in enumerate(row):
+			#	of.write("{} {} {}\n".format(x, y, val))
+			of.write(" ".join([str(x) for x in row]) + "\n")
+
 print("Latencies!")
 
 matrices = {}

@@ -4,7 +4,7 @@ load "gnuplot-palettes/gnbu.pal"
 
 set xlabel "Packet Size (\\si{\\byte})"
 set ylabel "RL Request rate (k updates/s)"
-set cblabel "Packet Latency (\\si{\\nano\\second})"
+set cblabel "Packet Latency Deviation (\\si{\\percent})"
 set view map
 
 set xrange [-0.5:6.5]
@@ -27,6 +27,6 @@ set datafile separator " "
 
 threshold = 0.05
 
-plot sprintf('../results/stress-process/matrix-latency-%s.dat', metric) matrix w image pixel notitle, \
+plot sprintf('../results/stress-process/matrix-latency-%sperc.dat', metric) matrix w image pixel notitle, \
 	'../results/stress-process/matrix-latency-p.dat' matrix u 1:2:($3 >= threshold ? "" : "+") with labels tc 'black' notitle
 
