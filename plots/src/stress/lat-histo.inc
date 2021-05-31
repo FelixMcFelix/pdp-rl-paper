@@ -2,8 +2,10 @@ set terminal tikz standalone color size 9cm,6cm font '\Large' preamble '\usepack
 
 load "gnuplot-palettes/inferno.pal"
 
-set ylabel "Frequency"
+set ylabel "Frequency" offset -2
 set xlabel "Packet Latency (\\si{\\nano\\second})"
+
+set xtics offset 2
 
 # set xrange [0:700000]
 

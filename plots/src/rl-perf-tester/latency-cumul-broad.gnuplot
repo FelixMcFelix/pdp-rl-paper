@@ -7,12 +7,16 @@ set ylabel "Cumulative Frequency"
 set xlabel "State-Action Latency (\\si{\\micro\\second})"
 
 set yrange [0:1]
+set xrange [0:1000]
+set xtics 0,200,1000
+set mxtics 4 
 
 set key textcolor rgb "black"
 set tics textcolor rgb "black"
 set label textcolor rgb "black"
 
 #set key samplen 4 spacing 3 width 5 above
+set key spacing 1.5 samplen 2 width 2
 set key above
 
 array BitDepths[3]

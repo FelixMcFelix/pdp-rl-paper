@@ -41,7 +41,7 @@ Singles[1] = 193.413
 Singles[2] = 195.320
 Singles[3] = 185.040
 
-myTitle(i) = sprintf("\\emph{\\Coopfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
+myTitle(i) = sprintf("\\SI{%d}{\\bit}", BitDepths[i + 1])
 singleTitle(i) = sprintf("\\emph{\\Indfw} (\\SI{%d}{\\bit})", BitDepths[i + 1])
 file(i) = sprintf("../results/rl-perf-tester/vary-core-ct/%d/balanced.28d.31c.ComputeAndWriteout.dat", BitDepths[i + 1])
 singleFile(i) = sprintf("../results/rl-perf-tester/vary-work-ct/%d/single.28d.31c.ComputeAndWriteout.dat", BitDepths[i + 1])
