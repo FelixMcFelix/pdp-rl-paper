@@ -156,18 +156,25 @@ print("Loss rates!")
 # process mean losses?
 for pkt_size in pkt_sizes:
 	losses_baseline = None
+	rates = []
+	pkts = []
 	for rate in range(rate_max):
 		losses_for_this_cell = []
+
 		for i in range(iter_ct):
 			with open(stress_result_dir + stress_file_tpu.format(pkt_size, rate, i)) as of:
 				lines = of.readlines()
 				imissed = extract_from_line(lines[3])
 				ipackets = extract_from_line(lines[4])
+				obytes = extract_from_line(lines[5])
 				opackets = extract_from_line(lines[7])
 
 				made_it_to_nic = imissed + ipackets
 
 				losses_for_this_cell += [1.0 - (made_it_to_nic / opackets)]
+
+				pkts.append(opackets)
+				rates.append(((float(obytes) / 30.0) * 8.0) / 1e9)
 
 		p_val = None
 		if losses_baseline is None:
@@ -184,3 +191,4 @@ for pkt_size in pkt_sizes:
 			p_val,
 		]
 		print("{}B {}k: {}".format(pkt_size, rate, metrics))
+	print("SPEEDS: {}B: {} {}".format(pkt_size, np.mean(rates), np.mean(pkts) / 30e6))

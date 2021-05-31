@@ -36,6 +36,7 @@
 \robustify\emph
 %\robustify\uline
 \sisetup{detect-all, range-phrase=--, range-units=single, detect-weight=true,detect-inline-weight=math, table-format=1.3}
+\DeclareSIUnit{\packet}{p}
 
 \makeatletter
 \let\MYcaption\@makecaption
@@ -885,28 +886,48 @@ While there is still have a \SI{4.2}{$\times$} factor of task oversubscription a
 ?? TODO
 
 \fakepara{Co-existence with the dataplane}
-No packet loss incurred
-?? mention actually achieved rates?
+We were able to saturate the \SI{40}{\giga\bit\per\second} link for packet sizes above \SI{256}{\byte}.
+For frame sizes of \SIlist{64;128;256}{\byte} input traffic rates were \SIlist{17.4;32.9;37.0}{\giga\bit\per\second} respectively (\SIlist[per-symbol=p,sticky-per=true]{33.9;32.2;18.1}{\mega\packet\per\second}).
+Passing traffic over the loaded NFP device running \approachshort, no packet losses were incurred at any rate of RL actions.
+
+We show the effect of RL workloads on the round-trip latencies of cross traffic through \cref{fig:dataplane-coop}.
+As observed latency measures do not obey a normal distribution, we employ a one-tailed \emph{Mann-Whitney U test} to mark statistically significant population increases in latency ($p < 0.05$) with a "+".
+In general, we observe that statistically significant latency increases concentrate around smaller packet sizes.
+All (bar one) of these affected \nth{99} percentile latencies by under \SI{0.38}{\percent} (at most \SI{78}{\nano\second}).
+
+
+Is this anomaly just burstiness? It's \SI{222}{\nano\second} (1.175 percent)
+
+?? Cross-island/chip traffic must cross command push pull bus.
+
+\cref{fig:dataplane-example} shows one such example...
 
 ?? Now talk about statistically significant deltas etc.
+
+\cref{fig:dataplane-coop}
+
+?? Odd two-tailed behaviour on 1518B
+
+?? Why spike in significance at 256? Likely due to packet segmentation in NFP (i.e., split between memory regions with body in EMEM).
 
 \begin{figure}
 	\centering
 	\begin{subfigure}{0.45\linewidth}
 		\resizebox{1.0\linewidth}{!}{
 %			\includegraphics{../plots/build/stress/heat-latency-median}
-			\includegraphics{../plots/build/stress/heat-latency-two-9}
+			\includegraphics{../plots/build/stress/heat-latency-two-9-rel}
+%			\includegraphics{../plots/build/stress/heat-latency-two-9-perc}
 		}
-		\caption{Ayy?}
+		\caption{Deviations in \nth{99} percentile cross-traffic latencies.\label{fig:dataplane-heat}}
 	\end{subfigure}
 	\hspace{0.05\linewidth}
 		\begin{subfigure}{0.45\linewidth}
 		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/stress/histo-1518B-0-10}
+			\includegraphics{../plots/build/stress/histo-128B-0-3}
 		}
-		\caption{Ayy?}
+		\caption{Distribution of round-trip latencies for \SI{128}{\byte} packets.\label{fig:dataplane-example}}
 	\end{subfigure}
-	\caption{Ayy.}
+	\caption{At most \SI{1.5}{\percent}... "+" symbols denote statistically significant ($p < 0.05$) increases in population latency, concentrated on smaller packet sizes.\label{fig:dataplane-coop}}
 \end{figure}
 
 \fakepara{Resource requirements}
