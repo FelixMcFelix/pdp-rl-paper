@@ -599,21 +599,78 @@ These slower messages can be used in theory to skip ahead into longer ME chains.
 
 \begin{algorithm}
 	\caption{ParSa---\emph{Par}allel \emph{Sa}rsa\label{alg:parsa}}
-	\SetKwProg{generate}{Function \emph{generate}}{}{end}
+	\SetKw{Let}{let}
+	\SetKw{Enum}{enum}
+	\SetKw{In}{in}
+	\SetKw{Await}{await}
+	\SetKw{Const}{const}
+	\SetKwProg{parsa}{Function \emph{ParSa}}{}{end}
+	\SetKwProg{control}{Function \emph{Ctl}}{}{end}
+	\SetKwProg{minion}{Function \emph{Minion}}{}{end}
+	\SetKwProg{tilecode}{Function \emph{TileCode}}{}{end}
 	
-	Map store=new Map(obj, queue)\;
-	\generate{Object pivot}{
-		\ForAll{child $c$ in pivot}{
-			\If{ $c$'s FieldContext is not set and $c$ is fusible}{
-				generate($c$)\;
+	\tcc{Given message passing mechanisms \emph{scatter} and \emph{recv}, quantised arithmetic functions $Q_\mathit{mul}$ and TileCode, and omitting schedule/config/precache updates.}
+	
+	\Enum Par \{ Act(\emph{state}), Upd(\emph{delta, action, state}) \}\;
+	\Const \emph{cfg, policy} = /* ... */\;
+	\Let \emph{values}: [AtomicI32; cfg.n\_actions] = \{0\}\;
+	\Let \emph{acks}: AtomicI32 = 0\;
+	\parsa{id, schedule}{
+		\uIf{id==0}{
+			\ForAll{state\_pkt \In \inring{}}{
+				Ctl(state\_pkt)\;
 			}
 		}
-		build pivot's fieldContext $fc$\;
-		EmitClassName\;
-		EmitFields($fc$)\;
-		EmitMethods($fc$)\;
+		\Else{
+			\While{true}{Minion(schedule[id - 1], recv())\;}
+		}
 	}
+
+	\control{state}{
+		\emph{values, acks} = \{0\}, scatter(Par::Act(\emph{state}))\;
+		acquire slot for \outring, copy \emph{state} into slot\;
+		\Await acks == \emph{cfg.n\_minions}\;
+		\Let \emph{action} = argmax(\emph{values})\;
+		write \emph{action} into \outring{} slot, enqueue\;
+		\If{cfg.online}{
+			\Let \emph{((l\_state, l\_act, l\_val), found\_s)} = \emph{cfg.lookup\_state\_from\_key(state)}\;
+			\Let \emph{(reward, found\_r)} = \emph{cfg.lookup\_reward\_from\_key(state)}\;
+			\If{found\_s \&\& found\_r}{
+				\Let $\delta_t$ = $\mathit{reward} + Q_\mathit{mul}$(\emph{cfg}.$\gamma$, \emph{values}[\emph{action}]) $-$ \emph{l\_val}\;
+				$\delta_t$ = $Q_\mathit{mul}$(\emph{cfg}.$\alpha$, $\delta_t$)\;
+				\emph{acks} = 0, scatter(Par::Upd($\delta_t$, \emph{action}, \emph{state}))\;
+				\Await acks == \emph{cfg.n\_minions}\;
+			}
+			\emph{cfg}.store\_state(\emph{state}, \emph{action}, \emph{values}[\emph{action}])\;
+		}
+	}
+
+	\minion{tasks, msg}{
+		\Switch{msg}{
+		\uCase{Par::Act(\emph{s})}{
+			\ForAll{task \In tasks}{
+				\Let \emph{hit} = TileCode(\emph{s}, \emph{task})\;
+				\For{i \In [0..cfg.n\_actions)}{
+					\emph{values}[\emph{i}].atomic\_add(\emph{policy}[\emph{hit}][\emph{a}])\;
+				}
+			}
+		}
+		\uCase{Par::Upd($\delta$, \emph{a}, \emph{s})}{
+			\ForAll{task \In tasks}{
+				\Let \emph{hit} = TileCode(\emph{s}, \emph{task})\;
+				\emph{policy}[\emph{hit}][\emph{a}] += $\delta$\;
+			}
+		}
+		}
+		acks.atomic\_add(1)\;
+	}
+
+%	\tilecode{state, task}{
+%		\Let \emph{hit} = \emph{cfg}.get\_task(task)\;
+%	}
 \end{algorithm}
+
+?? Where to mention that algo 1 omits epsilon greedy etc?
 
 \subsection{Reconfigurability}
 \approachshort{} allows for policy dimensions, size, action count, tiling strategies, and algorithmic learning parameters ($\alpha, \gamma, \epsilon$, related falloffs) to be chosen and changed at runtime using at most two control packets.
@@ -1082,6 +1139,8 @@ This can be taken further still, using policy deltas or execution traces to enab
 ?? Future work: NetFPGA it.
 
 ?? Future directions for community: want to see more general-purpose async compute on-chip! Larger form-factors!
+
+?? Future directions; transfer learning between classical methods into faster offline-only?
 
 ?? Are there other ``old ways of doing things'' worth looking at?
 
