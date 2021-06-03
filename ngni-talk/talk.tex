@@ -5,7 +5,7 @@
 %,notes=only
 %,notes
 %,show notes on second screen=right
-,handout
+%,handout
 ]{beamer}
 \usetheme[background=light, numbering=fraction]{metropolis}
 \usepackage{appendixnumberbeamer}
@@ -313,12 +313,15 @@
 \begin{frame}{Single-step (classical) RL---Sarsa}
 	A simple explanation:\pause
 	
-	\begin{subequations}
-		\begin{gather}
-			\delta_t = \overbrace{R_{t+1} + \gamma \acval{S_{t+1}}{A_{t+1}}{\wvec{t}}}^{\mathclap{\substack{\text{New target value:}\\ \text{Reward} + \text{some of the next action's value}}}} - \underbrace{\acval{S_t}{A_t}{\wvec{t}}}_{\mathclap{\text{Current value estimate}}},\\\pause
-			\bm{w}_{t+1} = \bm{w}_{t} + \overbrace{\alpha \delta_t}^{\mathclap{\text{Move a little bit of } \delta_t \text{ along...}}} \underbrace{\nabla{\acval{S_t}{A_t}{\wvec{t}}}}_{\mathclap{\text{...the policy's gradient}}},\pause
-		\end{gather}%
-	\end{subequations}
+	How should we adjust the value of selected items?
+	$$
+			\delta_t = \overbrace{R_{t+1} + \gamma \acval{S_{t+1}}{A_{t+1}}{\wvec{t}}}^{\mathclap{\substack{\text{New target value:}\\ \text{Reward} + \text{some of the next action's value}}}} - \underbrace{\acval{S_t}{A_t}{\wvec{t}}}_{\mathclap{\text{Current value estimate}}},
+	$$\pause
+	
+	Policy parameter update:
+	$$
+			\bm{w}_{t+1} = \bm{w}_{t} + \overbrace{\alpha \delta_t}^{\mathclap{\text{Move a little bit of } \delta_t \text{ along...}}} \underbrace{\nabla{\acval{S_t}{A_t}{\wvec{t}}}}_{\mathclap{\text{...the policy's gradient}}}.
+	$$\pause
 
 	Design implications?
 \end{frame}
