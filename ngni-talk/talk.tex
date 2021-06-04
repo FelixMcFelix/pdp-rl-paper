@@ -313,16 +313,16 @@
 \begin{frame}{Single-step (classical) RL---Sarsa}
 	A simple explanation:\pause
 	
+	How to select an action? Pick largest from list: $\acval{S_t}{\cdot}{\wvec{t}}$\pause
+	
 	How should we adjust the value of selected items?
 	$$
 			\delta_t = \overbrace{R_{t+1} + \gamma \acval{S_{t+1}}{A_{t+1}}{\wvec{t}}}^{\mathclap{\substack{\text{New target value:}\\ \text{Reward} + \text{some of the next action's value}}}} - \underbrace{\acval{S_t}{A_t}{\wvec{t}}}_{\mathclap{\text{Current value estimate}}},
 	$$\pause
-	
 	Policy parameter update:
 	$$
 			\bm{w}_{t+1} = \bm{w}_{t} + \overbrace{\alpha \delta_t}^{\mathclap{\text{Move a little bit of } \delta_t \text{ along...}}} \underbrace{\nabla{\acval{S_t}{A_t}{\wvec{t}}}}_{\mathclap{\text{...the policy's gradient}}}.
 	$$\pause
-
 	Design implications?
 \end{frame}
 
@@ -520,7 +520,7 @@
 
 \begin{frame}{Designs: How to exploit on-NIC parallelism?}
 	\begin{itemize}[<+->]
-		\item Netronome SmartNICs \emph{very} multi-core.
+		\item Netronome SmartNICs \emph{very} multi-core (NFP-6480).
 		\begin{itemize}[<+->]
 			\item NetFPGAs also allow creating separate, effectively async functional units.
 		\end{itemize}
@@ -539,12 +539,12 @@
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Designs: \emph{Ind}}
+\begin{frame}{Designs: \emph{Ind} (on NFP)}
 	\centering
 	\includegraphics[width=0.52\linewidth]{../paper/figures/ind}
 \end{frame}
 
-\begin{frame}{Designs: \emph{CoOp}}
+\begin{frame}{Designs: \emph{CoOp} (on NFP)}
 	\centering
 	\includegraphics[width=0.535\linewidth]{../paper/figures/coop}
 \end{frame}
@@ -558,7 +558,8 @@
 		\item Online/Offline throughput
 		\item Impact on cross-traffic
 		\item Device resource use
-	\end{itemize}
+	\end{itemize}\pause
+	\textbf{On large-ish policies} (20D state, 10 actions, bias+(7$\times$1D, 8$\times$2D, 1$\times$4D)).
 \end{frame}
 
 \begin{frame}{Latency}
@@ -696,7 +697,7 @@
 		\item \alert{Online in-NIC RL is possible!}
 		\item \alert{Order-of-magnitude latency improvement} over offloading, higher online throughput.
 		\item Platform-specific, but similar design for SmartNIC hardware class.
-		\item \alert{Future work}: accuracy, use-cases (AQM, DDoS prevention), NetFPGA, transfer learning.
+		\item \alert{Future work}: use-cases (AQM, DDoS prevention \& accuracy), NetFPGA, transfer learning.
 	\end{itemize}
 	\alert{Questions?}\\
 	{
@@ -704,6 +705,13 @@
 		\vspace{2em}\faEnvelopeO{} \href{mailto:k.simpson.1@research.gla.ac.uk}{\nolinkurl{k.simpson.1@research.gla.ac.uk}}\\
 		\vspace{-0.8em}	\small{\faGithub{} \href{https://github.com/felixmcfelix}{FelixMcFelix} \hspace{0.5em} \faGlobe{} \url{https://mcfelix.me}}
 	}
+
+	\begin{tikzpicture}[overlay, remember picture]
+		%		\node[above right=0.8cm and 0.9cm of current page.south west] (esnet-logo) {\includegraphics[width=2.75cm]{netlab-trim}};
+		%		\node[right=1cm of esnet-logo] {\adjincludegraphics[height=2cm,trim={0 {.4\height} 0 {.05\height}},clip]{uofg}};
+		\node[above left=0.2cm and 0.8cm of current page.south east] {\includegraphics[width=2.75cm]{netlab-fulllogo}};
+		\node[above right=0.35cm and 0.8cm of current page.south west] {\includegraphics[width=2.75cm]{uofg-white}};
+	\end{tikzpicture}
 \end{frame}
 
 \appendix
@@ -724,6 +732,16 @@
 		}
 		\caption{Throughput per added worker in a \Coopfw{} agent.\label{fig:tput-per-core}}
 	\end{figure}
+\end{frame}
+
+\begin{frame}{Latency---All \approachshort}
+	\centering
+	\resizebox{\linewidth}{!}{\expandableinput ../tables/build/latency}
+\end{frame}
+
+\begin{frame}{Throughput---All \approachshort}
+	\centering
+	\resizebox{\linewidth}{!}{\expandableinput ../tables/build/tput}
 \end{frame}
 
 \begin{frame}[allowframebreaks]{References}
