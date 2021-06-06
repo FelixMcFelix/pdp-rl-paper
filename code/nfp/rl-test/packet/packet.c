@@ -540,7 +540,7 @@ void state_packet(
 			tile_t dt;
 			// don't copy the tile list, that's probably TOO heavy.
 		
-			dt = matched_reward + quant_mul(cfg->alpha, value_of_chosen_action, cfg->quantiser_shift) - state_action_pairs[state_found].val;
+			dt = matched_reward + quant_mul(cfg->gamma, value_of_chosen_action, cfg->quantiser_shift) - state_action_pairs[state_found].val;
 
 			adjustment = quant_mul(adjustment, dt, cfg->quantiser_shift);
 
