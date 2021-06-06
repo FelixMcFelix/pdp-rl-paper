@@ -214,15 +214,15 @@
 %\renewcommand{\shortauthors}{Simpson \emph{et al}.}
 	
 \begin{abstract}
-Automatic, data-driven networking is becoming more capable and widely researched, mainly driven by the efficacy of \emph{Deep Reinforcement Learning} (DRL) algorithms.
+Automatic, data-driven networking is becoming more capable and widely researched, driven by the efficacy of \emph{deep reinforcement learning} (DRL) algorithms.
 Yet the complexity of both DRL inference and learning force these tasks to be offloaded \emph{away from the dataplane} to hosts, harming latency-sensitive applications.
-Online learning of such policies cannot occur in the dataplane, despite being useful techniques when problems evolve or are hard to model.
+Online learning and control have been lost, despite being useful techniques when problems evolve or are hard to model.
 
-We present \emph{\approachshort{}}---\approach{}---the first work to bring \emph{online reinforcement learning} to the dataplane.
-\approachshort{} makes online learning possible in constrained SmartNIC hardware by returning to classical RL techniques which simplify update logic and enable parallel processing.
-Compared to offloading, we achieve a \SI{21}{$\times$} reduction in \num{99.99}\nthscript{th} tail inference times to \SI{34}{\micro\second}, and \SI{9.9}{$\times$} improvement in online throughput for real-world policy designs.
+We present \emph{\approachshort{}}---\approach{}---to our knowledge the first work to bring \emph{online reinforcement learning} to the dataplane.
+\approachshort{} makes online learning possible in constrained SmartNIC hardware by returning to classical RL techniques, which simplify update logic and enable parallel processing.
+Versus offloading, we achieve a \SI{21}{$\times$} reduction in \num{99.99}\nthscript{th} tail inference times to \SI{34}{\micro\second}, and \SI{9.9}{$\times$} improvement in online throughput for real-world policy designs.
 In-NIC execution eliminates PCIe transfers, and our asynchronous compute model ensures minimal impact on traffic carried by a co-hosted P4 dataplane.
-\approachshort{}'s design scales with additional resources at compile-time to improve upon both decision latency and throughput, improving on offloading, and are quickly reconfigurable at runtime compared to reinstalling device firmware/designs.
+\approachshort{}'s designs scale with additional resources at compile-time to improve upon both decision latency and throughput, improving upon offloading using \emph{just one worker}, are quickly reconfigurable at runtime, and are task-agnostic.
 
 \end{abstract}
 
@@ -272,16 +272,15 @@ Automatic optimisation, control, and defence of networks are at last becoming co
 Adaptive techniques such as \emph{reinforcement learning} (RL) have led the charge in data-driven networking, enhancing the automation of traffic/multimedia optimisation~\parencite{DBLP:conf/sigcomm/ChenL0L18,DBLP:conf/sigcomm/MaoNA17}, congestion control~\parencite{DBLP:journals/corr/abs-1910-04054}, adaptive routing~\parencite{DBLP:conf/hotnets/ValadarskySST17}, resource management~\parencite{DBLP:conf/hotnets/MaoAMK16}, and packet classification~\parencite{DBLP:conf/sigcomm/LiangZJS19}.
 In RL methods, every change and its measured effects improve future decisions made by an agent.
 
-Parallel to this, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and programmable network hardware~\parencite{DBLP:journals/micro/ZilbermanACM14, netronome-smartnic, xilinx-alveo, barefoot-intel} have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
+Parallel to this, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and NetFPGA devices~\parencite{DBLP:journals/micro/ZilbermanACM14} have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
 This has manifested in novel uses of programmable dataplane hardware to accelerate distributed tasks, fine-grained traffic measurement~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}, or per-packet processing.
 The latter is particularly attractive due to the costs of offloading to commodity host machines; input data must cross the PCIe bus several times, throughput requirements often impose the use of batching, and dedicated accelerators must again be contacted over PCIe~\parencite{DBLP:journals/corr/abs-2009-02353}.
-Additionally, in multi-tenant environments, IOMMU contention for both NICs and inference accelerators may impact tail latencies~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018}.
-In response, we have seen non-neural ML techniques~\parencite{DBLP:conf/hotnets/XiongZ19}, neural networks~\parencite{DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,DBLP:journals/corr/abs-2009-02353,langlet-ml-netronome}, and hardware design proposals for CGRA-based map-reduce blocks~\parencite{DBLP:journals/corr/abs-2002-08987} \emph{directly in the dataplane}.
+Additionally in multi-tenant environments, IOMMU contention for both NICs and inference accelerators may impact tail latencies~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018}.
+In response, we have seen classical ML~\parencite{DBLP:conf/hotnets/XiongZ19} techniques, neural networks~\parencite{DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,DBLP:journals/corr/abs-2009-02353,langlet-ml-netronome}, and hardware design proposals for CGRA-based map-reduce blocks~\parencite{DBLP:journals/corr/abs-2002-08987} \emph{directly in the dataplane}.
 These works have shown the value in in-network ML: high-throughput, low latency response to network changes, particularly when co-hosted with state extraction.
 
 However, the task of \emph{training} these models online \emph{and} in-network presents an exciting (and challenging) lacuna in the field.
-Online training is particularly important if an agent needs to react to unforeseen (failure) states, such as in DDoS/intrusion prevention.
-For context, \emph{Deep Neural Network} (DNN) training relies upon the backpropagation algorithm to compute gradients, and for sizeable amounts of data to be held in mini-batches for stable training.
+For instance, \emph{deep neural network} (DNN) training relies upon the backpropagation algorithm to compute gradients, and for sizeable amounts of data to be held in mini-batches for stable training.
 Moreover, DNN-backed RL must often be trained by vast amounts of offline simulation---in some cases compute-years worth~\parencite{DBLP:journals/corr/abs-1912-06680}---which can be counter-productive if the target problem evolves over time or is hard to model.
 These space and compute requirements, at present, mandate that training must occur in commodity hosts or dedicated hardware.
 Moreover, high state-action latencies \emph{caused} by offloading and expensive policy approximations add significant noise to the learning process~\parencite{DBLP:journals/firai/TravnikMSP18} and impact application performance~\parencite{DBLP:journals/corr/abs-1910-04054}.
@@ -315,8 +314,7 @@ Moreover, high state-action latencies \emph{caused} by offloading and expensive 
 The question we investigate is: can online RL be brought to the dataplane by returning to computationally simpler methods, to act on locally extracted state?
 Can it be made more efficient \emph{by dataplane hardware}?
 Through this work, we can comfortably answer ``yes'' on both counts.
-In particular, we exploit how SmartNIC devices often expose general purpose compute to provide path-adjacent, on-chip RL in the dataplane (\cref{fig:netro-arch}).
-As many of these devices have engineering and development histories which predate P4, general compute beyond P4's limits~\parencite{p4-psa} is surprisingly common.
+In particular, we exploit the (pre-P4) legacy of general purpose compute in SmartNIC devices to offer path-adjacent, on-chip RL in the dataplane (\cref{fig:netro-arch}).
 By executing on spare compute units, we prevent packet stalling and offer quick runtime reconfigurability.
 We look backwards to classical RL techniques (tile-coded policies, single-step RL algorithms), alongside the adaptations introduced by existing in-network ML (such as quantisation).
 Such adaptations unlock further improvements in parallel inference and update processing.
@@ -345,99 +343,77 @@ In summary, this paper contributes:
 %
 %I will discuss early development efforts (including challenges and results) on the Netronome Agilio SmartNIC, which supports the P4 language as well as some degree of arbitrary microcode. I intend to present how reinforcement learning execution and network telemetry will differ in the above metrics when compared to a vNF-based deployment (i.e., software on external commodity servers).
 
-\section{Preliminaries: RL for in-network computation}\label{sec:motivation}
+\section{Background and Motivation}\label{sec:motivation}
 We discuss recent trends in programmable switch hardware.
 By combining this with insights from the ML/RL communities (past and present), we discuss why in-NIC RL is best-placed to interact with the network, and how classical RL methods and quantisation ensure computational feasibility.
 
-Crucially, we train our focus on devices with a low port density, such as SmartNICs and the NetFPGA.
+Crucially, we train our focus on devices with a low port density, such as SmartNICs and NetFPGA devices.
 The designs of these devices make it reasonable to move policy processing \emph{outside of the packet pipeline}; SmartNICs expose many additional programmable cores, and NetFPGAs allow for the synthesis of independent functional units.
 The main benefit of doing so is that core control logic can be moved as close to the device as possible \emph{without impacting packet processing rates}.
-%?? Say more directly why this mode of operation is preferable to in-pipeline w/ P4
-As ethernet line rate moves beyond \SIlist{40;100}{\giga\bit\per\second}, packet processing deadlines grow tighter in tandem; a \SI{64}{\byte} packet must be produced every \SI{12.8}{\nano\second}, giving a \SI{3.99}{\micro\second} deadline on Netronome SmartNICs (having \num{312} P4 pipelines).
-In-pipeline execution thus increases the risk of drops or stalled packet transmissions.
-
-%However, this requires that there be a reasonably consistent interface and behaviour between device classes.
-%This need for consistency underpins the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}, which defines a conceptual model of match-action tables divided into ingress and egress pipelines.
-%The PSA presents a sensible lower bound on the device capabilities required to implement a P4 dataplane, but the reality is more complex and interesting.
 
 %?? TODO: trim down. Too ``thesis-y'', rather than ``conference-y''.
 %?? Save this elsewhere 'til then?
 
 \subsection{Programmable hardware capabilities}
-%The introduction of the P4 language~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} has led to explosive growth in the research community surrounding in-network computation and offloading.
-%Providing a single language which is compatible with network devices of many form factors has been instrumental in the development of novel fine-grained traffic measurement approaches~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
-%However, this requires that there be a reasonably consistent interface and behaviour between device classes.
-%This need for consistency underpins the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}, which defines a conceptual model of match-action tables divided into ingress and egress pipelines.
-%The PSA presents a sensible lower bound on the device capabilities required to implement a P4 dataplane, but the reality is more complex and interesting.
+The introduction of the P4 language~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} has led to explosive growth in the research community surrounding in-network computation and offloading.
+Providing a single language which is compatible with network devices of many form factors has been instrumental in the development of novel fine-grained traffic measurement approaches~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
+However, this requires that there be a reasonably consistent interface and behaviour between device classes.
+This need for consistency underpins the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}, which defines a conceptual model of match-action tables divided into ingress and egress pipelines.
+The PSA presents a sensible lower bound on the device capabilities required to implement a P4 dataplane, but the reality is more complex and interesting.
 
-
-%We would be remiss to believe that P4 and the PSA define all capabilities that programmable hardware supports.
-%Many compatible devices have legacies long predating these developments. 
-%For instance, many-core SOC-based Netronome SmartNIC~\parencite{netronome-smartnic}, and NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14} NICs allow virtually arbitrary programs to be specified and executed.
-%The first of these compiles from P4$\rightarrow$Micro-C$\rightarrow$bytecode (with Micro-C externs), while the latter can combine the P4$\rightarrow$NetFPGA toolchain~\parencite{DBLP:conf/fpga/IbanezBMZ19} with arbitrary circuit externs---both exposing further device capabilities beyond the specification.
-%This pattern extends to other SmartNICs, such as NVIDIA BlueField~\parencite{nvidia-bluefield} and Xilinx Alveo~\parencite{xilinx-alveo} devices.
-
-While the P4 language~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} has led to great interest in network programmability, it requires similar behaviour between device classes.
-This is encoded as the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}---a sensible lower bound on the device capabilities required to implement a P4 dataplane.
 We would be remiss to believe that P4 and the PSA define all capabilities that programmable hardware supports.
 Many compatible devices have legacies long predating these developments. 
-For instance, many-core SOC-based Netronome SmartNIC~\parencite{netronome-smartnic}, and NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14,DBLP:conf/fpga/IbanezBMZ19} NICs allow virtually arbitrary programs to be specified and executed.
-This pattern extends to other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo}.
+For instance, many-core SOC-based Netronome SmartNIC~\parencite{netronome-smartnic}, and NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14} NICs allow virtually arbitrary programs to be specified and executed.
+The first of these compiles from P4$\rightarrow$Micro-C$\rightarrow$bytecode (with Micro-C externs), while the latter can combine the P4$\rightarrow$NetFPGA toolchain~\parencite{DBLP:conf/fpga/IbanezBMZ19} with arbitrary circuit externs---both exposing further device capabilities beyond the specification.
+This pattern extends to other SmartNICs, such as NVIDIA BlueField~\parencite{nvidia-bluefield} and Xilinx Alveo~\parencite{xilinx-alveo} devices.
 
 Currently, low port density devices like the above are most likely to have specific general-purpose compute, as they are designed to suit high-performance offloading and middlebox development.
 Even Intel Tofino~\parencite{barefoot-intel} ASICs, which architecturally mirror the PSA, expose additional matching capabilities and \emph{arithmetic logic unit} (ALU) functions via the Tofino Native Architecture.
 Regardless, floating-point operations key to ML/RL workloads are very rarely supported outside of deep learning accelerators (which, in turn, lack packet switching functionality).
 Moreover, the limited memory/block RAM and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
 
-%\begin{insight}
-%	Current low-port density programmable network devices often have spare resources and extra capabilities beyond the PSA specification which can aid asynchronous, local compute.
-%\end{insight}
+\begin{insight}
+	Current low-port density programmable network devices often have spare resources and extra capabilities beyond the PSA specification which can aid asynchronous, local compute.
+\end{insight}
 
 \subsection{Reinforcement Learning}
-%\emph{Reinforcement learning} (RL) algorithms are methods of training an \emph{agent} to choose an optimal sequence of actions in pursuit of a given task \cite{RL2E}.
-%Like most machine learning methods, an RL algorithm uses gradient information to update the parameters used to approximate a function.
-%In RL contexts, this is a state$\rightarrow$action function known as a \emph{policy}.
-%When training, agents are given \emph{reward measurements} and a learned policy acts to maximise the \emph{expected discounted reward} received.
-%When a pre-trained policy is deployed, this signal is not required.
-%
-%It's useful to consider how these algorithms differ from other ML use cases, such as classifiers.
-%The main differences lie in how this gradient information is used, and combined with \emph{reward measurements} received from the environment.
-%Rather than adapting the learned parameters along the gradient using an error value from a target value, because the optimal actions aren't known they adjust values using a \emph{Markov Decision Process} (MDP)---capturing state trajectories to adjust value based on past and future decisions.
+\emph{Reinforcement learning} (RL) algorithms are methods of training an \emph{agent} to choose an optimal sequence of actions in pursuit of a given task \cite{RL2E}.
+Like most machine learning methods, an RL algorithm uses gradient information to update the parameters used to approximate a function.
+In RL contexts, this is a state$\rightarrow$action function known as a \emph{policy}.
+When training, agents are given \emph{reward measurements} and a learned policy acts to maximise the \emph{expected discounted reward} received.
+When a pre-trained policy is deployed, this signal is not required.
 
-\emph{Reinforcement learning} (RL) algorithms train an \emph{agent} to choose an optimal sequence of actions in pursuit of a given task~\parencite{RL2E}.
-Like most ML methods, RL algorithms use gradient information to update the parameters used to approximate a function with \emph{reward measurements} from the environment.
-RL's \emph{Markov Decision Process} (MDP) structure allows online learning of a state-action map in a model-free way, and can step through local minima when needed compared to ML.
-In networking, this allows for learning to respond to on-device state or to handle rapidly evolving problems.
-Generally these are agnostic to the policy approximation used, and classical single-step RL algorithms are simple---most of the compute work is occupied by the policy itself.
-Consider the single-step, semi-gradient Sarsa algorithm~\cite[pp. \numrange{217}{221}]{RL2E} which requires only additions and multiplication to update and learn a policy online.
+It's useful to consider how these algorithms differ from other ML use cases, such as classifiers.
+The main differences lie in how this gradient information is used, and combined with \emph{reward measurements} received from the environment.
+Rather than adapting the learned parameters along the gradient using an error value from a target value, because the optimal actions aren't known they adjust values using a \emph{Markov Decision Process} (MDP)---capturing state trajectories to adjust value based on past and future decisions.
 
-%Consider the single-step, semi-gradient Sarsa algorithm~\cite[pp. \numrange{217}{221}]{RL2E}:
-%\begin{subequations}
-%	\begin{gather}
-%		\delta_t = R_{t+1} + \gamma \acval{S_{t+1}}{A_{t+1}}{\wvec{t}} - \acval{S_t}{A_t}{\wvec{t}},\\
-%		\bm{w}_{t+1} = \bm{w}_{t} + \alpha \delta_t \nabla{\acval{S_t}{A_t}{\wvec{t}}},
-%	\end{gather}%
-%	\label{eqn:sg-sarsa}%
-%	where $\delta_t$ is known as the \emph{temporal-difference} (TD) error, $\acval{S}{A}{\wvec{}}$ denotes the \emph{value} of an action $A$ taken in state $S$ according to the policy $\wvec{}$, and the vector gradient $\nabla$ is taken with respect to $\wvec{}$. $\gamma,\alpha\in[0,1]$ are the discount factor and learning rate (governing the degree of forward planning and policy stability, respectively).
-%\end{subequations}
-%In essence, at each timestep the policy parameters ($\wvec{}$) are increased along the gradient ($\nabla{\acvalblank}$) using a fixed learning rate ($\alpha$) and a computed adjustment ($\delta_t$).
-%This adjustment is equal to the difference between the chosen action $A$'s value in state $S$ and the reward received ($R_{t+1} - \acval{S_t}{A_t}{\wvec{}}$), \emph{plus} some part of the \emph{next} action's value ($\gamma\acval{S_{t+1}}{A_{t+1}}{\wvec{}}$).
-%To give some context on the design space here, other algorithms may employ separate state value approximations, use the entirety of an agent's trace, or be tailored to characteristics of the policy approximator (e.g., how neural networks benefit from batching).
+Consider the single-step, semi-gradient Sarsa algorithm~\cite[pp. \numrange{217}{221}]{RL2E}:
+\begin{subequations}
+	\begin{gather}
+		\delta_t = R_{t+1} + \gamma \acval{S_{t+1}}{A_{t+1}}{\wvec{t}} - \acval{S_t}{A_t}{\wvec{t}},\\
+		\bm{w}_{t+1} = \bm{w}_{t} + \alpha \delta_t \nabla{\acval{S_t}{A_t}{\wvec{t}}},
+	\end{gather}%
+	\label{eqn:sg-sarsa}%
+	where $\delta_t$ is known as the \emph{temporal-difference} (TD) error, $\acval{S}{A}{\wvec{}}$ denotes the \emph{value} of an action $A$ taken in state $S$ according to the policy $\wvec{}$, and the vector gradient $\nabla$ is taken with respect to $\wvec{}$. $\gamma,\alpha\in[0,1]$ are the discount factor and learning rate (governing the degree of forward planning and policy stability, respectively).
+\end{subequations}
+In essence, at each timestep the policy parameters ($\wvec{}$) are increased along the gradient ($\nabla{\acvalblank}$) using a fixed learning rate ($\alpha$) and a computed adjustment ($\delta_t$).
+This adjustment is equal to the difference between the chosen action $A$'s value in state $S$ and the reward received ($R_{t+1} - \acval{S_t}{A_t}{\wvec{}}$), \emph{plus} some part of the \emph{next} action's value ($\gamma\acval{S_{t+1}}{A_{t+1}}{\wvec{}}$).
+To give some context on the design space here, other algorithms may employ separate state value approximations, use the entirety of an agent's trace, or be tailored to characteristics of the policy approximator (e.g., how neural networks benefit from batching).
 
-%\begin{insight}
-%	Classical, single-step RL algorithms are computationally simple and are agnostic to the policy approximation used. Furthermore, they require only additions and multiplication to update and learn a policy online.
-%\end{insight}
+\begin{insight}
+	Classical, single-step RL algorithms are computationally simple and are agnostic to the policy approximation used. Furthermore, they require only additions and multiplication to update and learn a policy online.
+\end{insight}
 
 \fakepara{RL in asynchronous environments}
-%There remains some degree of divergence between the theory and implementation of RL agents.
-%Consider \cref{fig:state-slip}: the traditional formulation of a Markov decision process assumes that an agent receives a new view of the world's state at fixed time intervals, and then decides upon and executes an action instantly.
-%The reality is that state information takes time to traverse the network, service times are offset by how quickly hosts respond to interrupts and deserialise requests, and action preference lists are often computed via expensive policy approximations.
-%Action installation also incurs costs in fields such as network administration, initially to contact the controller and then for those actions to be installed via the control plane.
-Consider \cref{fig:state-slip}: the traditional RL formulation assumes that an agent receives a new state at fixed time intervals, and then decides upon an action instantly, while in reality these incur transmission and compute delays.
+There remains some degree of divergence between the theory and implementation of RL agents.
+Consider \cref{fig:state-slip}: the traditional formulation of a Markov decision process assumes that an agent receives a new view of the world's state at fixed time intervals, and then decides upon and executes an action instantly.
+The reality is that state information takes time to traverse the network, service times are offset by how quickly hosts respond to interrupts and deserialise requests, and action preference lists are often computed via expensive policy approximations.
+Action installation also incurs costs in fields such as network administration, initially to contact the controller and then for those actions to be installed via the control plane.
+
 These delays (and variance thereof) add noise to the state-action mapping being learned, which has a potent reduction to learning rate and final accuracy, even for simple grid world tasks according to \textcite{DBLP:journals/firai/TravnikMSP18}.
-Reordering algorithmic steps reduces these costs for online single-step algorithms, but reducing this further requires detailed agent-environment co-design.
+They in turn show that reordering algorithmic steps can reduce these costs for online 1-step algorithms, but that reducing this further requires detailed agent-environment co-design.
 This principle has influenced the design of real network use cases, such RL-based congestion-control algorithms~\parencite{DBLP:journals/corr/abs-1910-04054}, showing that asynchrony is necessary for high-speed applications.
-This often requires that state measurements are combined or coalesced~\parencite{DBLP:journals/corr/abs-1910-04054,DBLP:journals/tnsm/SimpsonRP20} while expensive computations are ongoing.
+Achieving this often requires that state measurements are combined or coalesced~\parencite{DBLP:journals/corr/abs-1910-04054,DBLP:journals/tnsm/SimpsonRP20} while expensive computations are ongoing.
 `Stopping the world' in the algorithmic sense causes significant performance degradation, as inference takes up to \SI{30}{\milli\second} in the above work on congestion control, or any time-sensitive control problems.
 
 \begin{figure}
@@ -494,27 +470,22 @@ In networks, actions are most likely to be installed on backbone switches, bump-
 Ideally, these functions which comprise an RL agent would all be collocated on the same chip or device, but this is easier said than done. 
 Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
 
-?? Return to dimitris note: how is this important to final solution?
-
-%\begin{insight}
-%	Online control problems benefit from low-latency, local execution and training (i.e., in-NIC/switch).
-%\end{insight}
+\begin{insight}
+	Online control problems benefit from low-latency, local execution and training (i.e., in-NIC/switch).
+\end{insight}
 
 \subsection{Efficient policy approximation}
-%Some problems either evolve over time in unpredictable ways, or cannot be easily modelled.
-%This can then make \emph{online} learning of the task an attractive prospect, using a single available stream of experience.
-%\emph{Deep neural networks} (DNNs), particularly when used as the basis for an RL agent's policy, require vast amounts of experience to converge on an accurate parameter set.
-%In many problem domains, this equates to training from compute-years worth of distributed offline simulations, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
-%Achieving stable learning requires sizeable batches of gradients to be computed, potentially using the entire experience replay from each simulation.
-%Although there has been a vested interest in efficiently \emph{executing} more complex function approximators such as DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the computational cost of gradient computation via backpropagation remains too significant on embedded hardware.
-Complex \emph{Deep Neural Networks} (DNNs), particularly when used as the basis for an RL agent's policy, require vast amounts (e.g., in the worst case compute-years~\parencite{DBLP:journals/corr/abs-1912-06680}) of experience to converge on an accurate parameter set, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
-Although there has been a vested interest in efficiently \emph{executing} more complex function approximators such as DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the storage and computational costs of gradient computation via backpropagation remain too significant on embedded hardware.
+Some problems either evolve over time in unpredictable ways, or cannot be easily modelled.
+This can then make \emph{online} learning of the task an attractive prospect, using a single available stream of experience.
+\emph{Deep neural networks} (DNNs), particularly when used as the basis for an RL agent's policy, require vast amounts of experience to converge on an accurate parameter set.
+In many problem domains, this equates to training from compute-years worth of distributed offline simulations, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
+Achieving stable learning requires sizeable batches of gradients to be computed, potentially using the entire experience replay from each simulation.
+Although there has been a vested interest in efficiently \emph{executing} more complex function approximators such as DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the computational cost of gradient computation via backpropagation remains too significant on embedded hardware.
 
 %?? Probably want some cites on the need for batching in NN methods, even though this is understood. DL book?
 
 We then return again to what classical RL methods can offer us; in particular, the simple linear function approximation given by \emph{tile coding} \cite[pp.\ \numrange{217}{221}]{RL2E}.
 The idea is simple: a policy is represented by sets of tiles, each covering one or more dimensions of the input state with several overlapping tilings (offset stepwise to provide generalisation).
-This covers any input-output mapping, such as ??
 A state vector produces a single `hit' in each tiling, which provides both the set of action preference lists to sum during inference \emph{and} the set of tiles to update at the next timestep.
 Crucially, this internal representation ensures that there are no data dependencies between any tile hit calculations for an input state vector.
 This has important benefits for parallelisation.
@@ -529,18 +500,18 @@ Computing a tile hit requires one division per dimension, which is an expensive 
 However, if the width of tiles are fixed at powers-of-two, then these may be replaced with right bitshifts.
 As we shall see shortly, this aligns with our choice of numerical representation.
 
-%\begin{insight}
-%	Tile coded policies are embarrassingly parallel in both inference \emph{and} learning. Moreover, in some instances the process can be altered to require only bitshifts, additions, and multiplication.
-%\end{insight}
+\begin{insight}
+	Tile coded policies are embarrassingly parallel in both inference \emph{and} learning. Moreover, in some instances the process can be altered to require only bitshifts, additions, and multiplication.
+\end{insight}
 
 \subsection{Numerical representation for embedded ML}
-A key feature universally lacking from programmable network hardware is floating-point arithmetic support.
+A key feature universally lacking from the target environments is floating-point arithmetic support.
 Luckily, the task of bringing machine learning models to resource-constrained environments without these capabilities is well-studied.
 Quantisation and alternative data formats have been suggested to make ML inference feasible on resource- and power-limited platforms, work around hardware constraints, or compute faster and more efficiently.
 Lower bit depths reduce memory footprints, and improve throughput in designs such as \emph{bfloat16}~\parencite{bfloat16-blog} in Google TPUs~\parencite{DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
 In many cases, accuracy losses for doing so are negligible.
 Much of this work goes further still towards integer~\parencite{tensorrt-8bit} or binarised~\parencite{DBLP:journals/corr/MiyashitaLM16,DBLP:conf/eccv/RastegariORF16,DBLP:journals/corr/KimS16,DBLP:conf/nips/HubaraCSEB16} representations, sacrificing dynamic range for simpler arithmetic operations.
-The works mentioned above use similar techniques to make inference tractable on network hardware, i.e., to bring neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
+The works mentions above use similar techniques to make inference tractable on network hardware, i.e., to bring neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
 
 To make RL workloads feasible under such constraints, we propose the use of quantised, fixed-point representations such as $Qm.n$ (i.e., $m$\si{bit} signed integers with an $n$\si{bit} fractional part), which allow us to evaluate and update policies using only integer arithmetic.
 This is not only essential in performing this work, but also serves as a mechanism for reducing the processing and memory costs of function approximation ($t_2$, \cref{fig:state-slip}).
@@ -549,13 +520,13 @@ When combined with the above P4-driven techniques for in-network flow/device mea
 Moreover, the base P4 dataplane can be used to simplify parsing logic and offer runtime control over which flows/packets are monitored, alongside other packet actions.
 This again fits our goals of integrating RL techniques directly within bump-in-the-wire installations and at end-hosts.
 
-%\begin{insight}
-%	Fixed point quantisation allows us to perform numerical calculations using only integer arithmetic.
-%	Existing literature to-date supports the effectiveness and use of these techniques on embedded ML deployments.
-%\end{insight}
+\begin{insight}
+	Fixed point quantisation allows us to perform numerical calculations using only integer arithmetic.
+	Existing literature to-date supports the effectiveness and use of these techniques on embedded ML deployments.
+\end{insight}
 
 \subsection{Netronome Platform Fundamentals}
-As we implement this work on Netronome SmartNICs (thus the NFP chip architecture), it is necessary to explain its basics.
+As we implement this work on Netronome SmartNICs, it is necessary to explain the basics of the NFP architecture.
 NFP chips are \emph{system-on-a-chip} (SoC) devices, and achieve scalable packet processing through sheer parallelism.
 Aside from an ARM management chip and application specific functional units, most of the chip is composed of \emph{microengines} (MEs), grouped into \emph{islands} of 4 or 12 MEs.
 All 12-ME islands are used by a default P4 pipeline.
@@ -597,8 +568,7 @@ As the allocation of cores/chip area is set ahead of time by a framework or syst
 \end{figure*}
 
 \Cref{fig:netro-arch,fig:single-and-parallel} outline our design and implementation on Netronome SmartNIC hardware in pursuit of this goal: unused device resources beyond the P4-PSA spec \emph{can and should be used} to drive asynchronous environmental control.
-%We open-source our firmware design and control programs for the benefit of the community.\footnote{\url{https://github.com/FelixMcFelix/pdp-rl-paper}---currently private...}
-We open-source our firmware design and control programs for the benefit of the community.\footnote{Link redacted for double-blind submission}.
+We open-source our firmware design and control programs for the benefit of the community.\footnote{\url{https://github.com/FelixMcFelix/pdp-rl-paper}---currently private...}
 Moving beyond the Netronome platform, we describe how our architectural choices may be adapted and improved upon by more bespoke hardware or FPGA-based deployment.
 
 \subsection{System Model}
