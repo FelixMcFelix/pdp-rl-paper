@@ -3,7 +3,7 @@ set terminal tikz standalone color size 9cm,6cm font '\Large' preamble '\usepack
 load "gnuplot-palettes/gnbu.pal"
 set datafile separator ","
 
-set ylabel "Cumulative Frequency"
+set ylabel "Cumulative Frequency" offset -1
 set xlabel "State-Action Latency (\\si{\\micro\\second})"
 
 set key textcolor rgb "black"
