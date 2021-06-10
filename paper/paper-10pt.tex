@@ -438,7 +438,7 @@ This is encoded by the \emph{Programmable Switch Architecture} (PSA)~\parencite{
 However, many compatible devices have legacies long predating these developments. 
 For instance, many-core SOC-based Netronome~\parencite{netronome-smartnic}, NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14,DBLP:conf/fpga/IbanezBMZ19}, and other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo} allow virtually arbitrary programs to be specified and executed.
 %This pattern extends to other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo}.
-Currently, low port-density devices like these are most likely to have specific general-purpose compute, as they are designed to for high-performance offloading and middlebox development.
+Currently, low port-density devices like these are most likely to have specific general-purpose compute, as they are designed for high-performance offloading and middlebox development.
 %Even Intel Tofino ASICs~\parencite{barefoot-intel}, which architecturally mirror the PSA, expose additional matching capabilities and \emph{arithmetic logic unit} (ALU) functions via the Tofino Native Architecture.
 Regardless, floating-point operations key to ML/RL workloads are very rarely supported outside of deep learning accelerators (which lack packet switching functionality).
 Moreover, the limited memory and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
@@ -850,7 +850,8 @@ Tiling space requirements then scale exponentially with dimension count, so high
 As a result, in many architectures policy parameters are split across such regions, giving different access and compute costs to different tasks.
 
 We use a simple first-fit work placement algorithm run in \approachshort{}, placing the largest work item into the least loaded thread of the least loaded core (as the NFP uses hardware threads).
-Each work item is a separate \emph{tiling} over a list of dimensions.%, noting that many such tilings may be grouped into a set (using different offsets for smoother coverage of the state space).
+Each work item is a separate \emph{tiling} over a list of dimensions.
+%, noting that many such tilings may be grouped into a set (using different offsets for smoother coverage of the state space).
 The cost of any work item (from its dimension count and memory location) was empirically measured offline, and we weigh the total cost per core based on the number of minion threads available.
 This weighting specifically accounts for the controller thread on the first core.
 Work allocations are recomputed when policy configuration is installed or changed.
@@ -1037,7 +1038,7 @@ We show the cumulative distributions of these in detail (\cref{fig:lat-cumul}), 
 We set the worker count on host machines which maximised their throughput.
 This equalled the amount of physical cores on each device---moving beyond this would hamper tail latencies by an order of magnitude.
 To make the comparison fair in the context of many-core CPU environments, we include per-core throughput.
-\Indfw{} achieves \SI{2.82}{$\times$} higher offline throughput than commodity \emph{Collector} hardware in spite of the NFP-6480 having a considerably slower clock speed (\SI{0.29}{$\times$}).
+\Indfw{} achieves \SI{2.82}{$\times$} higher offline throughput per core than commodity \emph{Collector} hardware in spite of the NFP-6480 having a considerably slower clock speed (\SI{0.29}{$\times$}).
 When compounded with the abundance of such weaker chips, in-NIC RL is able to deliver much higher throughput.
 %As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, \SI{9.9}{$\times$} that of a dedicated collector machine, due to the locking requirements mandating coordinated division of work.
 As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, \SI{9.9}{$\times$} that of a dedicated collector machine, as the write lock around policy updates creates a bottleneck.
