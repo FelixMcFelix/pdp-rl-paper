@@ -1,9 +1,10 @@
 mod config;
 mod constants;
 mod experiment;
+mod parsa;
 mod stress;
 
-pub use self::{config::*, constants::*, experiment::*, stress::*};
+pub use self::{config::*, constants::*, experiment::*, parsa::*, stress::*};
 
 use control::{GlobalConfig, SendStateConfig, Setup, SetupConfig, Tile, TilingsConfig};
 use core::fmt::Debug;
