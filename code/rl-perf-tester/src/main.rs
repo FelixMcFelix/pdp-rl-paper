@@ -282,6 +282,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 				)
 				.about("Stress test the main firmware (hosted on another device) using pktgen-dpdk.")
 		)
+		.subcommand(SubCommand::with_name("parsa").about("Test host performance of the Parsa algorithm."))
 		.get_matches();
 
 	match matches.subcommand() {
@@ -290,6 +291,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 		},
 		("expts", Some(_sub_m)) => {
 			rl_perf_tester::list();
+		},
+		("parsa", Some(_sub_m)) => {
+			rl_perf_tester::parsa_experiment();
 		},
 		("run-all", Some(sub_m)) => {
 			run_core(

@@ -6,6 +6,7 @@ use std::sync::{
 
 pub struct WbSite {
 	pub vals: Vec<AtomicI32>,
+	// pub ack_target: AtomicU32,
 	// pub acks: AtomicU32,
 	pub acker: Sender<()>,
 	pub rxer: Receiver<()>,
@@ -39,6 +40,8 @@ impl WbSite {
 		for (i, val) in self.vals.iter().enumerate() {
 			let val_read = val.load(Ordering::Relaxed);
 
+			// println!("val {}: {}", i, val_read);
+
 			match max {
 				None => {
 					max = Some((val_read, i));
@@ -46,7 +49,7 @@ impl WbSite {
 				Some((l_val, l_i)) if val_read > l_val => {
 					max = Some((val_read, i));
 				},
-				_ => {}
+				_ => {},
 			}
 		}
 
@@ -61,9 +64,5 @@ pub fn new_writeback(num_actions: usize) -> Writeback {
 	let mut vals = Vec::new();
 	vals.resize_with(num_actions, || AtomicI32::new(0));
 
-	Arc::new(WbSite {
-		vals,
-		acker,
-		rxer,
-	})
+	Arc::new(WbSite { vals, acker, rxer })
 }
