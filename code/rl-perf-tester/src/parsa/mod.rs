@@ -267,7 +267,7 @@ pub fn parsa_experiment() {
 
 		crate::prime_setup_with_timings(&mut setup, bdown);
 
-		for ct in worker_cts {
+		for ct in worker_cts.iter() {
 			eprintln!("Workers ct set to {}...", ct);
 
 			// create writeback.
@@ -275,7 +275,7 @@ pub fn parsa_experiment() {
 			let mut bus = Bus::new(100);
 
 			eprintln!("\tBuilding schedule...");
-			let (mut tasks, task_ct, preprep) = preprep_state(&setup, &tiling, ct);
+			let (mut tasks, task_ct, preprep) = preprep_state(&setup, &tiling, *ct);
 			eprintln!("\tBuilt!");
 
 			// create worker threads
@@ -339,7 +339,7 @@ pub fn parsa_experiment() {
 						// bus: &mut Bus<ParsaMessage<i32>>,
 						&mut bus,
 						// work_ct: usize,
-						ct,
+						*ct,
 						// past_states: &mut HashMap<i32, (i32, usize, Vec<i32>)>,
 						&mut state_map,
 						// past_rewards: &mut HashMap<i32, i32>,
