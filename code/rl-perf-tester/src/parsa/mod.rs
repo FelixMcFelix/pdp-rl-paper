@@ -95,17 +95,19 @@ fn tile_code(
 	local_tile += task.tiling_idx * tile_set_data[task.tiling_set_idx].tiling_size;
 
 	for active_dim in &task.dims {
-		let mut val = state[*active_dim];
+		let val = state[*active_dim];
 		let shift = task.tiling_idx as i32 * shift_amts[*active_dim];
 		let max = adjusted_maxes[*active_dim] - shift;
 		let min = setup.mins[*active_dim] - shift;
+		let mut val = val.min(max).max(min);
 
 		val = if val > min { val - min } else { 0 };
 
 		let reduce_tile = val >= max;
 
-		let inner_hit = (val as u32)
+		let inner_hit = ((val as u32)
 			.q_div(widths[*active_dim] as u32, setup.quantiser_shift as u32)
+			>> setup.quantiser_shift)
 			- if reduce_tile { 1 } else { 0 };
 
 		local_tile += width_product * inner_hit as usize;
@@ -113,17 +115,19 @@ fn tile_code(
 		width_product *= setup.tiles_per_dim as usize;
 	}
 
+	// println!("hit inner {}", local_tile - tile_set_data[task.tiling_set_idx].start_tile);
+
 	local_tile
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UsefulTileSet {
 	pub start_tile: usize,
 	pub tiling_size: usize,
 	pub dims: Vec<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Task {
 	pub is_bias: bool,
 	pub dims: Vec<usize>,
@@ -491,7 +495,7 @@ fn preprep_state(
 
 			for tiling_idx in 0..(setup.tilings_per_set as usize) {
 				all_tasks.push(Task {
-					is_bias: true,
+					is_bias: false,
 					dims: t_dims.clone(),
 					tiling_idx,
 					tiling_set_idx: i,
