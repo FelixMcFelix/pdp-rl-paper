@@ -365,3 +365,59 @@ fn get_cycle_ct(config: &Config, source: CycleSource) -> u64 {
 
 	cycle_ct * 16
 }
+
+enum BlockDataSource {
+	T1Mem,
+	T2Mem,
+	T3Mem,
+	AcVals,
+	AcChoice,
+}
+
+impl BlockDataSource {
+	fn all() -> &'static [Self] {
+		use BlockDataSource::*;
+
+		&[T1Mem, T2Mem, T3Mem, AcVals, AcChoice]
+	}
+}
+
+impl BlockDataSource {
+	fn get_register_name(&self) -> &'static str {
+		use BlockDataSource::*;
+
+		match self {
+			T1Mem => "_t1_tiles",
+			T2Mem => "_t2_tiles",
+			T3Mem => "_t3_tiles",
+			AcVals => "_acvals",
+			AcChoice => "_chosenac",
+		}
+	}
+}
+
+fn get_nfp_mem(config: &Config, source: BlockDataSource) -> Vec<u8> {
+	// measure and parse output of cycle-estimate.
+	let mem_text = Command::new(config.rtsym_path)
+		.args(&["-v", source.get_register_name()])
+		.output()
+		.expect("Failed to read NFP memory.");
+
+	// each space-delimited group is a 32-bit number.
+	let mut cycle_ct = 0u64;
+
+	let mut out = vec![];
+	let lines = std::str::from_utf8(&mem_text.stdout[..])
+		.expect("RTSym output not valid UTF-8.")
+		.lines();
+
+	for line in lines {
+		for hex_word in line.split_whitespace().skip(1) {
+			let without_prefix = hex_word.trim_start_matches("0x");
+			let x = u32::from_str_radix(without_prefix, 16).expect("Not a hex-formatted word!");
+			out.extend_from_slice(&x.to_be_bytes())
+		}
+	}
+
+	out
+}
