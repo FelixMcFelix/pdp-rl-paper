@@ -114,17 +114,16 @@ pub fn send_state<T: Tile>(cfg: &mut SendStateConfig, state: Vec<T>) {
 	// write_and_send_state
 }
 
-pub fn generate_policy<T: Tile + Serialize>(cfg: &FakePolicyGeneratorConfig<T>) {
+pub fn policy_size<T: Tile>(setup: &Setup<T>, tiling: &TilingSet) -> usize {
 	let mut tiles: usize = 0_usize;
+	let a = setup.n_actions as usize;
+	let s = setup.tilings_per_set as usize;
 
-	let a = cfg.setup.n_actions as usize;
-	let s = cfg.setup.tilings_per_set as usize;
-
-	let n = cfg.setup.tiles_per_dim as usize;
+	let n = setup.tiles_per_dim as usize;
 
 	let mut bias = false;
 
-	for tiling in cfg.tiling.tilings.iter() {
+	for tiling in tiling.tilings.iter() {
 		if tiling.location.is_none() {
 			bias = true;
 		} else {
@@ -133,9 +132,11 @@ pub fn generate_policy<T: Tile + Serialize>(cfg: &FakePolicyGeneratorConfig<T>) 
 		}
 	}
 
-	let cap = (a * s * tiles) + if bias { a } else { 0 };
+	(a * s * tiles) + if bias { a } else { 0 }
+}
 
-	// let mut policy_data = vec![0; cap];
+pub fn generate_policy<T: Tile + Serialize>(cfg: &FakePolicyGeneratorConfig<T>) {
+	let cap = policy_size(&cfg.setup, &cfg.tiling);
 
 	let policy_data: Vec<T> = (0..cap)
 		.map(|i| T::from_int(((i % 20) as i32) - 10))

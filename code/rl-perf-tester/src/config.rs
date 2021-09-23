@@ -32,3 +32,13 @@ pub struct StressConfig<'a> {
 	pub do_hack: bool,
 	pub do_trial_with_hack: Option<u32>,
 }
+
+pub struct VerifyConfig<'a> {
+	pub transport_cfg: TransportConfig,
+	pub sample_seed: u64,
+	pub policy_seed: Option<u64>,
+	pub rtecli_path: &'a str,
+	pub rtsym_path: &'a str,
+	pub n_samples: u64,
+	pub first_sample: u64,
+}

@@ -4,7 +4,7 @@ mod writeback;
 
 pub use self::{q::*, tilecode::*, writeback::*};
 
-use crate::{ProtoSetup, TimeBreakdown, OUTPUT_DIR};
+use crate::{BlockDataSource, ProtoSetup, TimeBreakdown, OUTPUT_DIR};
 use bus::{Bus, BusReader};
 use control::{Setup, Tile, TilingSet};
 use num_traits::{Num, NumCast, PrimInt};
@@ -247,7 +247,7 @@ pub fn parsa_experiment() {
 
 	// do these, and online/offline.
 	// let worker_cts = [num_cpus::get_physical(), 129];
-	let worker_cts = [num_cpus::get_physical()];
+	let worker_cts = [2]; //num_cpus::get_physical() / 1];
 
 	let host = gethostname::gethostname().into_string().unwrap();
 
@@ -594,3 +594,133 @@ struct PrePrep {
 }
 
 unsafe impl Send for PrePrep {}
+
+pub struct Parsa {
+	wb: Writeback,
+	bus: Bus<ParsaMessage<i32>>,
+	past_states: HashMap<i32, (i32, usize, Vec<i32>)>,
+	past_rewards: HashMap<i32, i32>,
+	policy: Policy<i32>,
+	setup: Setup<i32>,
+	task_ct: usize,
+	work_ct: usize,
+}
+
+impl Parsa {
+	pub fn new(setup: Setup<i32>, tiling: &TilingSet, work_ct: usize) -> Self {
+		let wb = new_writeback(setup.n_actions.into());
+		let mut bus = Bus::new(100);
+
+		let (mut tasks, task_ct, preprep) = preprep_state(&setup, &tiling, work_ct);
+
+		// create worker threads
+		for task_set in tasks.drain(..) {
+			let my_wb = wb.clone();
+			let my_bus = bus.add_rx();
+			let my_setup = setup.clone();
+			let my_preprep = preprep.clone();
+
+			std::thread::spawn(|| {
+				parsa_minion_loop(
+					my_wb,
+					my_bus,
+					task_set,
+					my_preprep.policy,
+					my_preprep.shift_amts,
+					my_setup,
+					my_preprep.tile_set_data,
+					my_preprep.adjusted_maxes,
+					my_preprep.widths,
+				);
+			});
+		}
+
+		Self {
+			wb,
+			bus,
+			past_states: HashMap::new(),
+			past_rewards: HashMap::new(),
+			policy: preprep.policy.clone(),
+			setup,
+			task_ct,
+			work_ct,
+		}
+	}
+
+	pub fn act(&mut self, state: &Vec<i32>) -> usize {
+		self.wb.clear_actions();
+		self.bus.broadcast(ParsaMessage::Action(state.clone()));
+		self.wb.gather(self.work_ct);
+
+		let (mut val, mut act) = self.wb.select_max();
+
+		// if rand::random::<f32>() < 0.05 {
+		// 	act = rand::thread_rng().gen_range(0..setup.n_actions as usize);
+		// }
+
+		if self.setup.do_updates {
+			val /= self.task_ct as i32;
+
+			match (self.past_states.get(&state[0]), self.past_rewards.get(&1)) {
+				(Some((l_val, l_act, l_state)), Some(reward)) => {
+					let dt = reward
+						+ self
+							.setup
+							.gamma
+							.q_mul(val, self.setup.quantiser_shift as i32)
+						- l_val;
+					let dt = dt.q_mul(self.setup.alpha, self.setup.quantiser_shift as i32);
+
+					self.bus
+						.broadcast(ParsaMessage::Update(dt, *l_act, l_state.clone()));
+					self.wb.gather(self.work_ct);
+				},
+				_ => {},
+			}
+
+			self.past_states
+				.insert(state[0], (val as i32, act, state.clone()));
+		}
+
+		act
+	}
+
+	pub(crate) fn verify(&self, src: &BlockDataSource, target: &Vec<u8>, ac_choice: usize) -> bool {
+		match src {
+			BlockDataSource::T1Mem => {
+				unimplemented!()
+			},
+			BlockDataSource::T2Mem => {
+				unimplemented!()
+			},
+			BlockDataSource::T3Mem => {
+				unimplemented!()
+			},
+			BlockDataSource::AcVals => {
+				unimplemented!()
+			},
+			BlockDataSource::AcChoice => {
+				let ac_bytes = (ac_choice as i32).to_be_bytes();
+
+				ac_bytes == &target[0..std::mem::size_of::<i32>()]
+			},
+		}
+	}
+
+	pub fn reward(&mut self, reward_key: i32, reward_val: i32) {
+		self.past_rewards.insert(reward_key, reward_val);
+	}
+
+	pub fn reward_float(&mut self, reward_key: i32, reward_val: f32) {
+		self.reward(
+			reward_key,
+			i32::from_float_with_quantiser(reward_val, self.setup.quantiser_shift),
+		);
+	}
+}
+
+impl Drop for Parsa {
+	fn drop(&mut self) {
+		self.bus.broadcast(ParsaMessage::Exit);
+	}
+}

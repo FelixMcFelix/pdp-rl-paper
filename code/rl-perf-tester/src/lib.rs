@@ -3,8 +3,9 @@ mod constants;
 mod experiment;
 mod parsa;
 mod stress;
+mod verify;
 
-pub use self::{config::*, constants::*, experiment::*, parsa::*, stress::*};
+pub use self::{config::*, constants::*, experiment::*, parsa::*, stress::*, verify::*};
 
 use control::{GlobalConfig, SendStateConfig, Setup, SetupConfig, Tile, TilingsConfig};
 use core::fmt::Debug;
@@ -366,6 +367,7 @@ fn get_cycle_ct(config: &Config, source: CycleSource) -> u64 {
 	cycle_ct * 16
 }
 
+#[derive(Debug)]
 enum BlockDataSource {
 	T1Mem,
 	T2Mem,
@@ -387,8 +389,8 @@ impl BlockDataSource {
 		use BlockDataSource::*;
 
 		match self {
-			T1Mem => "_t1_tiles",
-			T2Mem => "_t2_tiles",
+			T1Mem => "i5._t1_tiles",
+			T2Mem => "i5._t2_tiles",
 			T3Mem => "_t3_tiles",
 			AcVals => "_acvals",
 			AcChoice => "_chosenac",
@@ -396,15 +398,12 @@ impl BlockDataSource {
 	}
 }
 
-fn get_nfp_mem(config: &Config, source: BlockDataSource) -> Vec<u8> {
+fn get_nfp_mem(config: &VerifyConfig, source: &BlockDataSource) -> Vec<u8> {
 	// measure and parse output of cycle-estimate.
 	let mem_text = Command::new(config.rtsym_path)
 		.args(&["-v", source.get_register_name()])
 		.output()
 		.expect("Failed to read NFP memory.");
-
-	// each space-delimited group is a 32-bit number.
-	let mut cycle_ct = 0u64;
 
 	let mut out = vec![];
 	let lines = std::str::from_utf8(&mem_text.stdout[..])
@@ -413,6 +412,7 @@ fn get_nfp_mem(config: &Config, source: BlockDataSource) -> Vec<u8> {
 
 	for line in lines {
 		for hex_word in line.split_whitespace().skip(1) {
+			// each space-delimited group is a 32-bit number.
 			let without_prefix = hex_word.trim_start_matches("0x");
 			let x = u32::from_str_radix(without_prefix, 16).expect("Not a hex-formatted word!");
 			out.extend_from_slice(&x.to_be_bytes())

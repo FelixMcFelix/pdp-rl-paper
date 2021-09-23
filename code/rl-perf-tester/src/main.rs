@@ -7,6 +7,7 @@ use rl_perf_tester::{
 	HostConfig,
 	InstallTimes,
 	StressConfig,
+	VerifyConfig,
 	OUTPUT_DIR,
 	PKTGEN_PATH,
 	RTE_PATH,
@@ -283,6 +284,81 @@ fn main() -> Result<(), Box<dyn Error>> {
 				.about("Stress test the main firmware (hosted on another device) using pktgen-dpdk.")
 		)
 		.subcommand(SubCommand::with_name("parsa").about("Test host performance of the Parsa algorithm."))
+		.subcommand(
+			SubCommand::with_name("verify")
+				.arg(
+					Arg::with_name("src-ip")
+						.short("s")
+						.long("src-ip")
+						.value_name("IPV4")
+						.help("Source IP for control packets. Defaults to selected interface.")
+						.takes_value(true)
+						.default_value("192.168.0.4"),
+				)
+				.arg(
+					Arg::with_name("dst-ip")
+						.short("d")
+						.long("dst-ip")
+						.value_name("IPV4")
+						.help("Destination IP for control packets. Defaults to selected interface.")
+						.takes_value(true)
+						.default_value("192.168.1.141"),
+				)
+				.arg(
+					Arg::with_name("src-port")
+						.short("p")
+						.long("src-port")
+						.value_name("U16")
+						.help("Source UDP port for control packets.")
+						.takes_value(true)
+						.default_value("16767"),
+				)
+				.arg(
+					Arg::with_name("dst-port")
+						.short("P")
+						.long("dst-port")
+						.value_name("U16")
+						.help("Destination port for control packets.")
+						.takes_value(true)
+						.default_value("16768"),
+				)
+				.arg(
+					Arg::with_name("n-samples")
+						.short("n")
+						.long("n-samples")
+						.value_name("NUMBER")
+						.help("Number of random samples to test.")
+						.takes_value(true)
+						.default_value("10000"),
+				)
+				.arg(
+					Arg::with_name("first-sample")
+						.short("f")
+						.long("first-sample")
+						.value_name("NUMBER")
+						.help("First random sample to test.")
+						.takes_value(true)
+						.default_value("0"),
+				)
+				.arg(
+					Arg::with_name("seed")
+						.short("x")
+						.long("seed")
+						.value_name("U64_HEX_NUMBER")
+						.help("Random seed for state generation.")
+						.takes_value(true)
+						.default_value("0xa1fa1fa0cafef00d"),
+				)
+				.arg(
+					Arg::with_name("policy-seed")
+						.short("X")
+						.long("policy-seed")
+						.value_name("U64_HEX_NUMBER")
+						.help("Random seed for policy generation. No seed means zero-initialisation.")
+						.takes_value(true),
+				)
+				.about("Verify that NFP implementation matches the (single-thread) Parsa algorithm. Requires that FW is built with VERIFY_OUTPUTS defined.")
+		)
 		.get_matches();
 
 	match matches.subcommand() {
@@ -294,6 +370,75 @@ fn main() -> Result<(), Box<dyn Error>> {
 		},
 		("parsa", Some(_sub_m)) => {
 			rl_perf_tester::parsa_experiment();
+		},
+		("verify", Some(sub_m)) => {
+			let if_name = sub_m.value_of("nfp-interface").expect(
+				"Interface name is always set: you MUST know what it will be after fw installation.",
+			);
+			let mut t_cfg: TransportConfig = Default::default();
+
+			t_cfg.src_addr.set_ip(
+				sub_m
+					.value_of("src-ip")
+					.expect("Assign a source IP: the test framework will not assign routing info.")
+					.parse()
+					.expect("Invalid source IpV4Addr."),
+			);
+
+			if let Some(port) = sub_m.value_of("src-port") {
+				t_cfg
+					.src_addr
+					.set_port(port.parse().expect("Invalid source port (u16)."));
+			}
+
+			if let Some(ip) = sub_m.value_of("dst-ip") {
+				t_cfg
+					.dst_addr
+					.set_ip(ip.parse().expect("Invalid destination IpV4Addr."));
+			}
+
+			if let Some(port) = sub_m.value_of("dst-port") {
+				t_cfg
+					.dst_addr
+					.set_port(port.parse().expect("Invalid destination port (u16)."));
+			}
+
+			let sample_seed = sub_m
+				.value_of("seed")
+				// needs to be hex parse.
+				.map(|p_str| p_str.parse().expect("Not a hex-formatted u64!"))
+				.expect("Number of trials required!");
+
+			let policy_seed = sub_m
+				.value_of("policy-seed")
+				// needs to be hex parse.
+				.map(|p_str| p_str.parse().expect("Not a hex-formatted u64!"));
+
+			let n_samples = sub_m
+				.value_of("n-samples")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Invalid test sample count (u64).");
+
+			let first_sample = sub_m
+				.value_of("n-samples")
+				.and_then(|p_str| p_str.parse().ok())
+				.expect("Invalid test sample start index (u64).");
+
+			let cfg = VerifyConfig {
+				transport_cfg: t_cfg,
+				sample_seed,
+				policy_seed,
+				rtecli_path: matches
+					.value_of("rtecli-path")
+					.expect("Always has a value by default."),
+				rtsym_path: matches
+					.value_of("rtsym-path")
+					.expect("Always has a value by default."),
+				n_samples,
+				first_sample,
+			};
+
+			rl_perf_tester::verify_experiment(&cfg, if_name);
 		},
 		("run-all", Some(sub_m)) => {
 			run_core(
