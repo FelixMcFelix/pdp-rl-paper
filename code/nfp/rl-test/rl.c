@@ -326,6 +326,13 @@ void state_packet_delegate(
 		state_action_pairs[state_found].action = chosen_action;
 		state_action_pairs[state_found].val = atomic_writeback_prefs[chosen_action];
 
+		#ifdef VERIFY_OUTPUTS
+		chosenac = chosen_action;
+		for (i = 0; i < MAX_ACTIONS; ++i) {
+			acvals[i] = (tile_t) atomic_writeback_prefs[i];
+		}
+		#endif /* VERIFY_OUTPUTS */
+
 		// src is u64-aligned, EMEM.
 		// dst, src, size
 		// ua_memcpy_mem40_mem40(

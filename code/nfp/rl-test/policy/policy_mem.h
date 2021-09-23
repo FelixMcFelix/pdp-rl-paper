@@ -9,9 +9,9 @@ __declspec(import, imem, aligned(8))tile_t t3_tiles[MAX_IMEM_TILES];
 
 __declspec(import, cls) struct rl_config cfg = {0};
 
-#ifdef _VERIFY_OUTPUTS
+#ifdef VERIFY_OUTPUTS
 __declspec(import, emem, aligned(8))tile_t acvals[MAX_ACTIONS];
 __declspec(import, emem, aligned(8))tile_t chosenac;
-#endif /* _VERIFY_OUTPUTS*/
+#endif /* VERIFY_OUTPUTS */
 
 #endif /* !_P_MEM_H_ */

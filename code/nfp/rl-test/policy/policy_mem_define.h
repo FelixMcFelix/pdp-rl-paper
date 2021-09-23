@@ -11,9 +11,9 @@ __declspec(export, imem, aligned(8))tile_t t3_tiles[MAX_IMEM_TILES] = {0};
 // probably should do this holy shit.
 __declspec(export, cls) struct rl_config cfg = {0};
 
-#ifdef _VERIFY_OUTPUTS
+#ifdef VERIFY_OUTPUTS
 __declspec(export, emem, aligned(8))tile_t acvals[MAX_ACTIONS] = {0};
 __declspec(export, emem, aligned(8))tile_t chosenac = 0;
-#endif /* _VERIFY_OUTPUTS*/
+#endif /* VERIFY_OUTPUTS */
 
 #endif /* !_P_MEM_DEF_H_ */
