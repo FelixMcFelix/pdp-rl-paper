@@ -54,6 +54,8 @@ pub fn verify_experiment(config: &VerifyConfig, if_name: &str) {
 		setup: setup.clone(),
 	});
 
+	std::thread::sleep(Duration::from_millis(20));
+
 	let mut host_impl = Parsa::new(setup.clone(), &tiling, 1);
 
 	for i in 0..config.n_samples {
@@ -82,6 +84,8 @@ pub fn verify_experiment(config: &VerifyConfig, if_name: &str) {
 
 		// do local
 		let choice = host_impl.act(&v);
+
+		std::thread::sleep(Duration::from_millis(20));
 
 		// verify all.
 		for byte_src in BlockDataSource::all() {

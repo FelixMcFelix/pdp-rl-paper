@@ -1,6 +1,6 @@
 use flume::{Receiver, Sender};
 use std::sync::{
-	atomic::{AtomicI32, AtomicU32, Ordering},
+	atomic::{AtomicI32, Ordering},
 	Arc,
 };
 
@@ -46,7 +46,7 @@ impl WbSite {
 				None => {
 					max = Some((val_read, i));
 				},
-				Some((l_val, l_i)) if val_read > l_val => {
+				Some((l_val, _l_i)) if val_read > l_val => {
 					max = Some((val_read, i));
 				},
 				_ => {},

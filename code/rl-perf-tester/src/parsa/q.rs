@@ -1,5 +1,3 @@
-use std::ops::*;
-
 pub trait Quantable {
 	fn q_mul(self, other: Self, depth: Self) -> Self;
 	fn q_div(self, other: Self, depth: Self) -> Self;

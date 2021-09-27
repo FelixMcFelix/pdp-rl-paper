@@ -4,10 +4,15 @@ mod writeback;
 
 pub use self::{q::*, tilecode::*, writeback::*};
 
-use crate::{BlockDataSource, ProtoSetup, TimeBreakdown, OUTPUT_DIR};
+use crate::{
+	fw_consts::{T1_FIRST_TILE, T2_FIRST_TILE, T3_FIRST_TILE},
+	BlockDataSource,
+	ProtoSetup,
+	TimeBreakdown,
+	OUTPUT_DIR,
+};
 use bus::{Bus, BusReader};
 use control::{Setup, Tile, TilingSet};
-use num_traits::{Num, NumCast, PrimInt};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 use std::{
@@ -652,14 +657,14 @@ impl Parsa {
 		self.bus.broadcast(ParsaMessage::Action(state.clone()));
 		self.wb.gather(self.work_ct);
 
-		let (mut val, mut act) = self.wb.select_max();
+		let (val, act) = self.wb.select_max();
 
 		// if rand::random::<f32>() < 0.05 {
 		// 	act = rand::thread_rng().gen_range(0..setup.n_actions as usize);
 		// }
 
 		if self.setup.do_updates {
-			val /= self.task_ct as i32;
+			// val /= self.task_ct as i32;
 
 			match (self.past_states.get(&state[0]), self.past_rewards.get(&1)) {
 				(Some((l_val, l_act, l_state)), Some(reward)) => {
@@ -687,17 +692,25 @@ impl Parsa {
 
 	pub(crate) fn verify(&self, src: &BlockDataSource, target: &Vec<u8>, ac_choice: usize) -> bool {
 		match src {
-			BlockDataSource::T1Mem => {
-				unimplemented!()
-			},
-			BlockDataSource::T2Mem => {
-				unimplemented!()
-			},
-			BlockDataSource::T3Mem => {
-				unimplemented!()
-			},
+			BlockDataSource::T1Mem => self.verify_policy(T1_FIRST_TILE, target),
+			BlockDataSource::T2Mem => self.verify_policy(T2_FIRST_TILE, target),
+			BlockDataSource::T3Mem => self.verify_policy(T3_FIRST_TILE, target),
 			BlockDataSource::AcVals => {
-				unimplemented!()
+				let int_bytes = target.chunks(std::mem::size_of::<i32>());
+				for (acval, tgt_bytes) in self.wb.vals.iter().zip(int_bytes) {
+					let true_acval = acval.load(Ordering::Relaxed);
+
+					if !(tgt_bytes == &true_acval.to_be_bytes()) {
+						println!(
+							"VAL MISMATCH: {:?} vs. {:?}",
+							tgt_bytes,
+							true_acval.to_be_bytes()
+						);
+						return false;
+					}
+				}
+
+				true
 			},
 			BlockDataSource::AcChoice => {
 				let ac_bytes = (ac_choice as i32).to_be_bytes();
@@ -705,6 +718,26 @@ impl Parsa {
 				ac_bytes == &target[0..std::mem::size_of::<i32>()]
 			},
 		}
+	}
+
+	fn verify_policy(&self, policy_start_tile: usize, target: &Vec<u8>) -> bool {
+		let mut int_bytes = target.chunks(std::mem::size_of::<i32>());
+
+		for acset in &self.policy[policy_start_tile..] {
+			// SAFETY: parsa workers are no longer inspecting this.
+			let indivs = unsafe { &*acset.get() };
+
+			for tile in indivs {
+				let nfp_slice = int_bytes.next();
+
+				if !(nfp_slice == Some(&tile.to_be_bytes())) {
+					println!("POL MISMATCH: {:?} vs. {:?}", nfp_slice, tile.to_be_bytes());
+					return false;
+				}
+			}
+		}
+
+		true
 	}
 
 	pub fn reward(&mut self, reward_key: i32, reward_val: i32) {
