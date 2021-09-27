@@ -323,8 +323,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 						.default_value("16768"),
 				)
 				.arg(
-					Arg::with_name("n-samples")
+					Arg::with_name("nfp-interface")
 						.short("n")
+						.long("nfp-interface")
+						.value_name("IFACE")
+						.help("Interface to send packets over. This will be different from `--interface`, and overrides it.")
+						.takes_value(true)
+						.default_value("enp179s0np1"),
+				)
+				.arg(
+					Arg::with_name("n-samples")
+						.short("N")
 						.long("n-samples")
 						.value_name("NUMBER")
 						.help("Number of random samples to test.")
