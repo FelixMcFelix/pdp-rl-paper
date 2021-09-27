@@ -415,13 +415,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 			let sample_seed = sub_m
 				.value_of("seed")
 				// needs to be hex parse.
-				.map(|p_str| p_str.parse().expect("Not a hex-formatted u64!"))
+				.map(|p_str| {
+					let without_prefix = p_str.trim_start_matches("0x");
+					u64::from_str_radix(without_prefix, 16).expect("Not a hex-formatted u64!")
+				})
 				.expect("Number of trials required!");
 
-			let policy_seed = sub_m
-				.value_of("policy-seed")
-				// needs to be hex parse.
-				.map(|p_str| p_str.parse().expect("Not a hex-formatted u64!"));
+			let policy_seed = sub_m.value_of("policy-seed").map(|p_str| {
+				let without_prefix = p_str.trim_start_matches("0x");
+				u64::from_str_radix(without_prefix, 16).expect("Not a hex-formatted u64!")
+			});
 
 			let n_samples = sub_m
 				.value_of("n-samples")
