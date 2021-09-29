@@ -432,7 +432,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 				.expect("Invalid test sample count (u64).");
 
 			let first_sample = sub_m
-				.value_of("n-samples")
+				.value_of("first-sample")
 				.and_then(|p_str| p_str.parse().ok())
 				.expect("Invalid test sample start index (u64).");
 

@@ -78,6 +78,7 @@ pub fn verify_experiment(config: &VerifyConfig, if_name: &str) {
 			reward_measure,
 			shift.into(),
 		);
+		std::thread::sleep(Duration::from_millis(2));
 
 		// send to nic.
 		control::send_state::<i32>(&mut SendStateConfig { global, transport }, v.clone());
@@ -85,7 +86,7 @@ pub fn verify_experiment(config: &VerifyConfig, if_name: &str) {
 		// do local
 		let choice = host_impl.act(&v);
 
-		std::thread::sleep(Duration::from_millis(20));
+		std::thread::sleep(Duration::from_millis(200));
 
 		// verify all.
 		for byte_src in BlockDataSource::all() {
@@ -93,6 +94,7 @@ pub fn verify_experiment(config: &VerifyConfig, if_name: &str) {
 			if !host_impl.verify(byte_src, &bytes, choice) {
 				panic!("ITER {}: Mismatch in {:?}!", i, byte_src);
 			}
+		    std::thread::sleep(Duration::from_millis(200));
 		}
 	}
 
