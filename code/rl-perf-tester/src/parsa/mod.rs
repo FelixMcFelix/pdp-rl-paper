@@ -6,9 +6,13 @@ pub use self::{q::*, tilecode::*, writeback::*};
 
 use crate::{
 	fw_consts::{
-        T1_FIRST_TILE, T2_FIRST_TILE, T3_FIRST_TILE,
-        T1_TILE_COUNT, T2_TILE_COUNT, T3_TILE_COUNT,
-    },
+		T1_FIRST_TILE,
+		T1_TILE_COUNT,
+		T2_FIRST_TILE,
+		T2_TILE_COUNT,
+		T3_FIRST_TILE,
+		T3_TILE_COUNT,
+	},
 	BlockDataSource,
 	ProtoSetup,
 	TimeBreakdown,
@@ -612,7 +616,7 @@ pub struct Parsa {
 	setup: Setup<i32>,
 	task_ct: usize,
 	work_ct: usize,
-    bounds: PolicyBoundaries,
+	bounds: PolicyBoundaries,
 }
 
 impl Parsa {
@@ -644,7 +648,7 @@ impl Parsa {
 			});
 		}
 
-        let bounds = PolicyBoundaries::compute(&setup, tiling);
+		let bounds = PolicyBoundaries::compute(&setup, tiling);
 
 		Self {
 			wb,
@@ -655,7 +659,7 @@ impl Parsa {
 			setup,
 			task_ct,
 			work_ct,
-            bounds,
+			bounds,
 		}
 	}
 
@@ -700,8 +704,10 @@ impl Parsa {
 	pub(crate) fn verify(&self, src: &BlockDataSource, target: &Vec<u8>, ac_choice: usize) -> bool {
 		match src {
 			BlockDataSource::T1Mem => self.verify_policy(T1_FIRST_TILE, self.bounds.0[0], target),
-			BlockDataSource::T2Mem => self.verify_policy(self.bounds.0[0], self.bounds.0[1], target),
-			BlockDataSource::T3Mem => self.verify_policy(self.bounds.0[1], self.bounds.0[2], target),
+			BlockDataSource::T2Mem =>
+				self.verify_policy(self.bounds.0[0], self.bounds.0[1], target),
+			BlockDataSource::T3Mem =>
+				self.verify_policy(self.bounds.0[1], self.bounds.0[2], target),
 			BlockDataSource::AcVals => {
 				let int_bytes = target.chunks(std::mem::size_of::<i32>());
 				for (acval, tgt_bytes) in self.wb.vals.iter().zip(int_bytes) {
@@ -721,20 +727,30 @@ impl Parsa {
 			},
 			BlockDataSource::AcChoice => {
 				let ac_bytes = (ac_choice as i32).to_be_bytes();
+				println!(
+					"action {:?} vs {:?}",
+					ac_bytes,
+					&target[0..std::mem::size_of::<i32>()]
+				);
 
 				ac_bytes == &target[0..std::mem::size_of::<i32>()]
 			},
 		}
 	}
 
-	fn verify_policy(&self, policy_start_tile: usize, policy_end_tile: usize, target: &Vec<u8>) -> bool {
-        println!("policy region sz: {}", target.len());
+	fn verify_policy(
+		&self,
+		policy_start_tile: usize,
+		policy_end_tile: usize,
+		target: &Vec<u8>,
+	) -> bool {
+		println!("policy region sz: {}", target.len());
 		let mut int_bytes = target.chunks(std::mem::size_of::<i32>());
 
-        let start = policy_start_tile / self.setup.n_actions as usize;
-        let end = policy_end_tile / self.setup.n_actions as usize;
+		let start = policy_start_tile / self.setup.n_actions as usize;
+		let end = policy_end_tile / self.setup.n_actions as usize;
 
-        let mut kill_in = None;
+		let mut kill_in = None;
 
 		for (i, acset) in (&self.policy[start..end]).into_iter().enumerate() {
 			// SAFETY: parsa workers are no longer inspecting this.
@@ -743,21 +759,27 @@ impl Parsa {
 			for tile in indivs {
 				let nfp_slice = int_bytes.next();
 
-                if let Some(n) = kill_in {
-                    if n == 0 {
-                        return false;
-                    }
+				if let Some(n) = kill_in {
+					if n == 0 {
+						return false;
+					}
 
-                    kill_in = Some(n - 1);
-                }
+					//kill_in = Some(n - 1);
+				}
 
 				if !(nfp_slice == Some(&tile.to_be_bytes())) {
-					println!("POL MISMATCH: {:?} vs. {:?} (acset {})", nfp_slice, tile.to_be_bytes(), i);
+					println!(
+						"POL MISMATCH: {:?} vs. {:?} (acset {})",
+						nfp_slice,
+						tile.to_be_bytes(),
+						i
+					);
 					if kill_in.is_none() {
-                        kill_in = Some(3);
-                    }
+						kill_in = Some(3);
+					}
+				} else if kill_in.is_some() {
+					println!("NEXT: {:?} vs. {:?}", nfp_slice, tile.to_be_bytes());
 				}
-                else if kill_in.is_some() {println!("NEXT: {:?} vs. {:?}", nfp_slice, tile.to_be_bytes());}
 			}
 		}
 

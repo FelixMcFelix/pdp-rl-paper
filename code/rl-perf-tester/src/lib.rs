@@ -380,7 +380,7 @@ impl BlockDataSource {
 	fn all() -> &'static [Self] {
 		use BlockDataSource::*;
 
-		&[T1Mem, T2Mem, T3Mem, AcVals, AcChoice]
+		&[AcChoice, AcVals, T1Mem, T2Mem, T3Mem]
 	}
 }
 
