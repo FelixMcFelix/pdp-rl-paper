@@ -586,9 +586,9 @@ void state_packet(
 void reward_packet(__declspec(cls) struct rl_config *cfg, union pad_tile value, uint32_t reward_insert_loc) {
 	// Switch on self->reward_key
 	// if shared, place into key 0 I guess?
-	uint32_t loc = 0;
+	int32_t loc = 0;
 	uint64_t long_key = reward_insert_loc;
-	int32_t added = 0;
+	int32_t added = 1;
 
 	switch (cfg->reward_key.kind) {
 		case KEY_SRC_SHARED:

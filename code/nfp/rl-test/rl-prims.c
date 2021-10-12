@@ -258,30 +258,38 @@ __intrinsic void update_action_preferences(__addr40 _declspec(emem) uint32_t *ti
 }
 
 // Selects the state-action / reward key from a given state vector.
-_intrinsic tile_t select_key(struct key_source key_src, tile_t *state_vec) {
+_intrinsic struct key_select_result select_key(struct key_source key_src, tile_t *state_vec) {
+	struct key_select_result out = {0};
+
 	switch(key_src.kind) {
 		case KEY_SRC_SHARED:
+			out.skip_tcam = 1;
 			break;
 		case KEY_SRC_FIELD:
-			return state_vec[key_src.body.field_id];
+			out.loc = state_vec[key_src.body.field_id];
 		case KEY_SRC_VALUE:
-			return key_src.body.value;
+			// out.skip_tcam = 1;
+			out.loc = key_src.body.value;
+			break;
 	}
 
-	// Assumes shared in usual case.
-	return 0;
+	return out;
 }
 
-_intrinsic tile_t fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_t *state_vec) {
+_intrinsic struct key_select_result fat_select_key(struct key_source key_src, __addr40 __declspec(emem) tile_t *state_vec) {
+	struct key_select_result out = {0};
+
 	switch(key_src.kind) {
 		case KEY_SRC_SHARED:
+			out.skip_tcam = 1;
 			break;
 		case KEY_SRC_FIELD:
-			return state_vec[key_src.body.field_id];
+			out.loc = state_vec[key_src.body.field_id];
 		case KEY_SRC_VALUE:
-			return key_src.body.value;
+			// out.skip_tcam = 1;
+			out.loc = key_src.body.value;
+			break;
 	}
 
-	// Assumes shared in usual case.
-	return 0;
+	return out;
 }

@@ -261,21 +261,30 @@ void state_packet_delegate(
 	if (cfg->do_updates) {
 		// This dummies the access cost.
 		// For some reason, it bugs out if struct size is lte 32bit?
-		uint64_t reward_key = fat_select_key(cfg->reward_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
-		uint64_t state_key = fat_select_key(cfg->state_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+		struct key_select_result reward_key =
+			fat_select_key(cfg->reward_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
+		struct key_select_result state_key =
+			fat_select_key(cfg->state_key, (__declspec(emem) __addr40 tile_t *)pkt->packet_payload);
 
 		int32_t state_added = 0;
 
-		int32_t reward_found = CAMHT_LOOKUP(reward_map, &reward_key);
+		int32_t reward_found = reward_key.loc;
+		int32_t state_found = state_key.loc;
 
-		// This is dummied until I figure out the mechanism better.
-		int32_t state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key, &state_added);
 		uint32_t changed_key = 0;
 
 		uint8_t updating_on_this_cycle;
 
-		if (state_action_map_key_tbl[state_found] != state_key) {
-			state_action_map_key_tbl[state_found] = state_key;
+		if (!reward_key.skip_tcam) {
+			reward_found = CAMHT_LOOKUP(reward_map, &reward_key.loc);
+		}
+
+		if (!state_key.skip_tcam) {
+			state_found = CAMHT_LOOKUP_IDX_ADD(state_action_map, &state_key.loc, &state_added);
+		}
+
+		if (state_action_map_key_tbl[state_found] != state_key.loc) {
+			state_action_map_key_tbl[state_found] = state_key.loc;
 			changed_key = 1;
 		}
 

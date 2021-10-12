@@ -3,7 +3,7 @@
 % !BIB program = biber
 \documentclass[
 sigconf,natbib=false
-%,anonymous=true
+,anonymous=true
 ]{acmart}
 
 %\usepackage[subtle,bibnotes,charwidths,mathdisplays,indent,lists]{savetrees}
@@ -87,9 +87,9 @@ sigconf,natbib=false
 \addbibresource{rfc.bib}
 \addbibresource{misc.bib}
 
-%\DeclareFieldFormat[inproceedings]{doi}{}
-%\DeclareFieldFormat[article]{doi}{}
-%\DeclareFieldFormat*{url}{}
+\DeclareFieldFormat[inproceedings]{doi}{}
+\DeclareFieldFormat[article]{doi}{}
+\DeclareFieldFormat*{url}{}
 %\DeclareFieldFormat[online]{url}{\mkbibacro{URL}\addcolon\space\url{#1}}
 %\DeclareFieldFormat[report]{url}{\mkbibacro{URL}\addcolon\space\url{#1}}
 
@@ -109,9 +109,12 @@ sigconf,natbib=false
 \DeclareFieldFormat[article]{url}{}
 %\DeclareFieldFormat[inproceedings]{doi}{}
 %\DeclareFieldFormat[article]{doi}{}
-%\DeclareFieldFormat[inproceedings]{editor}{}
-%\DeclareFieldFormat[proceedings]{editor}{}
-%\DeclareFieldFormat[article]{editor}{}
+\DeclareFieldFormat[inproceedings]{editor}{}
+\DeclareFieldFormat[proceedings]{editor}{}
+\DeclareFieldFormat[article]{editor}{}
+\DeclareFieldFormat[inproceedings]{isbn}{}
+\DeclareFieldFormat[proceedings]{isbn}{}
+\DeclareFieldFormat[article]{isbn}{}
 
 \newcommand{\fakepara}[1]{\noindent\textbf{#1:}}
 
@@ -295,7 +298,7 @@ We show that our implementation on Netronome SmartNIC hardware offers concrete l
 \section{Introduction}
 \begin{figure}
 	\centering
-		\includegraphics[keepaspectratio, width=0.6875\linewidth]{figures/arch-with-p4}
+		\includegraphics[keepaspectratio, width=0.8\linewidth]{figures/arch-with-p4}
 		\caption{\approachshort{} brings low-latency, online reinforcement learning to SoC- and NPU-based SmartNICs. Classical RL policy methods are the key to making this computationally feasible.\label{fig:netro-arch}}
 \end{figure}
 \begin{figure}
@@ -303,11 +306,11 @@ We show that our implementation on Netronome SmartNIC hardware offers concrete l
 %	\includegraphics[keepaspectratio, width=0.6875\linewidth]{figures/arch-with-p4}
 %	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this computationally feasible.\label{fig:netro-arch}}
 	\centering
-	\includegraphics[keepaspectratio, width=0.8\linewidth]{figures/coop}
+	\includegraphics[keepaspectratio, width=0.85\linewidth]{figures/coop}
 	\caption{Parallel policy execution. A single \emph{controller} delegates RL computation and updates to many \emph{minion} threads, using a shared atomic writeback.\label{fig:single-and-parallel:parallel}}
 \end{figure}
-Automatic network optimisation, control, and defence are at last becoming commonplace through data-driven techniques such as RL methods, where every change and its effects improve future decisions made by an agent.
-In tandem, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and \emph{programmable dataplane} (PDP) hardware have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
+Automatic network optimisation, control, and defence are becoming commonplace through data-driven techniques such as RL methods, where every change and its effects improve future decisions made by an agent.
+In tandem, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and \emph{programmable dataplane} hardware have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
 This ecosystem exposes not only runtime reconfigurable packet processing, but per-packet and per-flow traffic measurement state that can greatly aid network operation~\parencite{DBLP:conf/sosr/GhasemiBR17}.
 
 %Parallel to this, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and programmable dataplane hardware~\parencite{DBLP:journals/micro/ZilbermanACM14, netronome-smartnic, xilinx-alveo, barefoot-intel} have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
@@ -324,25 +327,25 @@ This ecosystem exposes not only runtime reconfigurable packet processing, but pe
 %?? Consider a DDoS prevention system...
 %?? in the face of new data, Able to start learning again in microseconds
 \fakepara{Machine learning in the dataplane}
-To process this fine-grained state both at line rate \emph{and} at low latency, there has been keen interest in executing ML in the dataplane~\parencite{DBLP:conf/hotnets/XiongZ19,DBLP:journals/corr/abs-2009-02353}.
-All works in this category, while powerful, operate by converting a \emph{pre-trained} model into a suitable representation, such as a binary neural network or string of match-action tables.
+To process this fine-grained state both at line rate \emph{and} at low latency, there has been keen interest in executing ML models in the dataplane~\parencite{DBLP:conf/hotnets/XiongZ19,DBLP:journals/corr/abs-2009-02353}.
+Works in this category, while powerful, operate by converting a \emph{pre-trained} model into a suitable representation, such as a binary neural network or string of match-action tables.
 %These works have shown the value of in-network ML: high-throughput, low latency response to network changes.
 These can react to on-device state, yet the missing piece of the puzzle is learning and updating these ML analyses \emph{online}, without deferring to another machine in the network.
 %Training these models online and in-network is an exciting (and challenging) lacuna in the field that \emph{has yet to be addressed by the community}.
 This lacuna has yet to be addressed by the community.
 
 \fakepara{Problems of online training}
-Programmable dataplane hardware, being designed solely for efficient packet processing, lacks floating-point arithmetic support even in the case of more general purpose NPU-type SmartNICs.
+Programmable dataplane hardware, being designed solely for efficient packet processing, lacks floating-point arithmetic support, even in the case of more general purpose NPU-type SmartNICs.
 Additionally, deep neural network training relies on backpropagation, can require memorizing many a sizeable replay buffer for RL, and needs many mini-batches of data for stable training.
 The natural solution is to pass training data to a host machine or dedicated accelerator, yet this adds delays in crossing the PCIe bus, kernel-user handover, and buffering---adding latency while learning.
-The above (NIC-suitable) inference schemes still, even if their data formats solve the issue of floating point use.
-Online learning thus requires careful choices in both sample data formats, and the learned function approximation scheme.
+The above (NIC-suitable) inference schemes still must be trained offline, even though their data formats solve the issue of floating point use.
+Online learning thus requires careful choices in sample data formats and the learned function approximation scheme.
 
 \section{\approachshort{}'s design}
-\approachshort{} makes RL workloads feasible under on SmartNICs by using quantised fixed-point representations of action values, tile-coded policies, and one-step temporal-difference RL algorithms such as Sarsa~\parencite{RL2E}.
-These allow us to evaluate and update policies using \emph{only integer arithmetic}.
-We observe that tile coded inference is a map-reduce problem (\cref{fig:par-tilecode}), and over integers admits a novel \emph{wait-free Sarsa} RL implementation (exploiting the parallelism built in to SmartNICs).
-In addition to their runtime simplicity, while these functions have lower model capacity they do not require batches of inputs to learn in a stable way, negating the memory needed to store experience replays.
+\approachshort{} makes RL workloads feasible on SmartNICs by using quantised fixed-point representations of action values, tile-coded policies, and one-step temporal-difference RL algorithms such as Sarsa~\parencite{RL2E}.
+These allow us to evaluate and update policies using \emph{only integer arithmetic}, and are computationally simple.
+We observe that tile coded inference is a map-reduce problem (\cref{fig:par-tilecode}), and thus over integers admits a novel \emph{wait-free Sarsa} RL algorithm (exploiting the parallelism built in to SmartNICs).
+While these functions have lower theoretical model capacity, they do not require batches of inputs to learn in a stable way, negating the memory needed to store experience replays or minibatches.
 
 \fakepara{Interacting with \approachshort{}}
 To prevent packet stalls but maintain access to fine-grained state, \approachshort{} places RL execution on-NIC, \emph{but off the main packet path}, parallel to the main dataplane (\cref{fig:netro-arch}).
@@ -350,10 +353,10 @@ The P4 (or device-specific) dataplane pushes state vectors and reward measuremen
 Once an action is enqueued on its \outring{} ring, \approachshort{} updates its policy.
 
 \fakepara{Inference/Updates}
-State is mirrored to a set of packet processing threads, which compute hit tiles from a locally held work set.
-During inference, these threads atomically add values to a shared action preference list, while policy updates are guaranteed by tile-coding to proceed without data races (\cref{fig:single-and-parallel:parallel}).
+State is sent to a set of packet processing threads, which compute hit tiles from a locally held work set.
+During inference, these threads atomically add values to a shared action preference list, while tile-coding guarantees that policy updates proceed without data races (\cref{fig:single-and-parallel:parallel}).
 In the case of our Netronome implementation, these run on lightweight cores known as \emph{microengines} (MEs)---which could be substituted for suitable FUs on CGRA/FPGA hardware.
-Additionally, we have a single-threaded implementation, \indfw, which forgoes this cooperative model to maximise offline throughput (i.e., by having many parallel agents handle state).
+Additionally, we have a single-threaded implementation, \indfw, which forgoes this cooperative model to maximise offline throughput (by having many parallel single-threaded agents).
 
 \begin{figure}
 	\centering
@@ -406,7 +409,7 @@ Additionally, we have a single-threaded implementation, \indfw, which forgoes th
 \end{figure}
 
 \section{Evaluation}
-We compare our implementation of \approachshort{} against a tile-coded RL agent written in numpy on a powerful host (i7-6700K@\qtyproduct[product-units=single]{4 x 4.2}{\giga\hertz}), using policy dimensions used by existing DDoS prevention work\parencite{DBLP:journals/tnsm/SimpsonRP20}, across various quantisation bit depths.
+We compare our implementation of \approachshort{} against a tile-coded RL agent written in numpy on a powerful host (i7-6700K@\qtyproduct[product-units=single]{4 x 4.2}{\giga\hertz}), using the policy dimensions of existing DDoS prevention work~\parencite{DBLP:journals/tnsm/SimpsonRP20}, across various quantisation bit depths.
 \Cref{fig:lat-cumul} shows that our main design (\coopfw) achieves order-of-magnitude improvements over our single-threaded variant (\indfw) and a host implementation, as well as considerably tighter tail behaviour on the SmartNIC.
 Note that lower bit depths have higher execution costs due to the native \qty{32}{\bit} width of Netronome registers.
 On update times, we see \qty{63.12}{\micro\second} at 99.99\nthscript{th} percentile for a \qty{32}{\bit} policy of this size.

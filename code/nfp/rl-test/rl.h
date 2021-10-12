@@ -221,4 +221,9 @@ struct state_action_pair {
 
 #endif /* WORKER_BARGAIN_BUCKET_SIMD */
 
+struct key_select_result {
+	uint64_t loc;
+	uint8_t skip_tcam;
+};
+
 #endif /* !_RL_H_ */
