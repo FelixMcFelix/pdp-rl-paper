@@ -413,7 +413,7 @@ We compare our implementation of \approachshort{} against a tile-coded RL agent 
 \Cref{fig:lat-cumul} shows that our main design (\coopfw) achieves order-of-magnitude improvements over our single-threaded variant (\indfw) and a host implementation, as well as considerably tighter tail behaviour on the SmartNIC.
 Note that lower bit depths have higher execution costs due to the native \qty{32}{\bit} width of Netronome registers.
 On update times, we see \qty{63.12}{\micro\second} at 99.99\nthscript{th} percentile for a \qty{32}{\bit} policy of this size.
-We relate a \qty{15}{$\times$} latency (\coopfw) and \qty{2.82}{$\times$} offline throughput-per-core (\indfw) in spite of the Netronome's considerably slower clock speed (\qty{0.29}{$\times$}), showing the value of exploiting SmartNIC parallelism.
+We relate a \qty{15}{\texttimes} latency (\coopfw) and \qty{2.82}{\texttimes} offline throughput-per-core (\indfw) in spite of the Netronome's considerably slower clock speed (\qty{0.29}{\texttimes}), showing the value of exploiting SmartNIC parallelism.
 
 \begin{figure}
 	\centering
