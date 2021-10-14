@@ -4,11 +4,12 @@
 \documentclass[
 %sigconf,natbib=false
 %,anonymous=true
-conference
+conference,
+comsoc,
 ,10pt
 ]{IEEEtran}
 
-%\usepackage[subtle,bibnotes,charwidths,mathdisplays,indent,lists]{savetrees}
+\usepackage[subtle,bibnotes,charwidths,mathdisplays,indent,lists,tracking=normal]{savetrees}
 %\usepackage[subtle, indent, lists]{savetrees}
 
 %\usepackage{fnpos}
@@ -19,6 +20,7 @@ conference
 \let\openbox\relax
 \usepackage{amsthm}
 \newcommand\bmmax{2}
+\usepackage[cmintegrals]{newtxmath}
 \usepackage{bm}
 
 \usepackage[ruled,vlined]{algorithm2e}
@@ -111,6 +113,18 @@ conference
 %\DeclareFieldFormat[proceedings]{editor}{}
 %\DeclareFieldFormat[article]{editor}{}
 
+%\usepackage{xparse}
+%\ExplSyntaxOn
+%\NewDocumentCommand{\crefnames}{ m m m }
+%{
+%	\clist_map_inline:nn { #1 } { \crefname{##1}{#2}{#3} }
+%}
+%\ExplSyntaxOff
+%
+%\crefnames{section,subsection}{\S}{\S\S}
+\crefformat{section}{\S{}#2#1#3}
+\crefformat{subsection}{\S{}#2#1#3}
+
 \newcommand{\fakepara}[1]{\noindent\textbf{#1:}}
 
 % Official colours!
@@ -179,24 +193,39 @@ conference
 %	}
 
 \usepackage[hang,flushmargin]{footmisc}
+\usepackage{orcidlink}
+
+\newcommand{\mytitle}{Revisiting~the~Classics: Online~RL~in~the~Programmable~Dataplane}
+
+\hypersetup{
+	colorlinks,
+	citecolor=black,
+	filecolor=black,
+	linkcolor=black,
+	urlcolor=black,
+	pdftitle={\mytitle{}},
+	pdfauthor={Kyle A. Simpson, Dimitrios P. Pezaros}
+}
+\newcommand*{\email}[1]{\href{mailto:#1}{\nolinkurl{#1}}} 
+
+\title{\mytitle}
+\author{Kyle~A.~Simpson~\orcidlink{0000-0001-8068-9909}, Dimitrios~P.~Pezaros~\orcidlink{0000-0003-0939-378X}\\\emph{University of Glasgow}, Glasgow, Scotland\\\email{k.simpson.1@research.gla.ac.uk}, \email{Dimitrios.Pezaros@Glasgow.ac.uk}}
 
 \begin{document}
-	\title{Revisiting~the~Classics: Online~RL~in~the~Programmable~Dataplane}
 	
 %	\titlenote{Produces the permission block, and copyright information}
 	%\subtitle{Extended Abstract}
 	
 %	\author{Paper \# XXX, XXX pages}
-	 \author{Kyle A. Simpson, Dimitrios P. Pezaros,\\University of Glasgow, Glasgow, Scotland}
 
-%\setlength{\abovecaptionskip}{5pt}
-%\setlength{\belowcaptionskip}{0pt}
-%
-%\setlength{\textfloatsep}{3.0pt plus 0.0pt minus 3.0pt}
-%\setlength{\floatsep}{3.0pt plus 0.0pt minus 2.0pt}
-%
-%\setlength{\dbltextfloatsep}{3.0pt plus 0.0pt minus 3.0pt}
-%\setlength{\dblfloatsep}{3.0pt plus 0.0pt minus 2.0pt}
+\setlength{\abovecaptionskip}{0pt}
+\setlength{\belowcaptionskip}{0pt}
+
+\setlength{\textfloatsep}{3.0pt plus 0.0pt minus 3.0pt}
+\setlength{\floatsep}{3.0pt plus 0.0pt minus 2.0pt}
+
+\setlength{\dbltextfloatsep}{3.0pt plus 0.0pt minus 3.0pt}
+\setlength{\dblfloatsep}{3.0pt plus 0.0pt minus 2.0pt}
 	
 % The default list of authors is too long for headers}
 %\renewcommand{\shortauthors}{Simpson \emph{et al}.}
@@ -209,11 +238,11 @@ Yet the complexity of both DRL inference and learning force these tasks to be of
 Online learning of such policies cannot occur in the dataplane, despite being useful techniques when problems evolve or are hard to model.
 
 We present \emph{\approachshort{}}---\approach{}---the first work to bring \emph{online reinforcement learning} to the dataplane.
-\approachshort{} makes online learning possible in constrained SmartNIC hardware by returning to classical RL techniques which simplify update logic and enable parallel processing.
+\approachshort{} makes online learning possible in constrained SmartNIC hardware by returning to classical RL techniques---avoiding neural networks.
+Our design allows weak yet highly parallel SmartNIC NPUs to be competitive against commodity x86 hosts, despite having fewer features and slower cores.
 Compared to offloading, we achieve a \SI{21}{\texttimes} reduction in \num{99.99}\nthscript{th} tail inference times to \SI{34}{\micro\second}, and \SI{9.9}{\texttimes} improvement in online throughput for real-world policy designs.
 In-NIC execution eliminates PCIe transfers, and our asynchronous compute model ensures minimal impact on traffic carried by a co-hosted P4 dataplane.
-\approachshort{}'s design scales with additional resources at compile-time to improve upon both decision latency and throughput, improving on offloading, and are quickly reconfigurable at runtime compared to reinstalling device firmware.
-
+\approachshort{}'s design scales with additional resources at compile-time to improve upon both decision latency and throughput, and are quickly reconfigurable at runtime compared to reinstalling device firmware.
 \end{abstract}
 
 %\keywords{ACM proceedings, \LaTeX, text tagging}
@@ -225,12 +254,12 @@ In-NIC execution eliminates PCIe transfers, and our asynchronous compute model e
 \section{Introduction}
 \begin{figure}
 	\centering
-	\includegraphics[keepaspectratio, width=0.6875\linewidth]{figures/arch-with-p4}
+	\includegraphics[keepaspectratio, width=0.65\linewidth]{figures/arch-with-p4}
 	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this computationally feasible.\label{fig:netro-arch}}
 \end{figure}
 Automatic network optimisation, control, and defence are at last becoming commonplace.
 Adaptive techniques such as \emph{reinforcement learning} (RL) have led the charge in data-driven networking, enhancing automatic traffic optimisation~\parencite{DBLP:conf/sigcomm/ChenL0L18,DBLP:conf/sigcomm/MaoNA17}, congestion control~\parencite{DBLP:journals/corr/abs-1910-04054}, adaptive routing~\parencite{DBLP:conf/hotnets/ValadarskySST17,DBLP:conf/conext/GiladSGRS20}, resource management~\parencite{DBLP:conf/hotnets/MaoAMK16}, and packet classification~\parencite{DBLP:conf/sigcomm/LiangZJS19}.
-In RL methods, every change and its effects improve future decisions made by an agent.
+In RL methods, every change and its effects improve future decisions.
 
 %Parallel to this, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and programmable dataplane hardware~\parencite{DBLP:journals/micro/ZilbermanACM14, netronome-smartnic, xilinx-alveo, barefoot-intel} have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
 %This has manifested in novel uses of programmable dataplane hardware to accelerate distributed tasks, fine-grained traffic measurement~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}, or per-packet processing.
@@ -248,7 +277,7 @@ In RL methods, every change and its effects improve future decisions made by an 
 
 In parallel, P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} and \emph{programmable dataplane} (PDP) hardware~\parencite{DBLP:journals/micro/ZilbermanACM14, netronome-smartnic, xilinx-alveo, barefoot-intel} have inspired explosive growth and interest in the research community surrounding in-network computation and offloading.
 The promise of PDP hardware is that we can move the entire monitoring and analysis stack \emph{into the dataplane itself, and have it evolve to incorporate new approaches}.
-Consider a DDoS mitigation system which could react to dataplane-specific, per-packet state in microseconds, and \emph{start learning again just as quickly} in the face of new data or behaviours.
+%Consider a DDoS mitigation system which could react to dataplane-specific, per-packet state in microseconds, and \emph{start learning again just as quickly} in the face of new data or behaviours.
 The P4 ecosystem already presents novel, openly-available, fine-grained traffic measurement techniques that can be installed and controlled with ease~\parencite{DBLP:conf/sigcomm/GuptaHCFRW18,DBLP:conf/sigcomm/ChenFKRR18,DBLP:conf/sosr/GhasemiBR17}.
 In addition, P4's control plane makes it easy to select which flows or packets are monitored in a live network and potentially allow control over traffic at the decision site.
 As a result, there has been keen interest in executing ML in the dataplane~\parencite{DBLP:conf/hotnets/XiongZ19,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,DBLP:journals/corr/abs-2009-02353,langlet-ml-netronome,DBLP:journals/corr/abs-2002-08987} to take advantage of flow or per-packet state that cannot be efficiently processed or extracted at any other location in the network.
@@ -256,10 +285,11 @@ These works have shown the value of in-network ML: high-throughput, low latency 
 While they can exploit on-device state to provide reactive insight, the missing piece of the puzzle is learning and updating these ML analyses online without deferring to another machine in the network.
 Training these models online and in-network is an exciting (and challenging) lacuna in the field that \emph{has yet to be addressed by the community}.
 
-It is important to make this feasible as offloading learning to commodity machines adds PCIe delays~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/NeugebauerAZAL018}, but is required due to the complexity of modern ML.
-For context, \emph{Deep Neural Network} (DNN) training relies on backpropagation to compute gradients, can take vast amounts of offline simulation for RL~\parencite{DBLP:journals/corr/abs-1912-06680}, and needs many mini-batches of data for stable training.
-These lead to high compute and storage costs, inducing capital expenditure for dedicated accelerators.
-Moreover, high latencies \emph{caused} by offloading and expensive inference harm the learning process~\parencite{DBLP:journals/firai/TravnikMSP18} and impact runtime application performance~\parencite{DBLP:journals/corr/abs-1910-04054}.
+It is important to make this feasible; offloading to commodity hosts adds PCIe delays~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/NeugebauerAZAL018}, but is required due to the complexity of modern ML.
+For context, deep neural network training relies on backpropagation, can take vast amounts of offline simulation for RL~\parencite{DBLP:journals/corr/abs-1912-06680}, and needs many minibatches for stability.
+These lead to high compute and storage costs, inducing capital expenditure for dedicated accelerators to overcome the batching needed to operate at line-rate---while BrainWave~\parencite{DBLP:conf/isca/FowersOPMLLAHAG18} can reduce batching (and thus tail latencies) by \qty{32}{\texttimes}~\parencite{Duarte2019}, inference still takes $\mathcal{O}{\left(\text{\si{\milli\second}}\right)}$.
+Moreover, novel DMA techniques such as \emph{GPUDirect}~\parencite{gpudirect} halve but do not eliminate such PCIe transfers.
+The high latencies \emph{caused} by offloading and inference harm learning~\parencite{DBLP:journals/firai/TravnikMSP18} and runtime application performance~\parencite{DBLP:journals/corr/abs-1910-04054}.
 If we can bring online learning \emph{to the dataplane}, then we can take advantage of rich, local state while minimising these latencies (and their impact on the learned policy).
 This would also make it easy to train and prototype agent designs which can learn \emph{as the environment evolves}, or when there is too little data to model and simulate a problem.
 
@@ -311,7 +341,7 @@ We also design our solution to operate as closely as possible to the P4 pipeline
 %Through this work, \approachshort{}, we can comfortably answer ``yes'' on both counts.
 %Through \approachshort{}, w
 We show that online RL can be brought to the dataplane by such methods, where it can act on locally extracted state and is made \emph{more efficient by dataplane hardware}.
-In particular, we exploit how SmartNIC devices often expose general-purpose compute to provide path-adjacent, on-chip RL in the dataplane (\cref{fig:netro-arch}).
+In particular, we exploit how SmartNIC devices often expose general-purpose compute~\parencite{DBLP:conf/sigcomm/LiuCSKPG19} to provide path-adjacent, on-chip RL in the dataplane (\cref{fig:netro-arch}).
 As many of these devices have engineering and development histories which predate P4, general compute beyond P4's limits~\parencite{p4-psa} is surprisingly common.
 By executing on spare compute units, we prevent packet stalling and offer quick runtime reconfigurability.
 %We look backwards to classical RL techniques (tile-coded policies, single-step RL algorithms), alongside the adaptations introduced by existing in-network ML (such as quantisation).
@@ -319,8 +349,8 @@ By executing on spare compute units, we prevent packet stalling and offer quick 
 This paper contributes:
 \begin{itemize}
 	\item An analysis of why in-NIC RL is needed and best-placed to interact with the network, made feasible by classical RL methods and quantisation (\cref{sec:motivation}),
-	\item \emph{\approachshort{}}: a general-purpose in-NIC RL agent which scales with allocated device resources to meet latency or throughput demands of network traffic analysis (\cref{sec:design}),
-	\item \emph{ParSa}, a wait-free, parallel, online RL algorithm to accelerate tile coded policy inference and updates (\cref{alg:parsa}),
+	\item \emph{\approachshort{}}: a general-purpose in-NIC RL agent which scales with allocated device resources to meet latency or throughput demands of network traffic control (\cref{sec:design}),
+	\item \emph{ParSa}, a wait-free, parallel RL algorithm to accelerate tile coded policy inference and updates (\cref{alg:parsa}),
 	\item In-depth evaluation of how \approachshort{} affects carried dataplane traffic, performs under different policy sizes (simple/complex state), and improves on explicit offloading with a \SI{15}{\texttimes} latency reduction compared to commodity hardware (\SI{21}{\texttimes} for 99.99\nthscript{th} tail latencies) and an order of magnitude improvement in online throughput (\cref{sec:evaluation}).
 	\item A description of how \approachshort{} would integrate with state-of-the-art PDP applications to perform fully in-NIC, fast, automated DDoS mitigation (\cref{sec:potential-integrations}).
 \end{itemize}
@@ -345,13 +375,13 @@ This paper contributes:
 %\section{Preliminaries: RL for in-network computation}\label{sec:motivation}
 By combining recent trends in PDP hardware with insights from the ML community (past and present), we discuss why in-NIC RL is needed and best-placed to interact with the network, and how classical RL and quantisation make this feasible.
 Crucially, we focus on low port-density devices.
-We envision that this processing is suited to the network edge or key vantage points, rather than core switches.
+%We envision that this processing is suited to the network edge or key vantage points, rather than core switches.
 These devices' designs make it reasonable to move processing \emph{outside of the packet pipeline}; SmartNICs expose additional cores, and NetFPGAs allow for the synthesis of independent functional units.
 %The main benefit of doing so is that core control logic can be moved as close to the device as possible \emph{without impacting packet processing rates}.
-The main benefit is that control logic can be moved onto the NIC \emph{without impacting packet processing}.
+The main benefit is that RL logic can be moved onto the NIC \emph{without impacting packet processing}.
 %?? Say more directly why this mode of operation is preferable to in-pipeline w/ P4
-As Ethernet speed increases, packet deadlines grow tighter; a \SI{64}{\byte} packet must be produced every \SI{12.8}{\nano\second} at \SI{40}{\giga\bit\per\second}, giving for example a \SI{3.99}{\micro\second} deadline on Netronome (which has \num{312} P4 pipelines).
-In-pipeline execution thus increases the risk of packet drops or stalls.
+%As Ethernet speed increases, packet deadlines grow tighter; a \SI{64}{\byte} packet must be produced every \SI{12.8}{\nano\second} at \SI{40}{\giga\bit\per\second}, giving for example a \SI{3.99}{\micro\second} deadline on Netronome (which has \num{312} P4 pipelines).
+%In-pipeline execution thus increases the risk of packet drops or stalls.
 
 %However, this requires that there be a reasonably consistent interface and behaviour between device classes.
 %This need for consistency underpins the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}, which defines a conceptual model of match-action tables divided into ingress and egress pipelines.
@@ -377,13 +407,13 @@ In-pipeline execution thus increases the risk of packet drops or stalls.
 While P4~\parencite{DBLP:journals/ccr/BosshartDGIMRSTVVW14} has led to great interest in network programmability, it requires similar behaviour between device classes.
 This is encoded by the \emph{Programmable Switch Architecture} (PSA)~\parencite{p4-psa}---a lower bound on the device capabilities required to implement a P4 dataplane.
 %We would be remiss to believe that P4 and the PSA define all capabilities that programmable hardware supports.
-However, many compatible devices have legacies long predating these developments. 
-For instance, many-core SoC-based Netronome~\parencite{netronome-smartnic}, NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14,DBLP:conf/fpga/IbanezBMZ19}, and other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo} allow virtually arbitrary programs to be specified and executed.
+However, many compatible devices long predate these developments. 
+Many-core SoC-based Netronome~\parencite{netronome-smartnic}, NetFPGA SUME~\parencite{DBLP:journals/micro/ZilbermanACM14,DBLP:conf/fpga/IbanezBMZ19}, and other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo} allow virtually arbitrary programs to be specified and executed.
 %This pattern extends to other SmartNICs~\parencite{nvidia-bluefield,xilinx-alveo}.
-Currently, low port-density devices like these are most likely to have specific general-purpose compute, as they are designed for high-performance offloading and middlebox development.
+Currently, low port-density devices like these are most likely to have specific general-purpose compute and high degrees of parallelism~\parencite{DBLP:conf/sigcomm/LiuCSKPG19}, as they are designed for high-performance offloading and middlebox development.
 %Even Intel Tofino ASICs~\parencite{barefoot-intel}, which architecturally mirror the PSA, expose additional matching capabilities and \emph{arithmetic logic unit} (ALU) functions via the Tofino Native Architecture.
-Regardless, floating-point operations key to ML workloads are very rarely supported outside of deep learning accelerators (which lack packet switching functionality).
-Moreover, the limited memory and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
+%Regardless, floating-point operations key to ML workloads are very rarely supported outside of deep learning accelerators (which lack packet switching functionality).
+%Moreover, the limited memory and per-packet timing constraints endemic to these devices make this class of in-NIC offloading challenging.
 
 %\begin{insight}
 %	Current low-port density programmable network devices often have spare resources and extra capabilities beyond the PSA specification which can aid asynchronous, local compute.
@@ -400,12 +430,12 @@ Moreover, the limited memory and per-packet timing constraints endemic to these 
 %The main differences lie in how this gradient information is used, and combined with \emph{reward measurements} received from the environment.
 %Rather than adapting the learned parameters along the gradient using an error value from a target value, because the optimal actions aren't known they adjust values using a \emph{Markov Decision Process} (MDP)---capturing state trajectories to adjust value based on past and future decisions.
 
-\emph{Reinforcement learning} (RL) algorithms train an \emph{agent} to choose an optimal sequence of actions in pursuit of a given task~\parencite{RL2E}.
-Like most ML methods, RL algorithms use gradient information to update the parameters used to approximate a function with \emph{reward measurements} from the environment.
-RL's \emph{Markov Decision Process} (MDP) structure allows online learning of a state-action map in a model-free way, and can step through local minima when needed compared to ML.
-In networking, this allows for learning to respond to on-device state or to handle rapidly evolving problems.
-RL algorithms are generally agnostic to the policy approximation used, and classical single-step methods are simple---most of the compute work is occupied by the policy.
-E.g., single-step, semi-gradient Sarsa~\parencite[pp. \numrange{217}{221}]{RL2E} requires only additions and multiplication to update and learn a policy online.
+\emph{Reinforcement learning} (RL) trains an \emph{agent} to choose an optimal sequence of actions in pursuit of a given task~\parencite{RL2E}.
+Like most ML methods, RL algorithms use gradients to update the parameters used to approximate a function with \emph{reward measurements} from the environment.
+RL's Markov Decision Process structure allows online learning of a state-action map in a model-free way, and can step through local minima when needed compared to ML.
+In networking, this allows for learning from on-device state or handling rapidly evolving problems.
+RL algorithms are agnostic to the policy approximation used so long as they are differentiable, and are computationally simple.
+E.g., Sarsa~\parencite[pp. \numrange{217}{221}]{RL2E} requires only additions and multiplication to learn a policy online.
 
 %Consider the single-step, semi-gradient Sarsa algorithm~\cite[pp. \numrange{217}{221}]{RL2E}:
 %\begin{subequations}
@@ -424,18 +454,18 @@ E.g., single-step, semi-gradient Sarsa~\parencite[pp. \numrange{217}{221}]{RL2E}
 %	Classical, single-step RL algorithms are computationally simple and are agnostic to the policy approximation used. Furthermore, they require only additions and multiplication to update and learn a policy online.
 %\end{insight}
 
-\fakepara{RL in asynchronous environments}
-%There remains some degree of divergence between the theory and implementation of RL agents.
-%Consider \cref{fig:state-slip}: the traditional formulation of a Markov decision process assumes that an agent receives a new view of the world's state at fixed time intervals, and then decides upon and executes an action instantly.
-%The reality is that state information takes time to traverse the network, service times are offset by how quickly hosts respond to interrupts and deserialise requests, and action preference lists are often computed via expensive policy approximations.
-%Action installation also incurs costs in fields such as network administration, initially to contact the controller and then for those actions to be installed via the control plane.
-Consider \cref{fig:state-slip}: the RL formulation assumes that an agent receives new state at fixed intervals, and then decides upon an action instantly, while in reality these incur transmission and compute delays.
-This adds noise to the state-action mapping, which harms learning and final accuracy even for simple grid world tasks~\parencite{DBLP:journals/firai/TravnikMSP18}.
-%Reordering algorithmic steps reduces these costs for online single-step algorithms, but reducing this further requires detailed agent-environment co-design.
-Reducing these costs requires detailed agent-environment co-design.
-This principle has influenced real network use cases, such RL-based congestion-control algorithms~\parencite{DBLP:journals/corr/abs-1910-04054}, where asynchrony is necessary for high-speed applications.
-This often requires that state measurements are fused~\parencite{DBLP:journals/corr/abs-1910-04054,DBLP:journals/tnsm/SimpsonRP20} while expensive computations are ongoing.
-`Stopping the world' causes significant performance loss, as inference takes up to \SI{30}{\milli\second} in the above work on congestion control.
+%\fakepara{RL in asynchronous environments}
+%%There remains some degree of divergence between the theory and implementation of RL agents.
+%%Consider \cref{fig:state-slip}: the traditional formulation of a Markov decision process assumes that an agent receives a new view of the world's state at fixed time intervals, and then decides upon and executes an action instantly.
+%%The reality is that state information takes time to traverse the network, service times are offset by how quickly hosts respond to interrupts and deserialise requests, and action preference lists are often computed via expensive policy approximations.
+%%Action installation also incurs costs in fields such as network administration, initially to contact the controller and then for those actions to be installed via the control plane.
+%Consider \cref{fig:state-slip}: the RL formulation assumes that an agent receives new state at fixed intervals, and then decides upon an action instantly, while in reality these incur transmission and compute delays.
+%This adds noise to the state-action mapping, which harms learning and final accuracy even for simple grid world tasks~\parencite{DBLP:journals/firai/TravnikMSP18}.
+%%Reordering algorithmic steps reduces these costs for online single-step algorithms, but reducing this further requires detailed agent-environment co-design.
+%Reducing these costs requires detailed agent-environment co-design.
+%This principle has influenced real network use cases, such RL-based congestion-control algorithms~\parencite{DBLP:journals/corr/abs-1910-04054}, where asynchrony is necessary for high-speed applications.
+%This often requires that state measurements are fused~\parencite{DBLP:journals/corr/abs-1910-04054,DBLP:journals/tnsm/SimpsonRP20} while expensive computations are ongoing.
+%`Stopping the world' causes significant performance loss, as inference takes up to \SI{30}{\milli\second} in the above work on congestion control.
 
 %\begin{figure}
 %	\begin{subfigure}{0.45\linewidth}
@@ -488,10 +518,10 @@ This often requires that state measurements are fused~\parencite{DBLP:journals/c
 
 %?? Find some cites citing the relevance of this problem wrt. self-driving cars, robotics, etc.
 
-This cost is what drives us to \emph{bring online reinforcement learning to the dataplane}---referring again to \cref{fig:state-slip}, we would place P4-based state measurement ($t_1$), simple policy approximation ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
-In networks, actions and analysis are most likely to be installed on bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts---all of which make in-NIC training a perfect fit.
-As such, our goal is to collocate \emph{all} functions which comprise an RL agent on the same chip or device.
-Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
+%This cost is what drives us to \emph{bring online reinforcement learning to the dataplane}---referring again to \cref{fig:state-slip}, we would place P4-based state measurement ($t_1$), simple policy approximation ($t_2$), and controlled systems ($t_3$) as close to one another as possible.
+%In networks, actions and analysis are most likely to be installed on bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts---all of which make in-NIC training a perfect fit.
+%As such, our goal is to collocate \emph{all} functions which comprise an RL agent on the same chip or device.
+%Both programmable devices and the network environment make this more difficult, as we'll examine in the sequel.
 
 %?? Return to dimitris note: how is this important to final solution?
 
@@ -499,52 +529,52 @@ Both programmable devices and the network environment make this more difficult, 
 %	Online control problems benefit from low-latency, local execution and training (i.e., in-NIC/switch).
 %\end{insight}
 
-\subsection{Efficient policy approximation}
+\subsection{Tile-coded policy approximation}
 %Some problems either evolve over time in unpredictable ways, or cannot be easily modelled.
 %This can then make \emph{online} learning of the task an attractive prospect, using a single available stream of experience.
 %\emph{Deep neural networks} (DNNs), particularly when used as the basis for an RL agent's policy, require vast amounts of experience to converge on an accurate parameter set.
 %In many problem domains, this equates to training from compute-years worth of distributed offline simulations, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
 %Achieving stable learning requires sizeable batches of gradients to be computed, potentially using the entire experience replay from each simulation.
 %Although there has been a vested interest in efficiently \emph{executing} more complex function approximators such as DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the computational cost of gradient computation via backpropagation remains too significant on embedded hardware.
-Complex \emph{Deep Neural Networks} (DNNs), particularly when used as an RL agent's policy, require vast amounts (possibly compute-years~\parencite{DBLP:journals/corr/abs-1912-06680}) of experience to converge on an accurate parameter set, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
-Although there has been a vested interest in efficiently \emph{executing} complex function approximators like DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the storage and computational costs of backpropagation remain too significant on embedded hardware.
+%Complex \emph{Deep Neural Networks} (DNNs), particularly when used as an RL agent's policy, require vast amounts (possibly compute-years~\parencite{DBLP:journals/corr/abs-1912-06680}) of experience to converge on an accurate parameter set, which is at odds with the need to adapt to changes in the underlying problem \emph{as they happen}.
+%Although there has been a vested interest in efficiently \emph{executing} complex function approximators like DNNs in-NIC~\parencite{DBLP:journals/corr/abs-2002-08987,DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731,langlet-ml-netronome}, the storage and computational costs of backpropagation remain too significant on embedded hardware.
 
 %?? Probably want some cites on the need for batching in NN methods, even though this is understood. DL book?
 
-We return to what classical RL methods can offer us; in particular, the simple linear function approximation given by \emph{tile coding}~\parencite[pp.\ \numrange{217}{221}]{RL2E}.
+Returning to classical RL, we examine the linear function approximation of \emph{tile coding}~\parencite[pp.\ \numrange{217}{221}]{RL2E}.
 A policy is represented by sets of tiles, each covering one or more dimensions of the input state with several overlapping tilings (offset stepwise to provide generalisation).
-This allows any input-output mapping, such as converting packet header data into a preference list for queue priorities.
-A state vector produces a single `hit' in each tiling, all of which then correspond to a list of action preference lists.
-Inference (choosing an action) is simply summing over all such lists to obtain a final action preference list, selecting the maximum.
-Updating uses this same list of lists after the next decision is made, adjusting the value of the last selected action using a \emph{temporal-difference value} ($\delta_t$) computed by Sarsa.
+%This allows any input-output mapping, such as converting packet header data into a preference list for queue priorities.
+A state vector produces a single `hit' in each tiling, all of which then correspond to a list of action preference lists---where computing a hit requires division by a known tile width.
+Inference is simply summing over all such lists to obtain a final preference list, selecting the highest-value action.
+Learning uses this same list after the next decision is made, adjusting the value of the previous action using a \emph{temporal-difference value} ($\delta_t$) computed by Sarsa.
 Crucially, this internal representation has no data dependencies between any tile calculations for an input.
-As a result, both action selection and policy updates are map-reduce problems.
-To select an action, we can produce a task for each tiling---retrieving the list of action values contributed by the tile activated by the input state.
-An aggregate step sums up all action preference lists, and the action with the highest value is then selected.
-Updating the policy (with a new $\delta_t$ value) has no aggregate step, and as tile indices map to disjoint memory regions no locks are required.
+%As a result, both action selection and policy updates are map-reduce problems.
+%To select an action, we can produce a task for each tiling---retrieving the list of action values contributed by the tile activated by the input state.
+%An aggregate step sums up all action preference lists, and the action with the highest value is then selected.
+%Updating the policy (with a new $\delta_t$ value) has no aggregate step, and as tile indices map to disjoint memory regions no locks are required.
 %As we show in \cref{sec:design}, it is possible to make the inference aggregate step wait-free.
 
-For instance, a policy with $m$ tiling sets (each having a set of input dimensions), with $n$ overlapping tilings then creates $m \times n$ separate tasks.\footnote{Work items could be retrieving each individual action's value (giving $m \times n \times a$ tasks for $a$ actions). This requires tile coding to be repeated $a$ times per tile, which is likely extremely wasteful outside of heavy parallelism.}
-As an example, a real-world policy size which we examine (\cref{sec:experimental-setup}) with one bias tile and \num{16} sets of \num{8} tilings creates \num{129} work items.
-Computing a tile hit uses one division per dimension, which is an expensive ALU operation to require.
-However, if tile widths are fixed at powers-of-two, then these may be replaced with right bitshifts.
+%For instance, a policy with $m$ tiling sets (each having a set of input dimensions), with $n$ overlapping tilings then creates $m \times n$ separate tasks.
+%As an example, a real-world policy size which we examine (\cref{sec:experimental-setup}) with one bias tile and \num{16} sets of \num{8} tilings creates \num{129} work items.
+%Computing a tile hit uses one division per dimension, which is an expensive ALU operation to require.
+%However, if tile widths are fixed at powers-of-two, then these may be replaced with right bitshifts.
 %As we shall see shortly, this aligns with our choice of numerical representation.
 
 %\begin{insight}
 %	Tile coded policies are embarrassingly parallel in both inference \emph{and} learning. Moreover, in some instances the process can be altered to require only bitshifts, additions, and multiplication.
 %\end{insight}
 
-\subsection{Representations for embedded ML}
-PDP hardware universally lacks floating-point arithmetic support, yet the task of bringing ML models to resource-constrained environments is well-studied.
-Quantisation and alternative data formats have been suggested to make ML inference feasible on resource- and power-limited platforms, work around hardware constraints, or compute faster and more efficiently.
-Lower bit depths reduce memory footprints, and improve throughput in e.g., \emph{bfloat16}~\parencite{bfloat16-blog,DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
-In many cases, accuracy losses are negligible.
-Such work goes further still towards integers~\parencite{tensorrt-8bit} or binarisation~\parencite{DBLP:journals/corr/MiyashitaLM16,DBLP:conf/eccv/RastegariORF16,DBLP:journals/corr/KimS16,DBLP:conf/nips/HubaraCSEB16}, sacrificing dynamic range for cheaper arithmetic.
-Similar techniques are used to make inference tractable on network hardware, i.e., to bring pre-trained neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
-
-To make RL workloads feasible under such constraints, we propose the use of quantised, fixed-point representations such as $Qm.n$ (i.e., $m$\si{bit} signed integers with an $n$\si{bit} fractional part), which allow us to evaluate and update policies using only integer arithmetic.
-This is not only essential in performing this work, but also serves as a mechanism for reducing the processing and memory costs of function approximation.
-We note that our later parallel, wait-free Sarsa implementation---\emph{ParSa} (\cref{alg:parsa})---is possible only due to the use of $Qm.n$, as atomic operations on floating point numbers typically do not exist outside of graphics-processing hardware.
+%\subsection{Representations for embedded ML}
+%PDP hardware universally lacks floating-point arithmetic support, yet the task of bringing ML models to resource-constrained environments is well-studied.
+%Quantisation and alternative data formats have been suggested to make ML inference feasible on resource- and power-limited platforms, work around hardware constraints, or compute faster and more efficiently.
+%Lower bit depths reduce memory footprints, and improve throughput in \emph{bfloat16}~\parencite{bfloat16-blog,DBLP:journals/sigops/XieDMKVZT18}, \emph{hfp8}~\parencite{DBLP:conf/nips/SunCCWVSCZG19}, and other floating point formats~\parencite{DBLP:journals/corr/abs-2007-01530}.
+%In many cases, accuracy losses are negligible.
+%Such work goes further still towards integers~\parencite{tensorrt-8bit} or binarisation~\parencite{DBLP:journals/corr/MiyashitaLM16,DBLP:conf/eccv/RastegariORF16,DBLP:journals/corr/KimS16,DBLP:conf/nips/HubaraCSEB16}, sacrificing dynamic range for cheaper arithmetic.
+%Similar techniques are used to make inference tractable on network hardware, i.e., to bring pre-trained neural networks to the dataplane~\parencite{DBLP:journals/corr/abs-2009-02353,DBLP:conf/sigcomm/SanvitoSB18,DBLP:journals/corr/abs-1801-05731}.
+%
+%To make RL workloads feasible under such constraints, we propose the use of quantised, fixed-point representations such as $Qm.n$ (i.e., $m$\si{bit} signed integers with an $n$\si{bit} fractional part), which allow us to evaluate and update policies using only integer arithmetic.
+%This is not only essential in performing this work, but also serves as a mechanism for reducing the processing and memory costs of function approximation.
+%We note that our later parallel, wait-free Sarsa implementation---\emph{ParSa} (\cref{alg:parsa})---is possible only due to the use of $Qm.n$, as atomic operations on floating point numbers typically do not exist outside of graphics-processing hardware.
 
 %When combined with the above P4-driven techniques for in-network flow/device measurement, we at last have the mechanisms to collocate the key processes of an RL agent.
 %Moreover, the base P4 dataplane can be used to simplify parsing logic and offer runtime control over which flows/packets are monitored, alongside other packet actions.
@@ -590,22 +620,52 @@ As the allocation of cores/chip area is set ahead of time by a framework or syst
 
 \begin{figure}
 	\centering
-	\includegraphics[keepaspectratio, width=0.8\linewidth]{figures/coop}
-	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to either latency or throughput needs---\Coopfw{} shows this optimally online. A single \emph{controller} delegates RL computation and updates to many \emph{minion} threads, who operate on independent subtasks.\label{fig:single-and-parallel:parallel}}
+	\includegraphics[keepaspectratio, width=0.7\linewidth]{figures/coop}
+	\caption{\approachshort{}'s compute strategies scale to fit device capacity according to either latency or throughput needs---\Coopfw{} is the optimal online design. A single \emph{controller} delegates RL computation and updates to many \emph{minion} threads, who operate on independent subtasks.\label{fig:single-and-parallel:parallel}}
 \end{figure}
 
-\Cref{fig:netro-arch,fig:single-and-parallel} outline our design on Netronome SmartNIC hardware in pursuit of this goal: unused device resources beyond the P4-PSA spec \emph{can and should be used} to drive asynchronous environmental control.
+\Cref{fig:netro-arch} outlines our design on Netronome SmartNIC hardware in pursuit of this goal: unused device resources beyond the P4-PSA spec \emph{can and should be used} to drive asynchronous environmental control.
 We explain relevant NFP architectural details later in \cref{sec:netronome-platform-fundamentals}.
 \approachshort{} communicates with the packet pipeline of a P4 dataplane via \texttt{extern} plugins using \inring{} (state, configuration) and \outring{} (action) messages (\cref{fig:netro-arch}).
-Internally, \approachshort{} either has all its cores act independently (\cref{fig:single-and-parallel:single}) or cooperate to solve each task (\cref{fig:single-and-parallel:parallel})---with different latency-throughput benefits (\cref{sec:action-and-update-computation}).
+Internally, \approachshort{} either has all its cores act independently, or cooperate to solve each task (\cref{fig:single-and-parallel:parallel})---with different latency-throughput benefits.
 %We open-source our firmware and control programs for the benefit of the community.\footnote{\textanon{\url{https://github.com/FelixMcFelix/pdp-rl-paper}}{Link redacted for double-blind submission.}}
 We open-source our firmware and control programs for the benefit of the community.\footnote{Link redacted during submission.}
 %Moving beyond the Netronome platform, we describe how our architecture may be adapted and improved on by bespoke hardware or FPGA-based deployment.
 
+\subsection{Challenges, solutions, and insights}\label{sec:challenges-solutions-and-insights}
+\fakepara{Network and execution latency}
+State measurement, policy computation, and action installation take time to carry out, including serialisation to MAT-friendly rule formats~\parencite{DBLP:conf/infocom/TaylorT05}.
+In the midst of these tasks, system state evolves over time---adding noise to the state-action mapping being learned, harming learning and accuracy~\parencite{DBLP:journals/firai/TravnikMSP18}.
+To solve this, we \emph{co-locate all RL agent functions on PDP hardware}.
+
+\fakepara{Lack of floating-point}
+PDP hardware, being designed solely for efficient packet processing, lacks floating-point arithmetic support even in more general purpose NPU SmartNICs.
+Luckily, the embedded ML literature offers many low-precision floating-point formats~\parencite{bfloat16-blog,DBLP:journals/sigops/XieDMKVZT18,DBLP:conf/nips/SunCCWVSCZG19,DBLP:journals/corr/abs-2007-01530} and fixed-point representations without dynamic range~\parencite{DBLP:conf/usenix/ZhangLX00020,DBLP:conf/nsdi/SapioC0NKKKMPR21}.
+The latter set requires only integer arithmetic, and allows us to express and update policy parameters online.
+Thus, we use \emph{quantised fixed-point ($Qm.n$) representations of action values}.
+
+\fakepara{Costs of \emph{online} function approximation}
+Existing ML works on PDP operate by converting a \emph{pre-trained} model into a suitable representation, such as a binary neural network or chain of MATs.
+However, NIC-suitable inference schemes must still be trained offline, even though their data formats eschew floating point.
+Additionally, DNN training relies on backpropagation, can require memorizing a sizeable replay buffer for RL, and needs many mini-batches of data for stable training.
+To solve this, we employ techniques from more classic RL literature: \emph{tile-coded policies}, which have trivial gradients, and \emph{one-step temporal-difference RL algorithms such as Sarsa~\parencite{RL2E}}.
+
+%\fakepara{Heavy compute in the packet path can cause stalls/losses}
+%To solve this, we employ techniques from more classical RL literature: \emph{sarsa}, and \emph{tile-coding}.
+
+\fakepara{Insights}
+We observe that tile coded inference is a map-reduce problem, where each tile hit accesses separate data which are then aggregated together (and updates are can be performed locklessly with no aggregation), enabling us to exploit SmartNICs' parallelism.
+For instance, a policy with $m$ tiling sets (each having a set of input dimensions), with $n$ overlapping tilings then creates $m \times n$ separate tasks.
+What is key is that fixed-point numbers also enable the use of atomic arithmetic, and thus our scheme admits a novel \emph{wait-free Sarsa} RL algorithm.
+Moreover, individual integer operations are cheaper than floating-point, and we may tweak policy memory cost at compile time by choosing the desired integer size.
+%?? Excellent fit for the structure of smartnic hardware.
+%?? In networks, actions and analysis are most likely to be installed on bump-in-the-wire NICs or middleboxes, and in the NICs of end-hosts---all of which make in-NIC training a perfect fit.
+%?? This is not only essential in performing this work, but also serves as a mechanism for reducing the processing and memory costs of function approximation. (i.e., can choose depth and int > float)
+
 \subsection{System Model}
 \approachshort{} is a general, task-independent framework for in-network, online training and execution of \emph{any RL agent design} using classical methods.
 \approachshort{} is agnostic to the meaning of state vectors it receives as inputs and the actions it produces, which are employed by other functional units or the dataplane.
-However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level learning, control, and optimisation tasks.
+However, in-NIC/in-network execution specifically benefits packet-, flow-, and network-level control tasks.
 
 \approachshort{} runs on one or more cores of a SmartNIC to convert fixed-point state measurements from the environment into a stream of actions using a stored policy.
 As an example, this might be to map flow state and performance measurements into a queue priority for future packets, or to compute and apply a rate limit to preserve quality of service.
@@ -637,8 +697,8 @@ The new state-action pair is then written into storage.
 \approachshort{} can be configured to automatically select values of the input state vector as keys for state and reward storage.
 Two firmware models govern how these tasks (action selection, policy updates) are carried out:
 \begin{LaTeXdescription}
-	\item[\Indfw{} (\cref{fig:single-and-parallel:single})] Separate threads listen for new states, and each works sequentially. Computing an action list requires a \emph{read lock} on the policy. If an update occurs, the core requests a \emph{write lock} before updating, limiting online throughput. \emph{Tile lists} are stored for update computation.
 	\item[\Coopfw{} (\cref{fig:single-and-parallel:parallel,alg:parsa})] Threads cooperate to process state vectors, minimising latency. \emph{Minion} threads have a fixed list of work items, while a \emph{controller} thread sends compute/update commands before awaiting worker completion. Work items are disjoint, requiring no policy locks. \emph{State vectors} are stored for update computation.
+	\item[\Indfw{} (fig. omitted)] Separate threads listen for new states, and each works sequentially. Computing an action list requires a \emph{read lock} on the policy. If an update occurs, the core requests a \emph{write lock} before updating, limiting online throughput. \emph{Tile lists} are stored for update computation.
 \end{LaTeXdescription}
 Each offers a different point of optimisation; if updates are disabled, then the \indfw{} model can maximise throughput, while the \coopfw{} model is designed to minimise decision latency and needs no locks to update the policy (increasing \emph{online learning} throughput).
 These correspond to only executing a trained policy and actively (re-)training a policy, respectively.
@@ -652,7 +712,7 @@ Equally, lower latency affords an agent finer-grained control and learning of a 
 
 Paradoxically, we found that in the general \emph{ParSa} algorithm it was more efficient \emph{to do more work} by having each worker recompute its tile subset from a stored state.
 It transpired that cacheing this data placed a larger \texttt{memcpy} in the serial section, whose size did not scale at all with bit depth.
-Additionally, we do not use bitshifts in place of division operations in our implementation, due to the strict limits that power-of-two tile widths place upon policy design.
+%Additionally, we do not use bitshifts in place of division operations in our implementation, due to the strict limits that power-of-two tile widths place upon policy design.
 
 \subsection{Agent-Environment Communication}\label{sec:agent-environment-communication}
 \approachshort{} uses \emph{multiple-producer/multiple-consumer} (MPMC) channels to communicate with other elements; be they P4 programs on the packet path, or other on-chip analysis and control modules.
@@ -664,7 +724,7 @@ As such, \approachshort{} can receive input from P4 \texttt{extern}s or other, d
 Our implementation uses platform-specific IPC (\emph{EMEM ring buffers}) with hardware signalling on work arrival to achieve this.
 As PDP hardware lacks dynamic memory allocation, P4 pipeline threads request buffers for packet payloads using a shared freelist to enable state or policy data handover.
 Packet headers are extracted and parsed using the tooling autogenerated by the P4 pipeline.
-We found that this costs a median \SIrange{126}{140}{\nano\second} communication time (local--remote), comparable to message channels in the Rust and Go languages on commodity hardware.
+We found that this costs a median \SIrange{126}{140}{\nano\second} communication time (local--remote), comparable to message channels in Rust and Go on commodity hardware.
 
 %The main interaction model is that platform-specific IPC (message rings) is used to \emph{push} configuration, state vectors, and reward measurements to the RL system.
 %These same mechanisms are used by other cores on the same device to \emph{pull} output actions from the RL system.
@@ -704,17 +764,18 @@ This is essential for aggregation compared to the use of bounded message buffers
 %These slower messages can be used in theory to skip ahead into longer ME chains.
 
 \begin{algorithm}
-	\small
+%	\small
+	\footnotesize
 	\caption{ParSa---\emph{Par}allel \emph{Sa}rsa\label{alg:parsa}}
 	\SetKw{Let}{let}
 	\SetKw{Enum}{enum}
 	\SetKw{In}{in}
 	\SetKw{Await}{await}
 	\SetKw{Const}{const}
-	\SetKwProg{parsa}{Function \emph{ParSa}}{}{end}
-	\SetKwProg{control}{Function \emph{Ctl}}{}{end}
-	\SetKwProg{minion}{Function \emph{Minion}}{}{end}
-	\SetKwProg{tilecode}{Function \emph{TileCode}}{}{end}
+	\SetKwProg{parsa}{fn \emph{ParSa}}{}{end}
+	\SetKwProg{control}{fn \emph{Ctl}}{}{end}
+	\SetKwProg{minion}{fn \emph{Minion}}{}{end}
+	\SetKwProg{tilecode}{fn \emph{TileCode}}{}{end}
 	
 	\tcc{Given message passing mechanisms \emph{scatter} and \emph{recv}, quantised arithmetic functions $Q_\mathit{mul}$ and TileCode, and omitting schedule/config/precache updates.}
 	\tcc{\emph{cfg}.$\alpha$, \emph{cfg}.$\gamma$ are hyperparameters affecting the significance of each update and the degree of forward-planning, respectively.}
@@ -780,16 +841,16 @@ This is essential for aggregation compared to the use of bounded message buffers
 \end{algorithm}
 
 \subsection{Reconfigurability}
-\approachshort{} allows policy design and learning parameters to be changed at runtime using at most two control packets.
+\approachshort{} allows policy design and parameters to be changed at runtime using at most two control packets.
 Design changes are used at the end of learning (moving from online to offline), or when trying to train a new policy for another task from the same vantage point.
 Parameter changes allow an online agent to become more (or less) adaptive to new data (i.e., after detecting a changepoint in traffic).
 This extends to policy data, which may be imported from a pre-trained model and exported via PCIe to the host machine.
-Some aspects must be chosen at compile time; bit depth, \Coopfw/\Indfw, and maximum policy sizes---these govern core operation or allocated memory.
-Choosing a bit depth of \qtylist[list-pair-separator = { or }]{16;8}{\bit} halves/quarters policy memory costs, allowing more complex problems to be modelled using more dimensions or fine-grained tiles.
+Some aspects must be chosen at compile time; bit depth, \Coopfw/\Indfw, and maximum policy sizes.
+Choosing a bit depth of \qtylist[list-pair-separator = { or }]{16;8}{\bit} halves/quarters policy memory costs, allowing complex problems to be modelled using more dimensions or fine-grained tiles.
 
 In our implementation, configuration packets are carried over UDP and signalled to the P4 parser using a reserved DSCP value~\parencite{rfc2474} as used by \textcite{DBLP:conf/isca/LiLYCSH19}.
-While this mainly automates parser generation, it also allows for configuration to be received from only trusted hosts (over the dataplane if needed) via P4 rules.
-Our control packet generation library and evaluation frameworks which build upon it are written in Rust.
+While this automates parser generation, it also allows for configuration to be received from only trusted hosts (over the dataplane if needed) via P4 rules.
+Our control packet generation library and evaluation frameworks are written in Rust.
 
 %Runtime reconfiguration and interaction occur via the control and/or dataplane: the ease of use of the P4 pipeline's match-action tables and custom protocol parsers, combined with the dedicated input pipe to the NIC's controller (the host machine), allow these to be cleanly separated or combined as needed.
 %Bit depth of quantised measurements/preferences, maximum policy sizes, and parallelisation strategy may be configured at compile time.
@@ -799,13 +860,14 @@ Due to the lack of dynamic memory allocation on PDP hardware, and to simplify va
 Tiling space requirements then scale exponentially with dimension count, so higher-dimension tilings must be placed in larger, slower memory regions.
 As a result, in many architectures policy parameters are split across such regions, giving different access and compute costs to different tasks.
 
-We use a simple first-fit work placement algorithm run in \approachshort{}, placing the largest work item into the least loaded thread of the least loaded core (as the NFP uses hardware threads).
+We use a simple first-fit work placement algorithm run in \approachshort{}, placing the largest work item into the least loaded thread of the least loaded core.
 Each work item is a separate \emph{tiling} over a list of dimensions.
 %, noting that many such tilings may be grouped into a set (using different offsets for smoother coverage of the state space).
 The cost of any work item (from its dimension count and memory location) was empirically measured offline, and we weigh the total cost per core based on the number of minion threads available.
 This weighting specifically accounts for the controller thread on the first core.
 Work allocations are recomputed when policy configuration is installed or changed.
 Naturally, for $n$ tilings and $m$ threads this procedure is $\mathcal{O}{\left(n\log{m}\right)}$: two find/update min operations into binary heaps per tiling, storing $m/8$ and $\le8$ costs respectively.
+Although we omit relevant plots for space, we observe that this offers \qtylist{1.33; 1.11}{\texttimes} speedup over na\"{i}ve and stride-modulo schedules.
 
 %\subsection{Variable Quantisation Bit Depth}
 %At compile-time, \approachshort{} can be configured to use \SIlist[list-final-separator = { or }]{32;16;8}{\bit} values in input states and its internal policies.
@@ -891,6 +953,7 @@ Testing machines were as follows, with \SI{32}{\gibi\byte} RAM:
 \approachshort{} was evaluated on server blades (\emph{Mid/HighServer}), each hosting a single Netronome Agilio LX \numproduct{1 x 40}GbE SmartNIC (NFP-6480, \SI{1.2}{\giga\hertz}).
 These servers ran Ubuntu 18.04.5 LTS (4.15.0-140-generic).
 We additionally use a more powerful consumer-grade machine (\emph{Collector}) for estimating host performance when offloaded to a network function, running Ubuntu 18.04.4 LTS (4.15.0-96-generic).
+Host execution occurs on the CPU using a numpy-based Sarsa implementation.
 Control programs were built using rustc 1.52.1.
 We run \approachshort{} on a \num{4}-ME island of the NFP-6480 (\num{32} contexts) using \SIlist{32;16;8}{\bit} quantised arithmetic.
 This is the largest cluster of cores which is not in use by a P4 pipeline.
@@ -899,8 +962,8 @@ Host throughput and latency measures were observed over \num{10} trials of \SI{1
 We differ this from the NFP as hosts need to run numpy-based agents in parallel via separate processes; this also allows us to investigate the effects of oversubscription on host latencies.
 
 Policy sizes are set to those of a real-world DDoS control application~\parencite{DBLP:journals/tnsm/SimpsonRP20}: 20-dim state vectors, a bias tile and 16 full tiling sets (\numproduct{7x1}-dim, \numproduct{8x2}-dim, \numproduct{1x4}-dim), 8 tilings per set, 6 tiles per dimension, and 10 actions.
-For context, such input would contain per-flow state (e.g., IATs, rates) which is combined with the last action taken (2-dim tilings) and loads along the ingress-egress path (4-dim).
-In \Coopfw{}, this creates \num{129} work items across \num{31} workers.
+For context, such input would contain per-flow state (e.g., IATs, rates) combined with the last action taken (2-dim tilings) and loads along the ingress-egress path (4-dim).
+In \Coopfw{}, this creates \num{129} tasks across \num{31} workers.
 We choose a larger action count than this work to investigate the performance of more complex agents.
 
 \subsection{Experiments}
@@ -919,21 +982,21 @@ This is an important aspect for (automated) allocation of compute resources in a
 This also demonstrates the number of cores needed to achieve a given latency or throughput bound on a policy of representative complexity.
 Moreover, to demonstrate how these costs vary as policy complexity increases, we vary the number of total dimensions included in the tiling.
 
-\fakepara{Work allocation}
-%?? Also our simple, ahead-of-time, work scheduler.
-We verify that our heuristic, runtime work scheduler (termed \emph{Balanced}) makes meaningful use of the explicit memory hierarchy and cost of each work item.
-We compare it versus several baselines: a \emph{Na\"{i}ve} chunked scheduler, a \emph{Random} allocation, and a simple \emph{Modular} allocator (where a worker $j$ out of $w$ takes $k$ tilings given by $\mathit{work}_j=\left\{\left(j + i \times w\right) \bmod n_{\mathit{items}} \mid i \in [0,k) \right\}$).
+%\fakepara{Work allocation}
+%%?? Also our simple, ahead-of-time, work scheduler.
+%We verify that our heuristic, runtime work scheduler (termed \emph{Balanced}) makes meaningful use of the explicit memory hierarchy and cost of each work item.
+%We compare it versus several baselines: a \emph{Na\"{i}ve} chunked scheduler, a \emph{Random} allocation, and a simple \emph{Modular} allocator (where a worker $j$ out of $w$ takes $k$ tilings given by $\mathit{work}_j=\left\{\left(j + i \times w\right) \bmod n_{\mathit{items}} \mid i \in [0,k) \right\}$).
 %We use maximum-size, \SI{32}{\bit} policies as described above.
 
 \fakepara{End-to-end RL latency}
-We compare the key RL latencies we discuss in \cref{fig:state-slip} across 3 scenarios: completely in-NIC (\approachshort{}), offloading RL decisions to a SmartNIC's controller machine, and offloading to a \emph{virtual Network Function} (vNF).
+We compare the key RL latencies we discuss in \cref{sec:challenges-solutions-and-insights} across 3 scenarios: completely in-NIC (\approachshort{}), offloading RL decisions to a SmartNIC's controller machine, and offloading to a \emph{virtual Network Function} (vNF).
 
 \fakepara{Co-existence with the dataplane}
 While varying the rate of RL updates performed by \approachshort{}-\Coopfw{} (\SI{32}{\bit}) from \numrange{0}{16000} actions/s, we measure packet loss and sample latencies of cross traffic carried over a co-hosted P4 pipeline.
 This allows us to quantify whether on-chip (out-of-path) execution impacts ordinary dataplane behaviour through indirect means: e.g., EMEM cache evictions or hidden resource contention.
 %In particular, we stress test both decisions and policy updates of our \emph{Parallel} design at full throughput.
 
-We perform these tests using Pktgen-DPDK~\cite{pktgen-dpdk}, placing an NFP in \emph{MidServer} as the device under test and connecting \emph{HighServer} over a \SI{40}{\giga\bit\per\second} DAC cable as the traffic source via the default firmware.
+We perform these tests using Pktgen-DPDK~\cite{pktgen-dpdk}, placing an NFP in \emph{MidServer} as the device under test and connecting \emph{HighServer} over a \SI{40}{\giga\bit\per\second} DAC cable as the traffic source.
 We perform throughput and loss tests using \num{7}/\num{1} transmit/receive queues at \SI{100}{\percent} send rate for 10 bursts of \SI{30}{\second}, and perform latency tests using \num{1}/\num{1} transmit/receive queue at \SI{10}{\percent} send rate for \num{200000} measurements (sampling at \SI{2000}{\hertz} for \qtyproduct[product-units=single]{10 x 10}{\second}).
 This provides maximum throughput in the former case (relying solely on NIC counters for loss counting).
 In the latter case, this minimises host resource contention to observe exact latency measurements, have a high enough sample count to detect subtle (aggregate) latency effects, and eliminate \emph{host} receive drops.
@@ -958,8 +1021,8 @@ By timing agent setup and compile times, we describe the runtime costs needed fo
 We show that when using 4 MEs of the NFP-6480, \Coopfw{} achieves sub-\SI{35}{\micro\second} median latency, with \nth{99} and \num{99.99}\nthscript{th} percentile latencies less than \SI{1}{\micro\second} worse (\SIlist{15;21}{\texttimes} speedups over a \emph{Collector} host).
 Importantly, \Indfw{} achieves lower median state-action latencies (\SI{2.79}{\texttimes}) \emph{and} update times (\SI{2.63}{\texttimes}) than a dedicated \emph{Collector} host \emph{while requiring only a single core or dedicated functional unit}.
 Crucially, in-NIC execution gives far tighter bounds on tail latency compared to host offloading.
-\num{99.99}\nthscript{th} percentile state-action latencies exceed the median by \SIlist{0.58;0.66}{\percent} for \Indfw{} and \Coopfw{}, while host-based tail latencies are at least \SI{40.53}{\percent} greater even when the parallel worker count is at or below the physical core count.
-We show the cumulative distributions of these in detail (\cref{fig:lat-cumul}), noting how just one additional CPU-intensive task---potentially automated system updates, scans, or another vNF/traffic processing task---impacts tail latencies further (\emph{Float(Over)}).
+\num{99.99}\nthscript{th} percentile state-action latencies exceed the median by \SIlist{0.58;0.66}{\percent} for \Indfw{} and \Coopfw{}, while host tail latencies are at least \SI{40.53}{\percent} greater---even when not oversubscribed.
+We show their cumulative distributions in detail (\cref{fig:lat-cumul}), noting how just one additional CPU-intensive task---potentially automated system updates or another traffic processing task---impacts tail latencies further (\emph{Float(Over)}).
 
 %We found that a key aspect of in-NIC execution is that it allows far tighter bounds on tail latency compared to host offloading.
 %Examining the state-action latencies in \cref{tab:lats}, we see that \num{99.99}\nthscript{th} percentile latencies exceed the median by \SIlist{0.58;0.66}{\percent} for \Indfw{} and \Coopfw{}, respectively.
@@ -968,9 +1031,9 @@ We show the cumulative distributions of these in detail (\cref{fig:lat-cumul}), 
 %We show the cumulative distributions of these in detail (\cref{fig:lat-cumul}), noting how just one additional CPU-intensive task---potentially automated system updates, scans, or another vNF/traffic processing task---impacts tail latencies further (\emph{Float(Over)}).
 
 \newlength{\resultplotwidth}
-\setlength{\resultplotwidth}{0.849\linewidth}
+%\setlength{\resultplotwidth}{0.849\linewidth}
 %\setlength{\resultplotwidth}{0.9\linewidth}
-%\setlength{\resultplotwidth}{0.8\linewidth}
+\setlength{\resultplotwidth}{0.8\linewidth}
 
 \begin{table}
 	\caption{Latencies and computation times for \approachshort{} versus commodity hardware hosts. On-device execution is crucial in not only lowering latencies, but in reducing tail latencies. Lower is better, with the best marked \emph{in bold}.\label{tab:lats}}
@@ -987,8 +1050,7 @@ We show the cumulative distributions of these in detail (\cref{fig:lat-cumul}), 
 \end{table}
 
 \Cref{tab:tputs} compares \approachshort{}'s throughput against host-based execution.
-We set the worker count on host machines which maximised their throughput.
-This equalled the amount of physical cores on each device---moving beyond this would hamper tail latencies by an order of magnitude.
+We set the worker count on host machines equal to the number of physical cores on each device---moving beyond this would hamper tail latencies by an order of magnitude.
 To make the comparison fair in the context of many-core CPU environments, we include per-core throughput.
 \Indfw{} achieves \SI{2.82}{\texttimes} higher offline throughput per core than commodity \emph{Collector} hardware in spite of the NFP-6480 having a considerably slower clock speed (\SI{0.29}{\texttimes}).
 When compounded with the abundance of such weaker chips, in-NIC RL is able to deliver much higher throughput.
@@ -996,9 +1058,9 @@ When compounded with the abundance of such weaker chips, in-NIC RL is able to de
 As anticipated, the \Coopfw{} strategy is key in achieving serviceable throughput in an online learning agent, \SI{9.9}{\texttimes} that of a dedicated collector machine, as the write lock around policy updates creates a bottleneck.
 
 By limiting the available workers in software, we show how \Coopfw{}'s policy update time (thus  online throughput---\cref{fig:vary-core}) scales with available cores.
-While \Coopfw{} always outperforms the host-based floating point implementations, we observe that there are two distinct crossover points which must be met to overcome our own \Indfw{}; \num{8} workers for online throughput, and \num{3} workers for state-action latency (plot omitted).
-Some artefacts of our environment and design choices are visible, such as the addition of new physical cores being more significant than contexts, and the presence of some schedule bottlenecks.
-Most importantly however, \Coopfw{}'s resource demand is tunable at compile time to meet the online training rate or action latency required by a task.
+While \Coopfw{} always outperforms the host-based floating point implementations, we observe that there are two distinct crossover points which must be met to overcome \Indfw{}; \num{8} workers for online throughput, and \num{3} for state-action latency (plot omitted).
+Some artefacts of our environment and design choices are visible; the addition of new physical cores is more significant than contexts, and some schedule bottlenecks are visible.
+Most importantly, \Coopfw{}'s resource demand is tunable at compile time to meet the online training rate or action latency required by a task.
 
 \begin{figure}[t]
 	\centering
@@ -1006,7 +1068,7 @@ Most importantly however, \Coopfw{}'s resource demand is tunable at compile time
 		\includegraphics{../plots/build/rl-perf-tester/vary-core}
 	}
 	\caption{
-		\Coopfw{}'s online learning performance improves with additional cores, on max size tasks. This requires \num{8} workers to offer greater online throughput than single-threaded in-NIC RL. Sharper performance increases occur when a new physical core is added (\numrange{7}{8}) or the scheduler works around a bottleneck (\numrange{13}{14}).\label{fig:vary-core}}
+		\Coopfw{}'s online learning performance improves with additional cores. This requires \num{8} workers to offer greater online throughput than single-threaded in-NIC RL. Sharper performance increases occur when a new physical core is added (\numrange{7}{8}) or the scheduler works around a bottleneck (\numrange{13}{14}).\label{fig:vary-core}}
 \end{figure}
 
 %\begin{figure}
@@ -1016,7 +1078,7 @@ Most importantly however, \Coopfw{}'s resource demand is tunable at compile time
 %	\caption{\Coopfw{}'s action latencies similarly improve with more cores. This requires \num{3} workers (4 total contexts) to improve upon the state-action latency of single-threaded in-NIC RL.\label{fig:vary-core-latency}}
 %\end{figure}
 
-\Cref{fig:vary-work,fig:vary-work-latency} show how policy complexity affects update cost and state-action latency respectively, scaling from a bias tile up to the full DDoS policy size.\footnote{Input vectors here all have 20 elements regardless of the policy design.}
+\Cref{fig:vary-work} shows how policy complexity affects update cost, scaling from a bias tile up to the full DDoS policy size.\footnote{Input vectors here all have 20 elements regardless of the policy design.}
 \Coopfw{} always produces an action in less time than \Indfw{}, but requires at least one state-based tile to excel in online learning.
 %We note that this is a trivial case, in that the use of \emph{only} a bias tile negates the need for any input state (similar to a multi-arm bandit problem).
 We note that this is a trivial case, as using \emph{only} a bias tile returns a single preference list regardless of input state.
@@ -1026,16 +1088,16 @@ We note that this is a trivial case, as using \emph{only} a bias tile returns a 
 	\resizebox{\resultplotwidth}{!}{
 		\includegraphics{../plots/build/rl-perf-tester/vary-work}
 	}
-	\caption{\Coopfw{} processes updates faster than \Indfw{}---thus has higher online performance---on almost all policy sizes. Lower bit depths are effective on simple policies.\label{fig:vary-work}}
+	\caption{\Coopfw{} processes updates faster than \Indfw{}---thus has higher online performance---on almost all policy sizes. Lower bit depths are effective on simple policies. State-action latency scales similarly.\label{fig:vary-work}}
 \end{figure}
 
-\begin{figure}
-	\centering
-	\resizebox{\resultplotwidth}{!}{
-		\includegraphics{../plots/build/rl-perf-tester/vary-work-latency}
-	}
-	\caption{State-action latency scales with additional work similarly to \cref{fig:vary-work}; though \SI{32}{\bit} firmwares become more effective sooner (at \num{3} work items).\label{fig:vary-work-latency}}
-\end{figure}
+%\begin{figure}
+%	\centering
+%	\resizebox{\resultplotwidth}{!}{
+%		\includegraphics{../plots/build/rl-perf-tester/vary-work-latency}
+%	}
+%	\caption{State-action latency scales with additional work similarly to \cref{fig:vary-work}; though \SI{32}{\bit} firmwares become more effective sooner (at \num{3} work items).\label{fig:vary-work-latency}}
+%\end{figure}
 
 \begin{figure}
 	\centering
@@ -1055,38 +1117,38 @@ We note that this is a trivial case, as using \emph{only} a bias tile returns a 
 		}
 		\caption{Tail latencies suffer in hosts---particularly when oversubscribed.}
 	\end{subfigure}
-	\caption{Cumulative state-action latency plots for \approachshort{} and host-based execution.\label{fig:lat-cumul}}
+	\caption{Cumulative state-action latency plots for \approachshort{} versus hosts.\label{fig:lat-cumul}}
 \end{figure}
 
 %A noteworthy trend is that \SIlist{8;16}{\bit} versions of \approachshort{} consistently underperform compared to \SI{32}{\bit}, except for smaller workloads (seen in the zoomed portions of \cref{fig:vary-work,fig:vary-work-latency}).
-\SIlist{8;16}{\bit} versions of \approachshort{} underperform compared to \SI{32}{\bit}, except for smaller workloads (seen in the zoomed portions of \cref{fig:vary-work,fig:vary-work-latency})---even though our implementation is optimised to read and write policy data in batches.
+\SIlist{8;16}{\bit} versions of \approachshort{} underperform compared to \SI{32}{\bit}, except for smaller workloads (seen in the zoomed portion of \cref{fig:vary-work})---even though our implementation is optimised to read and write policy data in batches.
 Because the native register width on the NFP is \SI{32}{\bit}, the compiler must emit extra instructions around arithmetic operations to correctly load and update values.
 This matches \SI{32}{\bit} becoming dominant in complex workloads: higher dimension tilings require more arithmetic operations.
 Most of the I/O comes \emph{after} this step, causing ALU use to dominate.
-This also explains why \SI{32}{\bit} becomes the best choice at different policy complexities for online (\cref{fig:vary-work}, 10 dims) and offline (\cref{fig:vary-work-latency}, 3 dims) agents, where hash table accesses and a \texttt{memcpy} of the state vector fall into the serial portion of the online algorithm.
+This also explains why \SI{32}{\bit} becomes the best choice at different policy complexities for online (\cref{fig:vary-work}, 10 dims) and offline (plot omitted, 3 dims) agents, as state management falls into the serial portion of the online algorithm.
 %Smaller bit depths still give a \SIrange{2}{4}{\texttimes} saving in memory for policy storage (enabling more fine-grained or complex policies), in exchange for slightly worse latency and throughput.
 To overcome this, we investigated bit-stuffing several values into a single word during atomic writeback (as the platform offers both \SIlist{32;64
 }{\bit} atomic addition).
 This is analogous to SIMD through clever use of padding bits, but we found that manipulating tiles into the correct format added \SI{10}{\percent} extra overhead.
 
-\fakepara{Work allocation}
-\Cref{fig:work-alloc-32} shows that our heuristic allocator (\emph{Balanced}) is key in achieving consistently low latencies/update times.
-The trend is repeated for all bit depths.
-The constant difference between \emph{Action} and \emph{Update Prep} scales linearly with bit depth, matching storage and lookup work in the serial portion of \emph{ParSa} (plots omitted).
-%The severe underperformance of the \emph{Na\"{i}ve} allocator confirms that work item complexity is correlated with its index, as batching work in contiguous chunks gives some workers only high-dimensionality tilings.
-The minor gap in lower bound performance between the \emph{Random} and \emph{Balanced} allocators suggests that further optimisations can be made.
-We expect that closing or exceeding this gap may require more complex modelling of hardware thread interactions, which lies far beyond the scope of in-NIC scheduling.
-Additionally, throughput occasionally plateaus due to bottlenecks in the output schedule until extra cores are allocated due to the granularity of the above tilings.
-We measured individual work items in state-action computation to take a mean \SIlist{5.2; 6.2; 9.7; 11.0}{\micro\second} for bias, CLS, CTM and IMEM tilings respectively.
-%Though we have a \SI{4.2}{\texttimes} factor of task oversubscription, it is clear that latencies are eventually bound below by the length of the longest task.
-
-\begin{figure}
-	\centering
-	\resizebox{\resultplotwidth}{!}{
-		\includegraphics{../plots/build/rl-perf-tester/work-strat-32bit}
-	}
-	\caption{Action/update compute times in a \SI{32}{\bit} \Coopfw{} agent under different work schedulers.\label{fig:work-alloc-32}}
-\end{figure}
+%\fakepara{Work allocation}
+%\Cref{fig:work-alloc-32} shows that our heuristic allocator (\emph{Balanced}) is key in achieving consistently low latencies/update times.
+%The trend is repeated for all bit depths.
+%The constant difference between \emph{Action} and \emph{Update Prep} scales linearly with bit depth, matching storage and lookup work in the serial portion of \emph{ParSa} (plots omitted).
+%%The severe underperformance of the \emph{Na\"{i}ve} allocator confirms that work item complexity is correlated with its index, as batching work in contiguous chunks gives some workers only high-dimensionality tilings.
+%The minor gap in lower bound performance between the \emph{Random} and \emph{Balanced} allocators suggests that further optimisations can be made.
+%We expect that closing or exceeding this gap may require more complex modelling of hardware thread interactions, which lies far beyond the scope of in-NIC scheduling.
+%Additionally, throughput occasionally plateaus due to bottlenecks in the output schedule until extra cores are allocated due to the granularity of the above tilings.
+%We measured individual work items in state-action computation to take a mean \SIlist{5.2; 6.2; 9.7; 11.0}{\micro\second} for bias, CLS, CTM and IMEM tilings respectively.
+%%Though we have a \SI{4.2}{\texttimes} factor of task oversubscription, it is clear that latencies are eventually bound below by the length of the longest task.
+%
+%\begin{figure}
+%	\centering
+%	\resizebox{\resultplotwidth}{!}{
+%		\includegraphics{../plots/build/rl-perf-tester/work-strat-32bit}
+%	}
+%	\caption{Action/update compute times in a \SI{32}{\bit} \Coopfw{} agent under different work schedulers.\label{fig:work-alloc-32}}
+%\end{figure}
 
 %\begin{figure}
 %	\resizebox{\resultplotwidth}{!}{
@@ -1106,10 +1168,10 @@ We measured individual work items in state-action computation to take a mean \SI
 %?? PCIe RTT is 10us (neugebauer, BNN NFP paper), NFP RTT is 18us (own measurements). EMEM Ring one-way is 120ns.
 %?? Cziva~\parencite[pp.113]{DBLP:phd/ethos/Cziva18} discusses vNF times.
 %?? reference the inference times brought up in Taurus?
-Referring to \cref{fig:state-slip}, we take $t_2$ from \cref{tab:lats} for host and in-NIC processing times, and substitute $t_1+t_3$ for the state packet round-trip time to the decision site:
+We take inference times from \cref{tab:lats} for host and in-NIC processing, adding on the packet round-trip time to the decision site as state-action latency:
 \begin{LaTeXdescription}
 	\item[\emph{In-NIC.}] As described in \cref{sec:agent-environment-communication}, EMEM rings have a median one way delay cross-island of \SI{140}{\nano\second}, giving a \emph{median \SI{34.63}{\micro\second} end-to-end inference latency}.
-	\item[\emph{Dedicated Collector.}] Employing DPDK to maximise performance, such hosts will add one-way PCIe delays of \SIrange{0.9}{2.3}{\micro\second} for network packets~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018}.
+	\item[\emph{Dedicated Collector.}] Employing DPDK to maximise performance, such hosts add one-way PCIe packet delays of \SIrange{0.9}{2.3}{\micro\second}~\parencite{DBLP:conf/sigcomm/NeugebauerAZAL018}.
 	A UDP packet carrying \num{20} elements of state in \approachshort{} is \SI{128}{\byte}, so costs \SI{1}{\micro\second} to forward, and the reply state-action pair invokes a slightly higher cost.
 	\emph{This gives an end-to-end inference latency of \SI{517.9}{\micro\second}}.
 	\item[\emph{vNF Offload.}] \Textcite{DBLP:journals/cm/CzivaP17} show that more lightweight vNF frameworks like GNF~\parencite{DBLP:journals/cm/CzivaP17} and ClickOS~\parencite{DBLP:conf/nsdi/MartinsAROHBH14} add \SIrange{45}{55}{\micro\second} \emph{additional} RTT latency above PCIe costs.
@@ -1134,9 +1196,9 @@ This also explains the sensitivity of \SI{256}{\byte} packets to \approachshort{
 \SI{256}{\byte} packets overshoot this due to metadata, causing small I/O accesses at a high rate for packets sized around this cutoff.
 %Regardless, this effect is small when observed.
 
-An anomaly is \SI{128}{\byte} packets at \num{3000} RL updates per second, causing a \SI{222}{\nano\second} (\SI{1.18}{\percent}) increase, shown in \cref{fig:dataplane-example}.
+An anomaly is \SI{128}{\byte} packets at \num{3000} RL updates per second, causing a \SI{222}{\nano\second} (\SI{1.18}{\percent}) increase in \cref{fig:dataplane-example}.
 %This is observed through a shift of some packet latencies from the mode towards the tail, but no other changes in the distribution.
-We believe that the inbound request rate is weakly synchronised with traffic, causing higher burstiness of accesses to the CPP bus.
+We believe that the inbound request rate is weakly synchronised with traffic, causing burstiness of accesses to the CPP bus.
 We expect that FPGA designs can avoid this problem by having dedicated \inring{}/\outring{} access mechanisms for an \approachshort{} agent.
 
 \begin{figure}
@@ -1154,7 +1216,7 @@ We expect that FPGA designs can avoid this problem by having dedicated \inring{}
 		\resizebox{1.0\linewidth}{!}{
 			\includegraphics{../plots/build/stress/histo-128B-0-3-trim}
 		}
-		\caption{Distribution of RTTs for \SI{128}{\byte} packets for \numlist{0;3000} RL actions/s.\label{fig:dataplane-example}}
+		\caption{RTT distribution for \SI{128}{\byte} packets at \numlist{0;3000} RL actions/s.\label{fig:dataplane-example}}
 	\end{subfigure}
 	\caption{Effects on tail latency of cross-traffic caused by off-path RL compute. Statistically significant increases in population latency are concentrated on smaller packet sizes, and are typically sub-\SI{78}{\nano\second}.\label{fig:dataplane-coop}}
 \end{figure}
@@ -1170,7 +1232,7 @@ This is a high upfront cost on per-island resources (CLS/CTM)---\approachshort{}
 %Due to the initial policy cost this falls below the fair share at 3 MEs, but always allows for co-existence with other asynchronous dataplane programs.
 
 \begin{table}
-\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM are shared between all programs on the same island, while EMEM and IMEM are shared between all NFP programs on a NIC.\label{tab:resources}}
+\caption{NFP memory use due to \approachshort{} using \numlist{1;4} MEs (\SI{32}{\bit}). CLS and CTM are shared between all programs on the same island, EMEM and IMEM are shared between all programs on a NIC.\label{tab:resources}}
 \resizebox{\linewidth}{!}{
 \begin{tabular}{
 		@{}c
@@ -1203,12 +1265,12 @@ This is a high upfront cost on per-island resources (CLS/CTM)---\approachshort{}
 %\end{figure}
 
 \fakepara{Deployability}
-Setup of \approachshort{} uses two packet types: \emph{setup}, which contains learning (hyper-)parameters and most aspects of a policy, and \emph{tiling}, which provides a list of state indices for tiling sets.
-We found that setup and tiling packets take a mean \qtylist{27.03;16.69}{\micro\second} to be processed on \Indfw{}, allowing an agent to be swapped between online and offline operation (or repurposed) painlessly.
+Setup of \approachshort{} uses two packet types: \emph{setup}, which contains policy shape and learning parameters, and \emph{tiling}, which provides a list of state indices for tiling sets.
+These packets took a mean \qtylist{27.03;16.69}{\micro\second} respectively to be processed on \Indfw{}, allowing an agent to be swapped between online and offline operation (or repurposed) painlessly.
 These swaps are useful when an agent should cease learning (i.e., when performance converges), or if a change in the environment suggests that more training is needed.
 %Tiling packet processing scales linearly with the number of \emph{tiling sets}, due to the needed precaching of tile set boundaries.
 Online-offline swaps for \Coopfw{} exhibit similar cost, however the need for explicit scheduling means that policy/tiling \emph{structure} changes (including the first complete setup) take \SI{422.63}{\micro\second} for the full-size policy described above.
-The time taken for \Coopfw{} to schedule its tasks was found to scale with the number of workers ($m$) and work items ($n$) as described earlier (\cref{sec:work-allocation}, $\mathcal{O}{\left(n\log{m}\right)}$).
+The time taken for \Coopfw{} to schedule its tasks was found to scale with the number of workers ($m$) and work items ($n$) as described earlier ($\mathcal{O}{\left(n\log{m}\right)}$).
 Ignoring the trivial solutions, reducing the worker count to \num{1} costs a mean \SI{238.22}{\micro\second}, while placing a single task incurs \SI{53.79}{\micro\second}.
 Policy \emph{data} changes require no additional work in any case, resolving purely to \texttt{memcpy}s.
 We observed that firmware installation (i.e., changing from \Indfw{} to \Coopfw{}, bit depth, or increasing maximum policy sizes) took a mean time of \SI{38.83}{\second}.
@@ -1259,9 +1321,9 @@ Reward values would then be separately inserted by a modified INDDoS table.
 %?? Can I have a P4 code snippet here?
 
 %Reducing state-action latency (i.e., with \Coopfw) is useful for minimising the noise inherent in learning.
-Agents here are limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
+Agents are limited by the fact that it can take at least one RTT for meaningful changes to occur in a flow's behaviour ($\mathcal{O}{\left(\si{\milli\second}\right)}$ in a transit AS/ISP).
 Accordingly, this use case benefits most from an increase in \emph{throughput} using \Indfw{}.
-Higher throughput means that network flows are more likely to be judged in every timestep, even when flow cardinality is high---making it more likely that changes in flow behaviour will be observed, acted on, and learned from.
+Higher throughput means that network flows are more likely to be judged in every timestep, even at high flow cardinality---making it more likely that changes in flow behaviour will be acted on and learned from.
 We note that the TRS scheduler is designed to handle large numbers of attack flows, combining new state vectors while the asynchronous agent is itself busy.
 A number of flows beyond the maximum throughput simply makes it take longer in expectation for a flow to be reassessed.
 As shown in \cref{sec:evaluation}, \approachshort{} far exceeds the throughput of host offloading.
@@ -1292,11 +1354,10 @@ Comparatively, \approachshort{}-\Coopfw{} can process an identically-sized input
 Our work handles larger inputs (\SI{640}{\bit}) at lower latencies (\SI{34}{\micro\second}), and offers online learning.
 We expect that a NetFPGA implementation of \approachshort{} would enjoy a similar factor of speedup.
 %No works investigate the runtime training of BNN function approximators in-NIC.
-
 \textcite{langlet-ml-netronome} has shown the viability of NN inference using \SI{64}{\bit} quantisation on the NFP, using \emph{in-path} compute rather than our asynchronous model.
 Inference latency on small networks (3 layers, \num{30} neurons) can be as high as \SI{500}{\micro\second} on line rate traffic, emphasising the value of path-adjacent compute.
 
-We stress that none of these approaches (or that we have seen) tackle the issue of \emph{online learning and control} in-network---we believe \approachshort{} has broken new ground in this regard.
+We stress that none of these approaches (or that we have seen) tackle \emph{online learning and control} in-network---we believe \approachshort{} has broken new ground in this regard.
 
 \fakepara{In-network ML \emph{acceleration}}
 Optimisation of distributed neural network training is an area where in-network compute has been key for general NNs~\parencite{DBLP:conf/micro/LiPAYQPWSEK18} and RL-specific procedures~\parencite{DBLP:conf/isca/LiLYCSH19} using NetFPGAs to introduce floating point adders to process dedicated packet classes.
@@ -1316,12 +1377,11 @@ Timer events and device state changes would empower in-network RL use cases, sig
 
 \section{Conclusion}
 We have presented \emph{\approachshort{}}, bringing \emph{online reinforcement learning} to the dataplane.
-\approachshort{} has shown how classical RL techniques make online learning possible by simplifying update logic and enabling parallel processing.
-In-NIC use of these algorithms enabled a \SIrange{15}{21}{\texttimes} reduction in median--\num{99.99}\nthscript{th} inference times and order of magnitude improvement in online learning throughput compared to host offloading.
-The deployment environment and asynchronous design were shown to eliminate PCIe delays and impose minimal impact on carried dataplane traffic.
-We also showed how \approachshort{} scales with additional compute resources at deployment to improve on decision latency and throughput.
-Our throughput-optimal design, \Indfw{}, improves upon these metrics with \emph{just one worker}.
-
+%\approachshort{} has shown how classical RL techniques make online learning possible by simplifying update logic and enabling parallel processing.
+In-NIC use of these classical algorithms makes this possible, and enables significant reductions in median--\num{99.99}\nthscript{th} inference times and order of magnitude improvement in online learning throughput, with minimal impact on dataplane cross-traffic.
+%The deployment environment and asynchronous design were shown to eliminate PCIe delays and impose minimal impact on carried dataplane traffic.
+%We also showed how \approachshort{} scales with additional compute resources at deployment to improve on decision latency and throughput.
+%Our throughput-optimal design, \Indfw{}, improves upon these metrics with \emph{just one worker}.
 In future, we aim to examine the performance of individual applications driven by \approachshort---both classical and deep RL-based---and how a NetFPGA implementation can offer further latency and throughput improvements.
 A promising avenue here would be to investigate constant transfer learning between online \approachshort{} agents and high-throughput offline function approximators such as BNNs.
 %It is our hope that high port-density programmable devices will, in time, expose similar asynchronous, on-chip offloading capability to current SmartNIC devices.

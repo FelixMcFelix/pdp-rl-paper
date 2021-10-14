@@ -5,14 +5,7 @@ mod writeback;
 pub use self::{q::*, tilecode::*, writeback::*};
 
 use crate::{
-	fw_consts::{
-		T1_FIRST_TILE,
-		T1_TILE_COUNT,
-		T2_FIRST_TILE,
-		T2_TILE_COUNT,
-		T3_FIRST_TILE,
-		T3_TILE_COUNT,
-	},
+	fw_consts::T1_FIRST_TILE,
 	BlockDataSource,
 	ProtoSetup,
 	TimeBreakdown,
