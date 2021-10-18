@@ -3,7 +3,7 @@
 % !BIB program = biber
 \documentclass[
 sigconf,natbib=false
-,anonymous=true
+%,anonymous=true
 ]{acmart}
 
 %\usepackage[subtle,bibnotes,charwidths,mathdisplays,indent,lists]{savetrees}
@@ -150,7 +150,7 @@ sigconf,natbib=false
 % Copyright
 %\renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference info
 %\setcopyright{none}
-\setcopyright{acmcopyright}
+%\setcopyright{acmcopyright}
 %\setcopyright{acmlicensed}
 %\setcopyright{rightsretained}
 %\setcopyright{usgov}
@@ -159,23 +159,17 @@ sigconf,natbib=false
 %\setcopyright{cagovmixed}
 
 %\settopmatter{printacmref=false, printccs=false, printfolios=true}
-\settopmatter{printfolios=true, printccs=true}
+%\settopmatter{printfolios=true, printccs=true}
 %\settopmatter{printacmref=false, printccs=true, printfolios=true}
 
-% DOI
-\acmDOI{12345}
-
-% ISBN
-\acmISBN{67890}
-
-%Conference
-\acmConference[CoNEXT '21]{the \nth{17} International COnference on emerging Networking EXperiments and Technologies}{December \numrange{7}{10}, 2021}{Online}
 \acmYear{2021}
-%\copyrightyear{}
+\copyrightyear{2021}
+\setcopyright{acmcopyright}
+\acmConference{CoNEXT '21}{December 7--10, 2021}{Virtual Event, Germany}
+\acmPrice{TBA} % Use the data from your email from ACM rights management
+\acmDOI{TBA} % Use the data from your email from ACM rights management
+\acmISBN{TBA} % Use the data from your email from ACM rights management
 
-%% {} with no args suppresses printing of the price
-%\acmPrice{15.00}
-\acmPrice{}
 
 \newcommand{\approach}{On Path Learning}
 \newcommand{\approachshort}{OPaL}
