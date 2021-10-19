@@ -162,13 +162,12 @@ sigconf,natbib=false
 %\settopmatter{printfolios=true, printccs=true}
 %\settopmatter{printacmref=false, printccs=true, printfolios=true}
 
-\acmYear{2021}
-\copyrightyear{2021}
-\setcopyright{acmcopyright}
-\acmConference{CoNEXT '21}{December 7--10, 2021}{Virtual Event, Germany}
-\acmPrice{TBA} % Use the data from your email from ACM rights management
-\acmDOI{TBA} % Use the data from your email from ACM rights management
-\acmISBN{TBA} % Use the data from your email from ACM rights management
+\acmYear{2021}\copyrightyear{2021}
+\acmConference[CoNEXT '21]{The 17th International Conference on emerging Networking EXperiments and Technologies}{December 7--10, 2021}{Virtual Event, Germany}
+\acmBooktitle{The 17th International Conference on emerging Networking EXperiments and Technologies (CoNEXT '21), December 7--10, 2021, Virtual Event, Germany}
+\acmPrice{15.00}
+\acmDOI{10.1145/3485983.3493345}
+\acmISBN{978-1-4503-9098-9/21/12}
 
 
 \newcommand{\approach}{On Path Learning}
@@ -300,7 +299,7 @@ We show that our implementation on Netronome SmartNIC hardware offers concrete l
 %	\includegraphics[keepaspectratio, width=0.6875\linewidth]{figures/arch-with-p4}
 %	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this computationally feasible.\label{fig:netro-arch}}
 	\centering
-	\includegraphics[keepaspectratio, width=0.85\linewidth]{figures/coop}
+	\includegraphics[keepaspectratio, width=0.8\linewidth]{figures/coop}
 	\caption{Parallel policy execution. A single \emph{controller} delegates RL computation and updates to many \emph{minion} threads, using a shared atomic writeback.\label{fig:single-and-parallel:parallel}}
 \end{figure}
 Automatic network optimisation, control, and defence are becoming commonplace through data-driven techniques such as RL methods, where every change and its effects improve future decisions made by an agent.
