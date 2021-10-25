@@ -163,6 +163,7 @@ sigconf,natbib=false
 %\settopmatter{printacmref=false, printccs=true, printfolios=true}
 
 \acmYear{2021}\copyrightyear{2021}
+\setcopyright{rightsretained}
 \acmConference[CoNEXT '21]{The 17th International Conference on emerging Networking EXperiments and Technologies}{December 7--10, 2021}{Virtual Event, Germany}
 \acmBooktitle{The 17th International Conference on emerging Networking EXperiments and Technologies (CoNEXT '21), December 7--10, 2021, Virtual Event, Germany}
 \acmPrice{15.00}
@@ -329,7 +330,7 @@ This lacuna has yet to be addressed by the community.
 
 \fakepara{Problems of online training}
 Programmable dataplane hardware, being designed solely for efficient packet processing, lacks floating-point arithmetic support, even in the case of more general purpose NPU-type SmartNICs.
-Additionally, deep neural network training relies on backpropagation, can require memorizing many a sizeable replay buffer for RL, and needs many mini-batches of data for stable training.
+Additionally, deep neural network training relies on backpropagation, can require memorizing many sizeable replay buffers for RL, and needs many mini-batches of data for stable training.
 The natural solution is to pass training data to a host machine or dedicated accelerator, yet this adds delays in crossing the PCIe bus, kernel-user handover, and buffering---adding latency while learning.
 The above (NIC-suitable) inference schemes still must be trained offline, even though their data formats solve the issue of floating point use.
 Online learning thus requires careful choices in sample data formats and the learned function approximation scheme.
@@ -403,16 +404,16 @@ Additionally, we have a single-threaded implementation, \indfw, which forgoes th
 
 \section{Evaluation}
 We compare our implementation of \approachshort{} against a tile-coded RL agent written in numpy on a powerful host (i7-6700K@\qtyproduct[product-units=single]{4 x 4.2}{\giga\hertz}), using the policy dimensions of existing DDoS prevention work~\parencite{DBLP:journals/tnsm/SimpsonRP20}, across various quantisation bit depths.
-\Cref{fig:lat-cumul} shows that our main design (\coopfw) achieves order-of-magnitude improvements over our single-threaded variant (\indfw) and a host implementation, as well as considerably tighter tail behaviour on the SmartNIC.
+\Cref{fig:lat-cumul} shows that our main design (\coopfw) achieves order-of-magnitude latency improvements over our single-threaded variant (\indfw) and a host implementation, as well as considerably tighter tail behaviour on the SmartNIC.
 Note that lower bit depths have higher execution costs due to the native \qty{32}{\bit} width of Netronome registers.
 On update times, we see \qty{63.12}{\micro\second} at 99.99\nthscript{th} percentile for a \qty{32}{\bit} policy of this size.
-We relate a \qty{15}{\texttimes} latency (\coopfw) and \qty{2.82}{\texttimes} offline throughput-per-core (\indfw) in spite of the Netronome's considerably slower clock speed (\qty{0.29}{\texttimes}), showing the value of exploiting SmartNIC parallelism.
+We relate a \qty{15}{\texttimes} latency (\coopfw) and \qty{2.82}{\texttimes} offline throughput-per-core (\indfw) improvement in spite of the Netronome's slower clock speed (\qty{0.29}{\texttimes}), showing the value of exploiting SmartNIC parallelism.
 
 \begin{figure}
 	\centering
 	\begin{subfigure}{0.45\linewidth}
 		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/rl-perf-tester/latency-cumul}
+			\includegraphics{plots/latency-cumul}
 			\vspace{-10pt}
 		}
 		\caption{\approachshort's \Coopfw{} design achieves consistent, tight latency bounds.}
@@ -420,7 +421,7 @@ We relate a \qty{15}{\texttimes} latency (\coopfw) and \qty{2.82}{\texttimes} of
 	\hspace{0.05\linewidth}
 	\begin{subfigure}{0.45\linewidth}
 		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/rl-perf-tester/latency-cumul-broad}
+			\includegraphics{plots/latency-cumul-broad}
 		}
 		\caption{Tail latencies suffer in hosts---particularly when oversubscribed.}
 	\end{subfigure}
