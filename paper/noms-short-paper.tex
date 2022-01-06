@@ -206,11 +206,14 @@ comsoc,
 	pdftitle={\mytitle{}},
 	pdfauthor={Kyle A. Simpson, Dimitrios P. Pezaros}
 }
-\newcommand*{\email}[1]{\href{mailto:#1}{\nolinkurl{#1}}} 
+\newcommand*{\email}[1]{\href{mailto:#1}{\nolinkurl{#1}}}
+
+%\usepackage[T1]{fontenc}
 
 \title{\mytitle}
-\author{Kyle~A.~Simpson~\orcidlink{0000-0001-8068-9909}, Dimitrios~P.~Pezaros~\orcidlink{0000-0003-0939-378X}\\\emph{University of Glasgow}, Glasgow, Scotland\\\email{k.simpson.1@research.gla.ac.uk}, \email{Dimitrios.Pezaros@Glasgow.ac.uk}}
+\author{Kyle~A.~Simpson~{\orcidlink{0000-0001-8068-9909}~\scriptsize[0000-0001-8068-9909]}, Dimitrios~P.~Pezaros~{\orcidlink{0000-0003-0939-378X}~\scriptsize[0000-0003-0939-378X]}\\\emph{University of Glasgow}, Glasgow, Scotland\\\email{k.simpson.1@research.gla.ac.uk}, \email{Dimitrios.Pezaros@Glasgow.ac.uk}}
 
+%\IEEEpubid{\makebox[\columnwidth]{978-1-6654-0601-7/22\/\$31.00 ~\copyright~2022 IEEE \hfill} \hspace{\columnsep}\makebox[\columnwidth]{ }}
 \begin{document}
 	
 %	\titlenote{Produces the permission block, and copyright information}
@@ -229,6 +232,8 @@ comsoc,
 	
 % The default list of authors is too long for headers}
 %\renewcommand{\shortauthors}{Simpson \emph{et al}.}
+
+%\IEEEoverridecommandlockouts \IEEEpubid{\makebox[\columnwidth]{978-1-6654-0601-7/22\/\$31.00 ~\copyright~2022 IEEE \hfill} \hspace{\columnsep}\makebox[\columnwidth]{ }}
 
 \maketitle
 
@@ -252,11 +257,6 @@ In-NIC execution eliminates PCIe transfers, and our asynchronous compute model e
 
 %\vspace{-1em}
 \section{Introduction}
-\begin{figure}
-	\centering
-	\includegraphics[keepaspectratio, width=0.65\linewidth]{figures/arch-with-p4}
-	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this feasible.\label{fig:netro-arch}}
-\end{figure}
 Automatic network optimisation, control, and defence are at last becoming commonplace.
 Adaptive techniques such as \emph{reinforcement learning} (RL) have led the charge in data-driven networking, enhancing automatic traffic optimisation~\parencite{DBLP:conf/sigcomm/ChenL0L18,DBLP:conf/sigcomm/MaoNA17}, congestion control~\parencite{DBLP:journals/corr/abs-1910-04054}, adaptive routing~\parencite{DBLP:conf/hotnets/ValadarskySST17,DBLP:conf/conext/GiladSGRS20}, resource management~\parencite{DBLP:conf/hotnets/MaoAMK16}, and packet classification~\parencite{DBLP:conf/sigcomm/LiangZJS19}.
 In RL methods, every change and its effects improve future decisions.
@@ -369,6 +369,8 @@ This paper contributes:
 %I aim to examine the effects of these choices on an existing RL-based DDoS attack mitigation system. To protect legitimate traffic, this controls packet drop and filtering for each flow using individual metrics observed by RL agents at ingress routers, and load measurements from several points along the path taken by the flow in question. The examined metrics include the throughput and latency of its individual components alongside system metrics: flow arrival-to-judgement time, and knowledge propagation time. Beyond this, it's crucial to identify what we can implement on pure P4-capable hardware. While extensions to P4 are fairly common in commodity hardware, the need for full design access (as in NetFPGA) or Micro-C (as in Netronome SmartNICs) represent a break from the clean, loop-free semantics of P4. As the market matures, these may represent different feature classes and price points.
 %
 %I will discuss early development efforts (including challenges and results) on the Netronome Agilio SmartNIC, which supports the P4 language as well as some degree of arbitrary microcode. I intend to present how reinforcement learning execution and network telemetry will differ in the above metrics when compared to a vNF-based deployment (i.e., software on external commodity servers).
+
+%\vspace{-0.3em}
 
 \section{Preliminaries: towards in-NIC RL}\label{sec:motivation}
 %\section{Preliminaries: RL for in-network computation}\label{sec:motivation}
@@ -592,6 +594,13 @@ Crucially, this internal representation has no data dependencies between any til
 %Beyond registers, the platform implements an explicit memory hierarchy scaling in size, location, and access cost as below:
 %$$\text{LMEM (ME)} < \text{CLS (Island)} < \text{CTM} < \text{IMEM (Chip)} < \text{EMEM}$$
 
+\begin{figure}[h]
+	\centering
+	\includegraphics[keepaspectratio, width=0.65\linewidth]{figures/arch-with-p4}
+	\vspace{-0.5em}
+	\caption{\approachshort{} brings low-latency, online reinforcement learning directly to the dataplane. SoC- and NetFPGA-based SmartNIC devices expose spare compute---making in-situ, asynchronous processing and learning possible alongside P4 dataplanes. Classical RL policy methods are the key to making this feasible.\label{fig:netro-arch}}
+\end{figure}
+
 \section{Design and Implementation}\label{sec:design}
 %Based on the design principles, problems, and potential solutions outlined throughout \cref{sec:motivation}, we present our design for an in-NIC, task-independent, online reinforcement learning system---\emph{\approachshort{} (\approach)}.
 We present our design for an in-NIC, task-independent, online RL system---\emph{\approachshort{} (\approach)}.
@@ -616,7 +625,8 @@ As the allocation of cores/chip area is set ahead of time by a framework or syst
 
 \begin{figure}
 	\centering
-	\includegraphics[keepaspectratio, width=0.65\linewidth]{figures/coop}
+	\includegraphics[keepaspectratio, width=0.69\linewidth]{figures/coop-stretch}
+	\vspace{-0.5em}
 	\caption{\approachshort{} scales to fit device capacity according to either latency or throughput needs---\Coopfw{} is the optimal online design. A single \emph{controller} delegates RL inference and updates to many \emph{minions}, who complete independent subtasks.\label{fig:single-and-parallel:parallel}}
 \end{figure}
 
@@ -1056,8 +1066,9 @@ We note that this is a trivial case, as using \emph{only} a bias tile returns a 
 \begin{figure}[t]
 	\centering
 	\resizebox{\resultplotwidth}{!}{
-		\includegraphics{../plots/build/rl-perf-tester/vary-core}
+		\includegraphics{../plots/build/rl-perf-tester/vary-core-bigtext}
 	}
+\vspace{-0.5em}
 	\caption{
 		\Coopfw{}'s online learning performance improves with additional cores. This requires \num{8} workers to offer greater online throughput than single-threaded in-NIC RL. Sharper performance increases occur when a new physical core is added (\numrange{7}{8}) or the scheduler works around a bottleneck (\numrange{13}{14}).\label{fig:vary-core}}
 \end{figure}
@@ -1072,8 +1083,9 @@ We note that this is a trivial case, as using \emph{only} a bias tile returns a 
 \begin{figure}[t]
 	\centering
 	\resizebox{\resultplotwidth}{!}{
-		\includegraphics{../plots/build/rl-perf-tester/vary-work}
+		\includegraphics{../plots/build/rl-perf-tester/vary-work-bigtext}
 	}
+\vspace{-0.5em}
 	\caption{\Coopfw{} processes updates faster than \Indfw{}---thus has higher online performance---on almost all policy sizes. Lower bit depths are effective on simple policies. State-action latency scales similarly.\label{fig:vary-work}}
 \end{figure}
 
@@ -1186,20 +1198,21 @@ We expect that FPGA designs can avoid this by having dedicated \inring{}/\outrin
 
 \begin{figure}
 	\centering
-	\begin{subfigure}{0.45\linewidth}
+	\begin{subfigure}{0.525\linewidth}
 		\resizebox{1.0\linewidth}{!}{
 %			\includegraphics{../plots/build/stress/heat-latency-median}
-			\includegraphics{../plots/build/stress/heat-latency-two-9-rel}
+			\includegraphics{../plots/build/stress/heat-latency-two-9-rel-bigtext}
 %			\includegraphics{../plots/build/stress/heat-latency-two-9-perc}
 		}
-		\caption{Deviations in \nth{99} percentile cross-traffic RTTs.\label{fig:dataplane-heat}}
+		\vspace{-1.75em}
+		\caption{\nth{99} \%tile cross-traffic RTT changes.\label{fig:dataplane-heat}}
 	\end{subfigure}
-	\hspace{0.05\linewidth}
-		\begin{subfigure}{0.45\linewidth}
+%	\hspace{0.05\linewidth}
+		\begin{subfigure}{0.46\linewidth}
 		\resizebox{1.0\linewidth}{!}{
-			\includegraphics{../plots/build/stress/histo-128B-0-3-trim}
+			\includegraphics{../plots/build/stress/histo-128B-0-3-trim-div}
 		}
-		\caption{RTT distribution for \SI{128}{\byte} packets at \numlist{0;3000} RL actions/s.\label{fig:dataplane-example}}
+		\caption{RTT distribution for \SI{128}{\byte} packets at \numlist{0;3000} actions/s.\label{fig:dataplane-example}}
 	\end{subfigure}
 	\caption{Effects on tail latency of cross-traffic caused by off-path RL compute. Statistically significant increases in population latency are concentrated on smaller packet sizes, and are typically sub-\SI{78}{\nano\second}.\label{fig:dataplane-coop}}
 \end{figure}
