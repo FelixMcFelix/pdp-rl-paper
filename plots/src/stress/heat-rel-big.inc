@@ -28,5 +28,5 @@ set datafile separator " "
 threshold = 0.05
 
 plot sprintf('../results/stress-process/matrix-latency-%srel.dat', metric) matrix w image pixel notitle, \
-	'../results/stress-process/matrix-latency-p.dat' matrix u 1:2:($3 >= threshold ? "" : "+") with labels tc 'black' notitle
+	'../results/stress-process/matrix-latency-p.dat' matrix u 1:2:($3 >= threshold ? "" : "+") with labels font ",10" tc 'black' notitle 
 
